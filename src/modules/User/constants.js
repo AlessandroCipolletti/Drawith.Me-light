@@ -1,0 +1,5 @@
+export const USER_DELETED = 'userDeleted'
+export const USER_LOGOUT = 'userLogged'
+export const USER_LOGIN = 'userLogin'
+export const USER_ERROR = 'userError'
+export const USER_DELETED_BY_SERVER = 'userDeletedByServer'

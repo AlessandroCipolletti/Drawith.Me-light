@@ -1,0 +1,59 @@
+.notConnected__container {
+  position: absolute;
+  background-color: white;
+  top: var(--header-height);
+  left: 0rem;
+  width: 100%;
+  height: calc(100% - var(--header-height));
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(to bottom, var(--palette-primary-0), var(--palette-primary-2));
+}
+.drawith__PORTRAIT .notConnected__container {
+  flex-direction: column;
+}
+.drawith__LANDSCAPE .notConnected__container {
+  flex-direction: row;
+  justify-content: center;
+}
+
+.drawith__PORTRAIT .notConnected__image {
+  height: 30%;
+  margin: 15%;
+}
+.drawith__LANDSCAPE .notConnected__image {
+  height: 50%;
+  margin: 5%;
+}
+
+.drawith__PORTRAIT .drawith_notConnected__text_container {
+  width: 80%;
+}
+.drawith__LANDSCAPE .drawith_notConnected__text_container {
+  width: 50%;
+}
+.drawith_notConnected__text_container {
+  text-align: center;
+}
+.notConnected__title,
+.notConnected__subTitle {
+  font-family: sans-serif;
+  font-weight: 100;
+}
+
+.notConnected__title {
+  font-size: 6rem;
+  line-height: 10rem;
+  font-weight: 300;
+}
+.notConnected__subTitle {
+  font-size: 4rem;
+  font-weight: 300;
+}
+.drawith__PHONE .notConnected__title {
+  font-size: 4rem;
+}
+.drawith__PHONE .notConnected__subTitle {
+  font-size: 2rem;
+}
