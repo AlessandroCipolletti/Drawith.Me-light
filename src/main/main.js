@@ -37,7 +37,6 @@ const labels = {
   login: 'Login',
   logout: 'Logout',
   folderPageLabel: 'My drawings',
-  // shop: 'Shop',
   aboutUs: 'About Drawith.Me',
   myProfile: 'My profile',
   terms: 'Terms of Service',
@@ -253,12 +252,6 @@ const userLogout = (e) => {
   logout()
 }
 
-// const openShop = (e) => {
-//   Tracking.trackAction(Tracking.actions.OPEN_ECOMMERCE)
-//   // closeMainMenu()
-//   // return true
-// }
-
 const openInstagram = (e) => {
   Tracking.trackAction(Tracking.actions.OPEN_INSTAGRAM)
   // closeMainMenu()
@@ -295,37 +288,10 @@ const openAboutUs = (e) => {
   openPageAboutUs()
 }
 
-const initAds = () => {
-  // if (Params.showAdsOnPhones && Params.isPhone && !Params.isLocal) {
-  //   window.atOptions = {
-  //     key: Params.adSterraId,
-  //     format: 'iframe',
-  //     height: 50,
-  //     width: 320,
-  //     params: {},
-  //   }
-  //   const script = document.createElement('script')
-  //   script.setAttribute('type', 'text/javascript')
-  //   script.setAttribute('src', `https://www.effectivedisplaycontent.com/${Params.adSterraId}/invoke.js`)
-  //   document.body.appendChild(script)
-  // }
-
-  // if (Params.showAdsOnPhones && Params.isPhone && !Params.isLocal) {
-  //   const script = document.createElement('script')
-  //   script.setAttribute('type', 'text/javascript')
-  //   script.setAttribute('data-cfasync', 'false')
-  //   script.setAttribute('cfasync', 'false')
-  //   script.setAttribute('src', 'https://p443855.clksite.com/adServe/banners?tid=443855_869342_3')
-  //   document.body.appendChild(script)
-  // }
-}
-
 const initDom = async() => {
   refs.mainContainer = await loadTemplate(tplApp, {
     labels,
-    // shopUrl: Params.ecommerceUrl,
     instaUrl: Params.instagramUrl,
-    newsletterUrl: Params.newsletterUrl,
     tiktokUrl: Params.tiktokUrl,
   })
   refs.pagesContainer = refs.mainContainer.querySelector('.drawith__pages-container')
@@ -333,7 +299,6 @@ const initDom = async() => {
   refs.mainContainer.querySelector('.drawith__menu-user').addEventListener(Params.eventStart, openUserProfile)
   refs.mainContainer.querySelector('.drawith__menu-pages-placeholder').addEventListener(Params.eventStart, preventDefault)
   refs.mainContainer.querySelector('.drawith__menu-item-folder').addEventListener(Params.eventStart, openFolder)
-  // refs.mainContainer.querySelector('.drawith__menu-item-shop').addEventListener(Params.eventStart, openShop)
   refs.mainContainer.querySelector('.drawith__menu-item-profile').addEventListener(Params.eventStart, openUserProfile)
   refs.mainContainer.querySelector('.drawith__menu-item-terms').addEventListener(Params.eventStart, openTermsOfService)
   refs.mainContainer.querySelector('.drawith__menu-item-privacy').addEventListener(Params.eventStart, openPrivacy)
@@ -342,7 +307,6 @@ const initDom = async() => {
   refs.mainContainer.querySelector('.drawith__menu-item-logout').addEventListener(Params.eventStart, userLogout)
   refs.mainContainer.querySelector('.drawith__menu-icon-insta').addEventListener(Params.eventStart, openInstagram)
   refs.mainContainer.querySelector('.drawith__menu-icon-tiktok').addEventListener(Params.eventStart, openTiktok)
-  refs.mainContainer.querySelector('.drawith__menu-icon-newsletter').addEventListener(Params.eventStart, openLanding)
 
   if (Params.ipad) {
     refs.pagesContainer.addEventListener(Params.eventStart, (e) => {
@@ -371,7 +335,6 @@ const init = securizeAsyncFn(async(props = {}) => {
   if (await isSupportedOs()) {
     setSpinner(true)
     await initMessages()
-    initAds()
     const dbInit = await initLocalDb()
     if (dbInit) {
       initDomUtils()

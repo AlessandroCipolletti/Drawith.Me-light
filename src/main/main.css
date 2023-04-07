@@ -567,10 +567,6 @@ iframe {
   mask-image: url("../static/icons/svg/refresh.svg");
   -webkit-mask-image: url("../static/icons/svg/refresh.svg");
 }
-.svg-icon-shopping-cart {
-  mask-image: url("../static/icons/svg/shopping-cart.svg");
-  -webkit-mask-image: url("../static/icons/svg/shopping-cart.svg");
-}
 .svg-icon-user {
   mask-image: url("../static/icons/svg/user.svg");
   -webkit-mask-image: url("../static/icons/svg/user.svg");

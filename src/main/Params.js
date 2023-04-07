@@ -64,12 +64,8 @@ Params.init = (appState) => {
   Params.isHighPerformanceDesktop = Params.isDesktop && (Params.isLocal || (browserName === 'Chrome' && navigator.hardwareConcurrency >= 8))
   Params.deviceHasGoodPerformance = Params.isHighPerformanceTablet || Params.isHighPerformanceDesktop
 
-  // Params.ecommerceUrl = 'https://shop.drawith.me'
   Params.instagramUrl = 'https://www.instagram.com/drawith.me_/'
-  // Params.newsletterUrl = 'https://about.drawith.me'
-  Params.newsletterUrl = 'mailto:info@drawith.me'
   Params.tiktokUrl = 'https://www.tiktok.com/@drawith.me_'
-
   Params.privacyPolicyUrl = 'https://drawith.me/privacy.html'
   Params.cookiePolicyUrl = 'https://drawith.me/cookie.html'
   Params.termsOfServiceUrl = 'https://drawith.me/terms.html'

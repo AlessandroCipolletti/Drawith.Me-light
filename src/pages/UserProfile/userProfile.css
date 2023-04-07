@@ -251,8 +251,7 @@
   text-align: left;
   display: inline-block;
 }
-.drawith__user-terms-checkbox,
-.drawith__user-newsletter-checkbox {
+.drawith__user-terms-checkbox {
   vertical-align: middle;
 }
 .drawith__user-checkbox-msg {

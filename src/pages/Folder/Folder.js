@@ -24,7 +24,6 @@ import * as Coworking from 'modules/Coworking'
 
 
 const config = {
-  // termsAndConditionLink: 'https://shop.drawith.me/pages/terms-of-service',
   updateDrawingsLoadingDelay: 1000, // ms
 }
 let state = {}

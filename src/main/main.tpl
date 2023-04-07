@@ -17,9 +17,6 @@
         <a href="{{tiktokUrl}}" target="_blank">
           <div class="drawith__menu-icon-tiktok svg-icon-tiktok svg-icon-light"></div>
         </a>
-        <a href="{{newsletterUrl}}" target="_blank">
-          <div class="drawith__menu-icon-newsletter svg-icon-mail svg-icon-light"></div>
-        </a>
       </div>
     </div>
 
@@ -29,12 +26,6 @@
         <div class="drawith__menu-item-icon svg-icon-drawing svg-icon-light"></div>
         <span>{{labels.folderPageLabel}}</span>
       </div>
-      <!--<a href="{{shopUrl}}" target="_blank">
-        <div class="drawith__menu-item drawith__menu-item-shop">
-          <div class="drawith__menu-item-icon svg-icon-shopping-cart svg-icon-light"></div>
-          <span>{{labels.shop}}</span>
-        </div>
-      </a>-->
 
       <div class="drawith__menu-item drawith__menu-item-profile">
         <div class="drawith__menu-item-icon svg-icon-user svg-icon-light"></div>

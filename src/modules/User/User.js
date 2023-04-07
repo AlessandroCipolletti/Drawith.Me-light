@@ -36,7 +36,6 @@ const initialState = {
     // locale: '',
     // browserLang: '',
     // profileImgUrl: '',
-    // newsletter: false,
     // role: 20,
     // sessionId: '',
     // deviceId: '',
