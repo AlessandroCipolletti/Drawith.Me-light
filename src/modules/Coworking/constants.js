@@ -15,7 +15,6 @@ export const editorEvents = {
   coworkingErrorBadCode: 'EDITOR_ERROR_BAD_CODE',
   coworkingErrorNotAvailable: 'EDITOR_ERROR_NOT_AVAILABLE',
   coworkingGenericError: 'EDITOR_GENERIC_COWORKING_ERROR',
-  userDeleted: 'USER_DELETED',
   needToSync: 'NEED_TO_SYNC',
 }
 

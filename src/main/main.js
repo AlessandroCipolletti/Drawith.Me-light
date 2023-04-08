@@ -6,10 +6,9 @@ import Params from 'main/Params'
 import * as Tracking from 'modules/Tracking'
 import { init as initMessages } from 'modules/Messages'
 import initDomUtils, { loadTemplate, preventDefault, setSpinner, preventMoveDefaultIfNeeded } from 'utils/domUtils'
-import { init as initUser, logout, login } from 'modules/User'
 import { init as initHeader, menuButtonAnimations } from 'components/Header'
 import { initLocalDb } from 'utils/localDbUtils'
-import { openPageNotSupported, isSupportedOs, openPageUserProfile, openPageFolder, openPageAboutUs, openPageTermsOfService, openPagePrivacyPolicy } from 'modules/Router'
+import { openPageNotSupported, isSupportedOs, openPageFolder, openPageAboutUs, openPageTermsOfService, openPagePrivacyPolicy } from 'modules/Router'
 import { round } from 'utils/mathUtils'
 import { delay, securizeAsyncFn } from 'utils/jsUtils'
 import { cleanEventsForNextRefresh } from 'utils/moduleUtils'
@@ -34,11 +33,8 @@ const refs = {
   pagesContainer: null,
 }
 const labels = {
-  login: 'Login',
-  logout: 'Logout',
   folderPageLabel: 'My drawings',
   aboutUs: 'About Drawith.Me',
-  myProfile: 'My profile',
   terms: 'Terms of Service',
   privacy: 'Privacy Policy',
   genericError: 'Generic Error',
@@ -228,44 +224,14 @@ const initViewportTryPixelPerfect = async() => {
   console.log('pxScale', Params.pxScale, 'pixelRatio', Params.pixelRatio, 'viewportScale', Params.viewportScale, 'innerWidth', window.innerWidth, 'getRealScreenWidth', getRealScreenWidth(), 'getRealScreenHeight', getRealScreenHeight())
 }
 
-const openUserProfile = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  openPageUserProfile()
-}
-
 const openFolder = (e) => {
   preventDefault(e)
   closeMainMenu()
   openPageFolder()
 }
 
-const userLogin = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  login()
-}
-
-const userLogout = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  logout()
-}
-
-const openInstagram = (e) => {
-  Tracking.trackAction(Tracking.actions.OPEN_INSTAGRAM)
-  // closeMainMenu()
-  // return true
-}
-
 const openTiktok = (e) => {
   Tracking.trackAction(Tracking.actions.OPEN_TIKTOK)
-  // closeMainMenu()
-  // return true
-}
-
-const openLanding = (e) => {
-  Tracking.trackAction(Tracking.actions.OPEN_LANDING)
   // closeMainMenu()
   // return true
 }
@@ -291,21 +257,15 @@ const openAboutUs = (e) => {
 const initDom = async() => {
   refs.mainContainer = await loadTemplate(tplApp, {
     labels,
-    instaUrl: Params.instagramUrl,
     tiktokUrl: Params.tiktokUrl,
   })
   refs.pagesContainer = refs.mainContainer.querySelector('.drawith__pages-container')
-  refs.mainContainer.querySelector('.drawith__menu-login').addEventListener(Params.eventStart, userLogin)
-  refs.mainContainer.querySelector('.drawith__menu-user').addEventListener(Params.eventStart, openUserProfile)
   refs.mainContainer.querySelector('.drawith__menu-pages-placeholder').addEventListener(Params.eventStart, preventDefault)
   refs.mainContainer.querySelector('.drawith__menu-item-folder').addEventListener(Params.eventStart, openFolder)
-  refs.mainContainer.querySelector('.drawith__menu-item-profile').addEventListener(Params.eventStart, openUserProfile)
   refs.mainContainer.querySelector('.drawith__menu-item-terms').addEventListener(Params.eventStart, openTermsOfService)
   refs.mainContainer.querySelector('.drawith__menu-item-privacy').addEventListener(Params.eventStart, openPrivacy)
   refs.mainContainer.querySelector('.drawith__menu-item-about').addEventListener(Params.eventStart, openAboutUs)
   refs.mainContainer.querySelector('.drawith__menu-pages-clear').addEventListener(Params.eventStart, preventDefault)
-  refs.mainContainer.querySelector('.drawith__menu-item-logout').addEventListener(Params.eventStart, userLogout)
-  refs.mainContainer.querySelector('.drawith__menu-icon-insta').addEventListener(Params.eventStart, openInstagram)
   refs.mainContainer.querySelector('.drawith__menu-icon-tiktok').addEventListener(Params.eventStart, openTiktok)
 
   if (Params.ipad) {
@@ -339,7 +299,6 @@ const init = securizeAsyncFn(async(props = {}) => {
     if (dbInit) {
       initDomUtils()
       addEnviromentGlobalStatus()
-      await initUser()
     } else {
       openPageNotSupported()
     }

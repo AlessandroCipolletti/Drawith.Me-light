@@ -13,7 +13,6 @@ import * as Toolbar from './components/Toolbar'
 import * as Layers from './components/Layers'
 import * as Tools from './components/Tools'
 import * as Ruler from './components/Ruler'
-import * as User from 'modules/User'
 import { setSpinner, getEventCoordX, getEventCoordY, loadTemplate, preventDefault, getDomRect } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -58,7 +57,6 @@ const initialState = {
   pageOpened: false,
   modified: false,
   withCoworking: false,
-  userPreferences: {},
   currentTouch: {
     type: '',
     x: 0,
@@ -878,7 +876,7 @@ const onTouchStart = (e, touchEvent) => {
   if (!state.resizeMode.isResizing) {
     if (state.resizeMode.active) {
       onDragLayerContentTouchStart(touchEvent)
-    } else if (state.userPreferences.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && touchEvent.touchType !== TOUCH_TYPE_STYLUS) {
+    } else if (state?.userPreferences?.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && touchEvent.touchType !== TOUCH_TYPE_STYLUS) {
       onDragZoomTouchStart(touchEvent)
     } else if (state.currentToolProps.name === 'pipette') {
       onPipetteTouchStart(touchEvent)
@@ -983,7 +981,7 @@ const onTouchMove = (e, touchEvent) => {
   if (!state.resizeMode.isResizing) {
     if (state.resizeMode.active) {
       onDragLayerContentTouchMove(touchEvent)
-    } else if (state.userPreferences.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && touchEvent.touchType !== TOUCH_TYPE_STYLUS) {
+    } else if (state?.userPreferences?.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && touchEvent.touchType !== TOUCH_TYPE_STYLUS) {
       onDragZoomTouchMove(touchEvent)
     } else if (state.currentToolProps.name === 'pipette') {
       onPipetteTouchMove(touchEvent)
@@ -1036,7 +1034,7 @@ const onTouchEnd = (e) => {
   if (!state.resizeMode.isResizing) {
     if (state.resizeMode.active) {
       onDragLayerContentTouchEnd(e)
-    } else if (state.userPreferences.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && state.currentTouch.isZooming) {
+    } else if (state?.userPreferences?.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && state.currentTouch.isZooming) {
       onDragZoomTouchEnd(e)
     } else if (state.currentToolProps.name === 'pipette') {
       onPipetteTouchEnd(e)
@@ -1321,7 +1319,6 @@ export const open = async(preloadedDrawindId, withCoworking = false, coworkingCa
   coworking = Coworking.requestSession // just to have an alias for app.drawith.me?editor/coworking
   state = initState(initialState)
   state.withCoworking = withCoworking
-  state.userPreferences = User.getUserPreferences()
   await initDom()
   addGlobalStatus('drawith__EDITOR-OPEN')
   Debug.startFpsLog()

@@ -4,13 +4,10 @@ import io from 'socket.io-client'
 import Params from 'main/Params'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
 import * as Messages from 'modules/Messages'
-import * as Tracking from 'modules/Tracking'
-import { isLogged, onUserDeletedByServer, startUserSessionOnSocketConnect } from 'modules/User'
 import { goToPage, openPageFolder } from 'modules/Router'
 import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { deepCopy } from 'utils/jsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
-import { syncUserDrawings } from 'utils/localDbUtils'
 
 
 let socket
@@ -136,7 +133,6 @@ const onSocketConnect = async() => {
   state.isConnected = true
   state.isWaitingConnection = false
   addGlobalStatus(SOCKET_CONNECTED_STATUS)
-  await startUserSessionOnSocketConnect()
   if (state.waitingToConnectToCliendId) {
     requestConnectionTo(state.waitingToConnectToCliendId)
     state.waitingToConnectToCliendId = false
@@ -153,14 +149,6 @@ const onSocketDisconnect = (reason) => {
   if (state.isOpen) {
     Messages.error(labels.networkError)
     state.isOpen = false
-  }
-  if (isLogged()) {
-    Tracking.trackAction(Tracking.actions.USER_LOST_CONNECTION, {
-      reason,
-    })
-    if (reason === 'transport error') {
-      Tracking.trackAction(Tracking.actions.SOCKET_TRANSPORT_ERROR)
-    }
   }
 }
 
@@ -216,8 +204,6 @@ export const connect = () => {
       socket.on(editorEvents.receiveCoworkingSteps, onReceiveCoworkinSteps)
       socket.on(editorEvents.disconnectCoworker, onCoworkerSocketDisconnect)
       socket.on(editorEvents.coworkingClosed, onCoworkingClosed)
-      socket.on(editorEvents.userDeleted, onUserDeletedByServer)
-      socket.on(editorEvents.needToSync, syncUserDrawings)
       socket.on(editorEvents.coworkerNeedsToUpdate, handleInfo.bind({}, labels.coworkerNeedsToUpdate)) // coworker is using a older code version than yours
       socket.on(editorEvents.youNeedToUpdate, handleInfo.bind({}, labels.youNeedToUpdate)) // you are using a older code version than your coworker
       socket.on(editorEvents.coworkingErrorHimself, handleError.bind({}, labels.errorHimself)) // user tryed to connected to himself

@@ -1,6 +1,5 @@
 import Params from 'main/Params'
 
-import { getUserPreferences } from 'modules/User'
 import { config, currentCanvasHasZoom } from 'pages/Editor'
 import { round, getNumberInBetween, getOriginalCoordsFromScaleRotation, getDistanceBetweenThreePoints, getAngleRadBetweenTwoPoints, rotateCoords, convertAngleDegToRad } from 'utils/mathUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -344,7 +343,6 @@ export const initCanvasOffset = (state) => {
 
 export const initState = (initialState) => {
   const state = JSON.parse(JSON.stringify(initialState))
-  state.userPreferences = getUserPreferences()
   initCanvasOffset(state)
   return state
 }

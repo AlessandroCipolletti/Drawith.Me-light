@@ -2,11 +2,9 @@ import { osVersion, isAndroid, isWearable, isSmartTV, fullBrowserVersion, browse
 
 import Params from 'main/Params'
 import { config as supportedVersions } from 'pages/NotSupported/config'
-import { getUserInfo, isLogged } from 'modules/User'
 import * as Folder from 'pages/Folder'
 // import * as Dashboard from 'pages/Dashboard'
 import * as Editor from 'pages/Editor'
-import * as UserProfile from 'pages/UserProfile'
 import * as VerifyEmail from 'pages/VerifyEmail'
 import * as Info from 'pages/Info'
 import * as NotSupported from 'pages/NotSupported'
@@ -21,7 +19,6 @@ const ROUTES = {
   // 'dashboard': Dashboard,
   'coworking': Coworking,
   'notsupported': NotSupported,
-  'your': UserProfile,
   'verifyemail': VerifyEmail,
   'info': Info,
   'offline': NotConnected,
@@ -29,42 +26,12 @@ const ROUTES = {
 
 const config = {
   defaultPage: 'folder',
-  urlRedirectIfNewUser: 'your/data',
   urlRedirectToVerifyEmail: 'verifyemail',
   urlOffline: 'offline',
-  publicPagesForNewUser: ['info', 'your', 'verifyemail'],
 }
 const state = {
   currentPage: '',
   currentPath: '',
-}
-
-export const getLoginRedirectUrl = () => `${document.location.origin}/${config.defaultPage}`
-
-
-export const redirectNewUserIfNeeded = async(currentPage = state.currentPage) => {
-  if (isLogged()) {
-    const userInfo = getUserInfo()
-    if (currentPage === config.urlOffline) {
-      await goToPage(config.defaultPage)
-      return true
-    } else if (userInfo.emailVerified && currentPage === config.urlRedirectToVerifyEmail) {
-      await goToPage(config.defaultPage)
-      return true
-    } else if (!userInfo.emailVerified && currentPage !== config.urlRedirectToVerifyEmail) {
-      await goToPage(config.urlRedirectToVerifyEmail)
-      return true
-    } else if (userInfo.isNewUser && !config.publicPagesForNewUser.includes(currentPage)) {
-      await goToPage(config.urlRedirectIfNewUser)
-      return true
-    }
-  } else {
-    if (!navigator.onLine && currentPage !== config.urlOffline) {
-      await goToPage(config.urlOffline)
-    }
-    return true
-  }
-  return false
 }
 
 export const getCurrentPage = () => state.currentPage
@@ -103,10 +70,6 @@ export const openPageNotConnected = () => {
   goToPage(`/${config.urlOffline}`, false)
 }
 
-export const openPageUserProfile = (track = true) => {
-  goToPage('/your/data', track)
-}
-
 export const openPageVerifyEmail = (track = true) => {
   goToPage(`/${config.urlRedirectToVerifyEmail}`)
 }
@@ -134,10 +97,6 @@ export const openPageCookiePolicy = (track = true) => {
     Tracking.trackAction(Tracking.actions.OPEN_PAGE_INFO_COOKIE)
   }
   window.open(Params.cookiePolicyUrl, '_blank')
-}
-
-export const openPageUserPreferences = (track = true) => {
-  goToPage('/your/preferences', track)
 }
 
 const decryptInitialPathUrl = (path) => {
@@ -186,10 +145,6 @@ export const goToPage = async(path, track = true, force = false) => {
     module = ROUTES[config.defaultPage]
     method = false
     params = []
-  }
-
-  if (await redirectNewUserIfNeeded(page)) {
-    return
   }
 
   params = params.map(p => {
@@ -241,7 +196,7 @@ export const goToPage = async(path, track = true, force = false) => {
 }
 
 export const openCurrentUrlPage = () => {
-  if (userIsTryingCoworking()) {
+  if (urlIsTryingCoworking()) {
     openPageFolder()
   } else {
     const nextPage = decryptInitialPathUrl(document.location.pathname)
@@ -249,12 +204,12 @@ export const openCurrentUrlPage = () => {
   }
 }
 
-export const userIsTryingCoworking = () => {
+export const urlIsTryingCoworking = () => {
   return `${document.location.pathname}`.includes('/E/')
 }
 
 export const getCoworkerIdUrlParam = () => {
-  if (userIsTryingCoworking()) {
+  if (urlIsTryingCoworking()) {
     let coworkerId = `${document.location.pathname}`.split('/E/')[1]
     coworkerId = coworkerId.split('/')[0]
     return coworkerId

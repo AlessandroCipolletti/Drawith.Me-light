@@ -56,9 +56,6 @@
   width: 4rem;
   height: 4rem;
 }
-.drawith__NEW_USER .header__button {
-  display: none;
-}
 
 .drawith__DRAWING_SYNC .header__refresh-icon {
   display: block;

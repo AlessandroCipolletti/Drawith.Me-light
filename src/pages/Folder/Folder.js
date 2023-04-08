@@ -76,7 +76,6 @@ const labels = {
   // termsAndConditions: 'Terms and Conditions',
   // drawingSentConfirmation: 'Thank you! We will give you a feedback within a week.',
   // drawingSentError: 'Something went wrong, please contact us at info@drawith.me',
-  // youNeedToLogin: 'Log in to submit your drawings ?',
 }
 
 let toolsButtons = []
@@ -268,58 +267,6 @@ const deleteButtonClick = async() => {
     deleteSelectedDrawings()
   }
 }
-
-/*
-const sendCheckboxChange = (e) => {
-  preventDefault(e)
-  state.sendCheckboxChecked = !state.sendCheckboxChecked
-  refs.sendPopupCheckbox.checked = state.sendCheckboxChecked
-  refs.confirmSendPopupButton.classList.toggle('disabled', !refs.sendPopupCheckbox.checked)
-}
-const sendSelectedDrawings = async(e) => {
-  preventDefault(e)
-  if (refs.confirmSendPopupButton.classList.contains('disabled')) return
-
-  setSpinner(true)
-  Messages.panel(refs.sendPopup)
-  const drawings = (await Promise.all(getSelectedIds().map(LocalDB.getOneDrawing))).map(d => ({
-    id: d.globalId || uuidv4(),
-    base64: d.localPathBig,
-  }))
-
-  const userInfo = User.getUserInfo()
-  const body = {
-    userId: userInfo.auth0Id,
-    email: userInfo.email,
-    drawings,
-  }
-
-  const [sent] = await Apis.sendDrawings({ body })
-  setSpinner(false)
-
-  body.drawings = drawings.length
-  if (sent) {
-    Tracking.trackAction(Tracking.actions.SEND_DRAWINGS_OK, body)
-    Messages.success(labels.drawingSentConfirmation)
-  } else {
-    Tracking.trackAction(Tracking.actions.SEND_DRAWINGS_KO, body)
-    Messages.error(labels.drawingSentError)
-  }
-}
-const sendButtonClick = async() => {
-  if (refs.sendButton.classList.contains('disabled')) return
-  if (User.isLogged()) {
-    state.sendCheckboxChecked = false
-    refs.sendPopupCheckbox.checked = false
-    refs.confirmSendPopupButton.classList.add('disabled')
-    Messages.panel(refs.sendPopup)
-  } else {
-    if (await Messages.confirm(labels.youNeedToLogin)) {
-      User.login()
-    }
-  }
-}
-*/
 
 const deleteSelectedDrawings = async() => {
   setSpinner(true)

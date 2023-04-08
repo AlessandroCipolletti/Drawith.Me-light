@@ -1,7 +1,6 @@
 import apiConfig from './apiConfig'
 import { formatApiUrlWithParams, checkAuthSucceeded } from './utils'
 import * as Tracking from 'modules/Tracking'
-import * as User from 'modules/User'
 import * as Coworking from 'modules/Coworking'
 
 
@@ -28,8 +27,8 @@ const callApi = ({ url, method, isPrivate, asFormData }, api) => {
     //   options.headers['TODO header per la cache'] = true
     // }
 
-    options.headers['X-SessionId'] = `${User.getUserSessionId() || ''}`
-    options.headers['X-DeviceId'] = `${User.getDeviceId() || ''}`
+    // options.headers['X-SessionId'] = `${User.getUserSessionId() || ''}`
+    // options.headers['X-DeviceId'] = `${User.getDeviceId() || ''}`
     options.headers['X-SocketId'] = `${Coworking.getSocketId() || ''}`
 
     if (method !== 'GET') {
@@ -45,13 +44,13 @@ const callApi = ({ url, method, isPrivate, asFormData }, api) => {
       }
     }
 
-    if (isPrivate) {
-      options.credentials = 'include'
-      const token = await User.getAuthToken()
-      if (!!token && token.length > 0) {
-        options.headers.authorization = `Bearer ${token}`
-      }
-    }
+    // if (isPrivate) {
+    //   options.credentials = 'include'
+    //   const token = await User.getAuthToken()
+    //   if (!!token && token.length > 0) {
+    //     options.headers.authorization = `Bearer ${token}`
+    //   }
+    // }
 
 
     let response

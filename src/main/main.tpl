@@ -2,18 +2,7 @@
   <div class="drawith__menu-container">
 
     <div class="drawith__menu-header">
-      <div class="drawith__menu-login">
-        <div class="drawith__menu-login-icon svg-icon-login svg-icon-light"></div>
-        <span class="drawith__menu-login-label">{{labels.login}}</span>
-      </div>
-      <div class="drawith__menu-user">
-        <div class="drawith__menu-user-picture"></div>
-        <span class="drawith__menu-user-label"></span>
-      </div>
       <div class="drawith__menu-icons">
-        <a href="{{instaUrl}}" target="_blank">
-          <div class="drawith__menu-icon-insta svg-icon-instagram svg-icon-light"></div>
-        </a>
         <a href="{{tiktokUrl}}" target="_blank">
           <div class="drawith__menu-icon-tiktok svg-icon-tiktok svg-icon-light"></div>
         </a>
@@ -27,10 +16,6 @@
         <span>{{labels.folderPageLabel}}</span>
       </div>
 
-      <div class="drawith__menu-item drawith__menu-item-profile">
-        <div class="drawith__menu-item-icon svg-icon-user svg-icon-light"></div>
-        <span>{{labels.myProfile}}</span>
-      </div>
       <div class="drawith__menu-item drawith__menu-item-about">
         <div class="drawith__menu-item-icon svg-icon-info-line svg-icon-light"></div>
         <span>{{labels.aboutUs}}</span>
@@ -47,10 +32,6 @@
         <span>{{labels.privacy}}</span>
       </div>
 
-      <div class="drawith__menu-item drawith__menu-item-logout">
-        <div class="drawith__menu-item-icon svg-icon-logout svg-icon-light"></div>
-        <span>{{labels.logout}}</span>
-      </div>
     </div>
 
   </div>
