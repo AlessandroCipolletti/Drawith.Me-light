@@ -3,13 +3,11 @@ import './main.css'
 import { debounce } from 'debounce'
 
 import Params from 'main/Params'
-import * as Tracking from 'modules/Tracking'
 import { init as initMessages } from 'modules/Messages'
 import initDomUtils, { loadTemplate, preventDefault, setSpinner, preventMoveDefaultIfNeeded } from 'utils/domUtils'
-import { init as initUser, logout, login } from 'modules/User'
 import { init as initHeader, menuButtonAnimations } from 'components/Header'
 import { initLocalDb } from 'utils/localDbUtils'
-import { openPageNotSupported, isSupportedOs, openPageUserProfile, openPageFolder, openPageAboutUs, openPageTermsOfService, openPagePrivacyPolicy } from 'modules/Router'
+import { openPageNotSupported, isSupportedOs, openPageFolder, openPageAboutUs } from 'modules/Router'
 import { round } from 'utils/mathUtils'
 import { delay, securizeAsyncFn } from 'utils/jsUtils'
 import { cleanEventsForNextRefresh } from 'utils/moduleUtils'
@@ -34,14 +32,8 @@ const refs = {
   pagesContainer: null,
 }
 const labels = {
-  login: 'Login',
-  logout: 'Logout',
   folderPageLabel: 'My drawings',
-  // shop: 'Shop',
   aboutUs: 'About Drawith.Me',
-  myProfile: 'My profile',
-  terms: 'Terms of Service',
-  privacy: 'Privacy Policy',
   genericError: 'Generic Error',
 }
 
@@ -229,64 +221,10 @@ const initViewportTryPixelPerfect = async() => {
   console.log('pxScale', Params.pxScale, 'pixelRatio', Params.pixelRatio, 'viewportScale', Params.viewportScale, 'innerWidth', window.innerWidth, 'getRealScreenWidth', getRealScreenWidth(), 'getRealScreenHeight', getRealScreenHeight())
 }
 
-const openUserProfile = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  openPageUserProfile()
-}
-
 const openFolder = (e) => {
   preventDefault(e)
   closeMainMenu()
   openPageFolder()
-}
-
-const userLogin = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  login()
-}
-
-const userLogout = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  logout()
-}
-
-// const openShop = (e) => {
-//   Tracking.trackAction(Tracking.actions.OPEN_ECOMMERCE)
-//   // closeMainMenu()
-//   // return true
-// }
-
-const openInstagram = (e) => {
-  Tracking.trackAction(Tracking.actions.OPEN_INSTAGRAM)
-  // closeMainMenu()
-  // return true
-}
-
-const openTiktok = (e) => {
-  Tracking.trackAction(Tracking.actions.OPEN_TIKTOK)
-  // closeMainMenu()
-  // return true
-}
-
-const openLanding = (e) => {
-  Tracking.trackAction(Tracking.actions.OPEN_LANDING)
-  // closeMainMenu()
-  // return true
-}
-
-const openTermsOfService = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  openPageTermsOfService()
-}
-
-const openPrivacy = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  openPagePrivacyPolicy()
 }
 
 const openAboutUs = (e) => {
@@ -295,54 +233,16 @@ const openAboutUs = (e) => {
   openPageAboutUs()
 }
 
-const initAds = () => {
-  // if (Params.showAdsOnPhones && Params.isPhone && !Params.isLocal) {
-  //   window.atOptions = {
-  //     key: Params.adSterraId,
-  //     format: 'iframe',
-  //     height: 50,
-  //     width: 320,
-  //     params: {},
-  //   }
-  //   const script = document.createElement('script')
-  //   script.setAttribute('type', 'text/javascript')
-  //   script.setAttribute('src', `https://www.effectivedisplaycontent.com/${Params.adSterraId}/invoke.js`)
-  //   document.body.appendChild(script)
-  // }
-
-  // if (Params.showAdsOnPhones && Params.isPhone && !Params.isLocal) {
-  //   const script = document.createElement('script')
-  //   script.setAttribute('type', 'text/javascript')
-  //   script.setAttribute('data-cfasync', 'false')
-  //   script.setAttribute('cfasync', 'false')
-  //   script.setAttribute('src', 'https://p443855.clksite.com/adServe/banners?tid=443855_869342_3')
-  //   document.body.appendChild(script)
-  // }
-}
-
 const initDom = async() => {
   refs.mainContainer = await loadTemplate(tplApp, {
     labels,
-    // shopUrl: Params.ecommerceUrl,
-    instaUrl: Params.instagramUrl,
-    newsletterUrl: Params.newsletterUrl,
     tiktokUrl: Params.tiktokUrl,
   })
   refs.pagesContainer = refs.mainContainer.querySelector('.drawith__pages-container')
-  refs.mainContainer.querySelector('.drawith__menu-login').addEventListener(Params.eventStart, userLogin)
-  refs.mainContainer.querySelector('.drawith__menu-user').addEventListener(Params.eventStart, openUserProfile)
   refs.mainContainer.querySelector('.drawith__menu-pages-placeholder').addEventListener(Params.eventStart, preventDefault)
   refs.mainContainer.querySelector('.drawith__menu-item-folder').addEventListener(Params.eventStart, openFolder)
-  // refs.mainContainer.querySelector('.drawith__menu-item-shop').addEventListener(Params.eventStart, openShop)
-  refs.mainContainer.querySelector('.drawith__menu-item-profile').addEventListener(Params.eventStart, openUserProfile)
-  refs.mainContainer.querySelector('.drawith__menu-item-terms').addEventListener(Params.eventStart, openTermsOfService)
-  refs.mainContainer.querySelector('.drawith__menu-item-privacy').addEventListener(Params.eventStart, openPrivacy)
   refs.mainContainer.querySelector('.drawith__menu-item-about').addEventListener(Params.eventStart, openAboutUs)
   refs.mainContainer.querySelector('.drawith__menu-pages-clear').addEventListener(Params.eventStart, preventDefault)
-  refs.mainContainer.querySelector('.drawith__menu-item-logout').addEventListener(Params.eventStart, userLogout)
-  refs.mainContainer.querySelector('.drawith__menu-icon-insta').addEventListener(Params.eventStart, openInstagram)
-  refs.mainContainer.querySelector('.drawith__menu-icon-tiktok').addEventListener(Params.eventStart, openTiktok)
-  refs.mainContainer.querySelector('.drawith__menu-icon-newsletter').addEventListener(Params.eventStart, openLanding)
 
   if (Params.ipad) {
     refs.pagesContainer.addEventListener(Params.eventStart, (e) => {
@@ -361,7 +261,6 @@ const init = securizeAsyncFn(async(props = {}) => {
   cleanEventsForNextRefresh()
   initPolyfills()
   Params.init(AppState)
-  Tracking.init()
   await initViewportTryPixelPerfect()
   initTheme()
   await initDom()
@@ -371,12 +270,10 @@ const init = securizeAsyncFn(async(props = {}) => {
   if (await isSupportedOs()) {
     setSpinner(true)
     await initMessages()
-    initAds()
     const dbInit = await initLocalDb()
     if (dbInit) {
       initDomUtils()
       addEnviromentGlobalStatus()
-      await initUser()
     } else {
       openPageNotSupported()
     }

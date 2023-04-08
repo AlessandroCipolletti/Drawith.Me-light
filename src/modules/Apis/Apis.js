@@ -1,7 +1,5 @@
 import apiConfig from './apiConfig'
 import { formatApiUrlWithParams, checkAuthSucceeded } from './utils'
-import * as Tracking from 'modules/Tracking'
-import * as User from 'modules/User'
 import * as Coworking from 'modules/Coworking'
 
 
@@ -9,7 +7,6 @@ const HTTP_STATUS_CODE_OK = 200
 const HTTP_STATUS_CODE_CREATED = 201
 const HTTP_STATUS_CODE_ACCEPTED = 202
 const HTTP_STATUS_CODE_NO_CONTENT = 204
-const HTTP_STATUS_DECODING_INPUT_ERROR = 422
 
 
 const callApi = ({ url, method, isPrivate, asFormData }, api) => {
@@ -28,8 +25,8 @@ const callApi = ({ url, method, isPrivate, asFormData }, api) => {
     //   options.headers['TODO header per la cache'] = true
     // }
 
-    options.headers['X-SessionId'] = `${User.getUserSessionId() || ''}`
-    options.headers['X-DeviceId'] = `${User.getDeviceId() || ''}`
+    // options.headers['X-SessionId'] = `${User.getUserSessionId() || ''}`
+    // options.headers['X-DeviceId'] = `${User.getDeviceId() || ''}`
     options.headers['X-SocketId'] = `${Coworking.getSocketId() || ''}`
 
     if (method !== 'GET') {
@@ -45,13 +42,13 @@ const callApi = ({ url, method, isPrivate, asFormData }, api) => {
       }
     }
 
-    if (isPrivate) {
-      options.credentials = 'include'
-      const token = await User.getAuthToken()
-      if (!!token && token.length > 0) {
-        options.headers.authorization = `Bearer ${token}`
-      }
-    }
+    // if (isPrivate) {
+    //   options.credentials = 'include'
+    //   const token = await User.getAuthToken()
+    //   if (!!token && token.length > 0) {
+    //     options.headers.authorization = `Bearer ${token}`
+    //   }
+    // }
 
 
     let response
@@ -66,11 +63,11 @@ const callApi = ({ url, method, isPrivate, asFormData }, api) => {
         let res = await response.json()
         res = typeof res !== 'undefined' ? res : true
         if (typeof res === 'object' && res.result === false) {
-          trackError(false, response.status, api, params, body)
+          trackError(api, params, body)
         }
         return [res, response]
       } else {
-        trackError(true, response.status, api, params, body)
+        trackError(api, params, body)
         return [{ result: false }, response]
       }
     } catch (e) {
@@ -79,24 +76,15 @@ const callApi = ({ url, method, isPrivate, asFormData }, api) => {
         res = await response.json()
       }
       res = typeof res !== 'undefined' ? res : { result: false }
-      trackError(true, response?.status || 0, api, params, body)
+      trackError(api, params, body)
       return [res, response]
     }
   }
 }
 
-const trackError = (hardError, status, api, params, body) => {
-  let action
-  if (status === HTTP_STATUS_DECODING_INPUT_ERROR) {
-    action = Tracking.actions.DECODING_INPUT_ERROR
-  } else if (hardError) {
-    action = Tracking.actions.API_CALL_ERROR
-  } else {
-    action = Tracking.actions.API_CALL_RESULT_FALSE
-  }
+const trackError = (api, params, body) => {
   params = JSON.stringify(params || {})
-  body = JSON.stringify(body || {}).substr(0, 1000)
-  Tracking.trackAction(action, { api, params, body }, true)
+  body = JSON.stringify(body || {}).substring(0, 1000)
   console.error(`API ${api} failed with parameters: ${params} and body: ${body}`)
 }
 

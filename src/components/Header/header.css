@@ -56,14 +56,6 @@
   width: 4rem;
   height: 4rem;
 }
-.drawith__NEW_USER .header__button {
-  display: none;
-}
-
-.header__shop-button div {
-  width: 100%;
-  height: 100%;
-}
 
 .drawith__DRAWING_SYNC .header__refresh-icon {
   display: block;

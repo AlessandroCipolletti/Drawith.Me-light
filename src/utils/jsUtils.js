@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid'
 const isEqual = require('lodash.isequal')
 
 import * as Messages from 'modules/Messages'
-import * as Tracking from 'modules/Tracking'
 import { setSpinner } from 'utils/domUtils'
 
 
@@ -58,11 +57,6 @@ const handleJsError = (fn, error, errorMsg, fnName, showErrorMsg = true) => {
     ${fn.name || fnName}
     ${error.stack}
   `)
-  Tracking.trackAction(Tracking.actions.JS_ERROR, {
-    message: errorMsg,
-    function: fn.name || fnName,
-    stack: error.stack || '',
-  }, true)
   setSpinner(false)
   if (showErrorMsg) {
     Messages.error(errorMsg)

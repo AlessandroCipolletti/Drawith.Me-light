@@ -5,7 +5,7 @@ import Params from 'main/Params'
 import { cleanRefs } from 'utils/moduleUtils'
 import { loadTemplate, preventDefault } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
-import { openPageAboutUs, openPageTermsOfService, openPagePrivacyPolicy, openPageCookiePolicy } from 'modules/Router'
+import { openPageAboutUs } from 'modules/Router'
 import { deselectAllTabs, selectOneTab } from 'utils/uiUtils'
 
 
@@ -17,9 +17,6 @@ const labels = {
   version: 'Version',
   and: 'and',
   aboutUs: 'About us',
-  terms: 'Terms of Service',
-  privacy: 'Privacy Policy',
-  cookiePolicy: 'Cookie Policy',
 }
 
 
@@ -34,9 +31,6 @@ const initDom = async() => {
 
   refs.container.addEventListener('gesturestart', preventDefault)
   refs.container.querySelector('.tabs-header div[data-tab-id="about-us"]').addEventListener(Params.eventStart, openPageAboutUs)
-  refs.container.querySelector('.tabs-header div[data-tab-id="terms-of-service"]').addEventListener(Params.eventStart, openPageTermsOfService)
-  refs.container.querySelector('.tabs-header div[data-tab-id="privacy-policy"]').addEventListener(Params.eventStart, openPagePrivacyPolicy)
-  refs.container.querySelector('.tabs-header div[data-tab-id="cookie-policy"]').addEventListener(Params.eventStart, openPageCookiePolicy)
 }
 
 export const aboutUs = () => {

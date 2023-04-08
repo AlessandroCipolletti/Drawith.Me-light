@@ -5,15 +5,6 @@
       <div class="tab-header-item" data-tab-id="about-us">
         <span>{{labels.aboutUs}}</span>
       </div>
-      <div class="tab-header-item" data-tab-id="terms-of-service">
-        <span>{{labels.terms}}</span>
-      </div>
-      <div class="tab-header-item" data-tab-id="cookie-policy">
-        <span>{{labels.cookiePolicy}}</span>
-      </div>
-      <div class="tab-header-item" data-tab-id="privacy-policy">
-        <span>{{labels.privacy}}</span>
-      </div>
     </div>
     <div class="tabs-content">
       <div class="tab-content scrollable drawith__aboutus" data-tab-id="about-us">

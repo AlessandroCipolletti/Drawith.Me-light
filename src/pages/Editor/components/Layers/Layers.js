@@ -8,7 +8,6 @@ const tplLayers = require('./layers.tpl')
 import './layers.css'
 
 import { v4 as uuidv4 } from 'uuid'
-import { debounce } from 'debounce'
 import { getRealScreenMaxSize } from 'main/main'
 import Params from 'main/Params'
 import History from 'modules/History'
@@ -18,7 +17,6 @@ import * as Tools from 'pages/Editor/components/Tools'
 import * as Coworking from 'modules/Coworking'
 import * as ColorPicker from 'pages/Editor/components/ColorPicker'
 import * as Messages from 'modules/Messages'
-import * as Tracking from 'modules/Tracking'
 import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
@@ -322,10 +320,6 @@ export const undoLayers = async(madeByTools = false) => {
       startResizeMode()
       Tools.toggleButton('undo', false)
       state.resizeModeMadeChanges = false
-      Tracking.trackAction(Tracking.actions.EDITOR_UNDO, {
-        madeByTools,
-        forResize: true,
-      })
     }
   } else if (!Coworking.isOpen()) {
     if (LayersHistory.canGoBack) {
@@ -334,10 +328,6 @@ export const undoLayers = async(madeByTools = false) => {
       updateUndoRedoButtons()
 
       if (action.layerId || action.newLayerId) {
-        Tracking.trackAction(Tracking.actions.EDITOR_UNDO, {
-          madeByTools,
-          forResize: false,
-        })
         let selectedLayerId = action.layerId
         if (action.type === HISTORY_STEP_LAYER_CONTENT) {
           const step = state.layers[action.layerId].history.back()
@@ -345,9 +335,9 @@ export const undoLayers = async(madeByTools = false) => {
         } else if (action.type === HISTORY_STEP_LAYER_OPACITY) {
           _updateLayerOpacity(action.layerId, action.oldValue)
         } else if (action.type === HISTORY_STEP_LAYER_SHOW) {
-          disableLayer(action.layerId, false)
+          disableLayer(action.layerId)
         } else if (action.type === HISTORY_STEP_LAYER_HIDE) {
-          enableLayer(action.layerId, false)
+          enableLayer(action.layerId)
         } else if (action.type === HISTORY_STEP_LAYER_ORDER) {
           onListDragChange(refs.layersList.querySelector(`div[data-id="${action.layerId}"]`), Object.values(state.layers).length - 1 - action.oldValue)
         } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
@@ -378,10 +368,7 @@ export const redoLayers = async(madeByTools = false) => {
       updateUndoRedoButtons()
 
       if (action.layerId || action.newLayerId) {
-        Tracking.trackAction(Tracking.actions.EDITOR_REDO, {
-          madeByTools,
-          forResize: false,
-        })
+
         let selectedLayerId = action.layerId
         if (action.type === HISTORY_STEP_LAYER_CONTENT) {
           const step = state.layers[action.layerId].history.forward()
@@ -389,9 +376,9 @@ export const redoLayers = async(madeByTools = false) => {
         } else if (action.type === HISTORY_STEP_LAYER_OPACITY) {
           _updateLayerOpacity(action.layerId, action.newValue)
         } else if (action.type === HISTORY_STEP_LAYER_SHOW) {
-          enableLayer(action.layerId, false)
+          enableLayer(action.layerId)
         } else if (action.type === HISTORY_STEP_LAYER_HIDE) {
-          disableLayer(action.layerId, false)
+          disableLayer(action.layerId)
         } else if (action.type === HISTORY_STEP_LAYER_ORDER) {
           onListDragChange(refs.layersList.querySelector(`div[data-id="${action.layerId}"]`), Object.values(state.layers).length - 1 - action.newValue)
         } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
@@ -620,9 +607,9 @@ const restoreDeletedLayer = async(layerId, withAnimation = true) => {
   layer.img.style.opacity = layer.opacity
 
   if (state.layers[layerId].active) {
-    enableLayer(layerId, false)
+    enableLayer(layerId)
   } else {
-    disableLayer(layerId, false)
+    disableLayer(layerId)
   }
 
   await updateLayerPreview(layerId)
@@ -662,9 +649,9 @@ const createNewLayerDom = async(layerId, withAnimation = false) => {
   layer.img.style.opacity = layer.opacity
 
   if (state.layers[layerId].active) {
-    enableLayer(layerId, false)
+    enableLayer(layerId)
   } else {
-    disableLayer(layerId, false)
+    disableLayer(layerId)
   }
 
   if (layer.localPathBig) {
@@ -702,7 +689,6 @@ const addNewLayer = (e) => {
   addLayerHistoryNewStep(newLayerData.id, state.currentSelectedLayerId)
   selectLayer(newLayerData.id, false)
   refs.layersList.scrollTop = 0
-  Tracking.trackAction(Tracking.actions.ADD_LAYER)
 }
 
 const updateEditorCanvas = () => {
@@ -804,7 +790,6 @@ const deleteLayer = async(e, layerId = state.currentSelectedLayerId) => {
     return
   }
 
-  Tracking.trackAction(Tracking.actions.DELETE_LAYER)
   const layers = Object.values(state.layers).filter(l => !l.selectedByCoworker && l.id !== layerId)
   const maxOrder = Math.max(...layers.map(l => l.order))
   const nextSelectedId = layers.filter(l => l.order === maxOrder)[0].id
@@ -827,7 +812,6 @@ const renameLayer = async(e, id = state.currentSelectedLayerId) => {
 const saveLayerName = (id, name, updateDom = false) => {
   if (id && name) {
     state.layers[id].name = name
-    Tracking.trackAction(Tracking.actions.RENAME_LAYER)
     if (updateDom) {
       refs.layersList.querySelector(`div[data-id="${id}"] input`).value = name
     }
@@ -848,7 +832,7 @@ const duplicateSelectedLayer = async(e) => {
     return
   }
 
-  Tracking.trackAction(Tracking.actions.DUPLICATE_LAYER)
+
   await saveResizeModeIfNeeded()
   const newId = uuidv4()
   const newLayer = layerDeepCopy(state.layers[state.currentSelectedLayerId])
@@ -894,7 +878,6 @@ const mergeDownSelectedLayer = async(e) => {
   const lowerLayer = Object.values(state.layers).find(layer => layer.order === selectedLayer.order - 1)
 
   if (lowerLayer) {
-    Tracking.trackAction(Tracking.actions.MERGE_DOWN_LAYERS)
     // create a new layer
     const newLayerData = createNewLayerObject()
     newLayerData.order = lowerLayer.order
@@ -936,7 +919,7 @@ const mergeDownSelectedLayer = async(e) => {
   }
 }
 
-const enableLayer = (layerId = state.currentSelectedLayerId, track = true) => {
+const enableLayer = (layerId = state.currentSelectedLayerId) => {
   const layer = state.layers[layerId]
   layer.active = true
   refs.layersList.querySelector(`div[data-id="${layerId}"]`).classList.add('editor-layers__layer-active')
@@ -954,10 +937,9 @@ const enableLayer = (layerId = state.currentSelectedLayerId, track = true) => {
     refs.visibilityLayerButton.classList.toggle('svg-icon-visible', layer.active)
     refs.visibilityLayerButton.classList.toggle('svg-icon-hidden', !layer.active)
   }
-  track && Tracking.trackAction(Tracking.actions.SHOW_LAYER)
 }
 
-const disableLayer = (layerId = state.currentSelectedLayerId, track = true) => {
+const disableLayer = (layerId = state.currentSelectedLayerId) => {
   const layer = state.layers[layerId]
   layer.active = false
   refs.layersList.querySelector(`div[data-id="${layerId}"]`).classList.remove('editor-layers__layer-active')
@@ -974,7 +956,6 @@ const disableLayer = (layerId = state.currentSelectedLayerId, track = true) => {
     refs.visibilityLayerButton.classList.toggle('svg-icon-visible', layer.active)
     refs.visibilityLayerButton.classList.toggle('svg-icon-hidden', !layer.active)
   }
-  track && Tracking.trackAction(Tracking.actions.HIDE_LAYER)
 }
 
 const toggleEnableLayer = (e, layerId = state.currentSelectedLayerId, clickedByList = false) => {
@@ -1036,9 +1017,6 @@ const startResizeMode = (track = false) => {
   refs.imageForResize = image
   updateMagnetismCoords(state.currentSelectedLayerId)
   Editor.showDragBox(round(minX + width / 2, 1), round(minY + height / 2, 1), width, height, true)
-  if (track) {
-    Tracking.trackAction(Tracking.actions.RESIZE_LAYER)
-  }
 }
 const saveResizeModeIfNeeded = async() => {
   if (state.resizeModeMadeChanges) {
@@ -1115,9 +1093,6 @@ const gcoModeTouchStart = (e) => {
   closeParams()
   if (layerCanBeResized(state.currentSelectedLayerId) && !state.resizeMode) {
     updateGcoMode(!state.gcoMode, true)
-    Tracking.trackAction(Tracking.actions.CHANGE_LAYER_GCO, {
-      cgo: state.gcoMode ? 'source-atop' : 'source-over',
-    })
   }
 }
 
@@ -1143,17 +1118,12 @@ const updateGcoMode = (selected, active) => {
   }
 }
 
-const trackLayerOpacityChanges = debounce((opacity) => {
-  Tracking.trackAction(Tracking.actions.CHANGE_LAYER_OPACITY, { opacity })
-}, 5000)
-
 const _updateLayerOpacity = (layerId, opacity, inProgress) => {
   refs.opacityCursor.style.bottom = `${opacity}%`
   refs.opacityLabel.innerHTML = `${opacity}`
   refs.opacitySlider.style.background = `linear-gradient(0deg, var(--palette-green-1) ${opacity}%, var(--palette-white) ${opacity}%)`
   opacity = round(opacity / 100, 2)
   state.layers[layerId].opacity = opacity
-  trackLayerOpacityChanges(opacity)
   state.layers[layerId].img.style.opacity = opacity
   refs.canvas.style.opacity = opacity
 
@@ -1242,7 +1212,6 @@ const startDragLayer = (e, layerListDom) => {
   closeParams()
   state.listDragStartIndex = state.layers[layerListDom.getAttribute('data-id')].order
   handleElementsListDragAndDrop(e, refs.layersList, layerListDom, onListDragChange, 'vertical')
-  Tracking.trackAction(Tracking.actions.DRAG_LAYER)
 }
 
 const findListTargetLayerParent = (target) => {
@@ -1260,7 +1229,6 @@ const onLayerTouchDown = (layerId) => {
       updateParamsByLayer(layerId)
       openParams()
     } else {
-      Tracking.trackAction(Tracking.actions.SELECT_LAYER)
       selectLayer(layerId)
     }
   } else {

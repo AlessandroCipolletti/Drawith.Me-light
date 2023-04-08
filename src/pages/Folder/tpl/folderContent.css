@@ -30,20 +30,6 @@
   width: 2rem;
   height: 2rem;
 }
-.folder__drawing-error-icon {
-  display: inline-block;
-  margin: 0.5rem;
-  width: 3.5rem;
-  height: 3.5rem;
-}
-.folder__drawing-error-icon {
-  background-color: var(--palette-red-2);
-}
-.folder__drawing:not(.folder__drawing-loading) .spinner,
-.folder__drawing:not(.folder__drawing-error) .folder__drawing-error-icon,
-.folder__drawing.folder__drawing-loading .folder__drawing-error-icon {
-  display: none;
-}
 
 .folder__drawing-select-icon {
   float: right;
@@ -61,9 +47,6 @@
   box-shadow: 0px 0px 0.2rem 0px rgba(0,0,0,0.75);
   /*, inset 0px 0px 0.2rem 0px rgba(0,0,0,0.75);*/
   display: none;
-}
-.drawith__FOLDER-SELECT-MODE .folder__drawing:not(.folder__drawing-loading) .folder__drawing-select-icon {
-  display: inline-block;
 }
 
 .drawith__FOLDER-SELECT-MODE .folder__drawing-selected {

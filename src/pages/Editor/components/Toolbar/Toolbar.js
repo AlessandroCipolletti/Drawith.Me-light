@@ -5,7 +5,6 @@ import Params from 'main/Params'
 import * as Editor from 'pages/Editor'
 import * as Tools from 'pages/Editor/components/Tools'
 import * as Layers from 'pages/Editor/components/Layers'
-import * as Tracking from 'modules/Tracking'
 import { cleanRefs } from 'utils/moduleUtils'
 import { deepCopy } from 'utils/jsUtils'
 import { preventDefault, loadTemplate, disableElements, enableElements, getEventCoordX, createDom } from 'utils/domUtils'
@@ -133,12 +132,6 @@ const updateSize = (perc, inProgress) => {
     openPreviewPopups()
   } else {
     closePreviewPopups()
-    Tracking.trackAction(Tracking.actions.CHANGE_SIZE, {
-      value: sizeValue,
-      perc,
-      tool: state.currentToolProps.name,
-      version: state.currentToolProps.versionName,
-    })
     Tools.setCurrentToolCustomProps({
       size: sizeValue,
     })
@@ -156,12 +149,6 @@ const updateAlpha = (perc, inProgress) => {
     openPreviewPopups()
   } else {
     closePreviewPopups()
-    Tracking.trackAction(Tracking.actions.CHANGE_ALPHA, {
-      value: alphaValue,
-      perc,
-      tool: state.currentToolProps.name,
-      version: state.currentToolProps.versionName,
-    })
     Tools.setCurrentToolCustomProps({
       alpha: alphaValue,
     })

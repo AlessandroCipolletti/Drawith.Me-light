@@ -3,7 +3,6 @@ import './editor.css'
 
 import { debounce } from 'debounce'
 import Params from 'main/Params'
-import * as Tracking from 'modules/Tracking'
 import * as Coworking from 'modules/Coworking'
 import * as Debug from 'modules/Debug'
 import * as Messages from 'modules/Messages'
@@ -13,7 +12,6 @@ import * as Toolbar from './components/Toolbar'
 import * as Layers from './components/Layers'
 import * as Tools from './components/Tools'
 import * as Ruler from './components/Ruler'
-import * as User from 'modules/User'
 import { setSpinner, getEventCoordX, getEventCoordY, loadTemplate, preventDefault, getDomRect } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -58,7 +56,6 @@ const initialState = {
   pageOpened: false,
   modified: false,
   withCoworking: false,
-  userPreferences: {},
   currentTouch: {
     type: '',
     x: 0,
@@ -351,9 +348,6 @@ export const hidePipetteCursor = async() => {
 
 const closePipetteCursor = async() => {
   if (state.pipette.currentColor) {
-    Tracking.trackAction(Tracking.actions.PICK_PIPETTE_COLOR, {
-      color: state.pipette.currentColor,
-    })
     ColorPicker.addPaletteColor(state.pipette.currentColor, false)
     ColorPicker.confirmLastAddedColorIfNeeded()
   }
@@ -394,7 +388,6 @@ export const saveAndGoToFolder = async() => {
         await saveDrawToDB(currentDraw, false, Coworking.isConnected(), state.withCoworking)
       }
     }
-    Tracking.trackAction(Tracking.actions.CLOSE_DRAWING)
     goToPage('folder/open/true')
   }
 }
@@ -417,7 +410,6 @@ export const saveCopy = async() => {
         Messages.info(labels.copySaved, config.draftInfoDuration)
         state.drawnStepsSinceCopy = 0
         Toolbar.disableSaveCopy()
-        Tracking.trackAction(Tracking.actions.SAVE_DRAWING_COPY)
       } else {
         Messages.error(labels.draftError)
         state.canMakeACopy = true
@@ -822,7 +814,6 @@ const updateCurrentTouchType = (touchEvent) =>  {
   state.currentTouch.type = (touchEvent.touchType === TOUCH_TYPE_STYLUS) ? TOUCH_TYPE_STYLUS : TOUCH_TYPE_FINGER
   if (!state.currentDeviceHasStylus && state.currentTouch.type === TOUCH_TYPE_STYLUS) { // first touch event with pencil
     state.currentDeviceHasStylus = true
-    Tracking.trackAction(Tracking.actions.HAS_STYLUS_INPUT)
   }
 }
 
@@ -878,7 +869,7 @@ const onTouchStart = (e, touchEvent) => {
   if (!state.resizeMode.isResizing) {
     if (state.resizeMode.active) {
       onDragLayerContentTouchStart(touchEvent)
-    } else if (state.userPreferences.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && touchEvent.touchType !== TOUCH_TYPE_STYLUS) {
+    } else if (state?.userPreferences?.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && touchEvent.touchType !== TOUCH_TYPE_STYLUS) {
       onDragZoomTouchStart(touchEvent)
     } else if (state.currentToolProps.name === 'pipette') {
       onPipetteTouchStart(touchEvent)
@@ -983,7 +974,7 @@ const onTouchMove = (e, touchEvent) => {
   if (!state.resizeMode.isResizing) {
     if (state.resizeMode.active) {
       onDragLayerContentTouchMove(touchEvent)
-    } else if (state.userPreferences.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && touchEvent.touchType !== TOUCH_TYPE_STYLUS) {
+    } else if (state?.userPreferences?.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && touchEvent.touchType !== TOUCH_TYPE_STYLUS) {
       onDragZoomTouchMove(touchEvent)
     } else if (state.currentToolProps.name === 'pipette') {
       onPipetteTouchMove(touchEvent)
@@ -1036,7 +1027,7 @@ const onTouchEnd = (e) => {
   if (!state.resizeMode.isResizing) {
     if (state.resizeMode.active) {
       onDragLayerContentTouchEnd(e)
-    } else if (state.userPreferences.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && state.currentTouch.isZooming) {
+    } else if (state?.userPreferences?.dragEditorZoomWithOneFinger && state.currentDeviceHasStylus && state.currentTouch.isZooming) {
       onDragZoomTouchEnd(e)
     } else if (state.currentToolProps.name === 'pipette') {
       onPipetteTouchEnd(e)
@@ -1321,7 +1312,6 @@ export const open = async(preloadedDrawindId, withCoworking = false, coworkingCa
   coworking = Coworking.requestSession // just to have an alias for app.drawith.me?editor/coworking
   state = initState(initialState)
   state.withCoworking = withCoworking
-  state.userPreferences = User.getUserPreferences()
   await initDom()
   addGlobalStatus('drawith__EDITOR-OPEN')
   Debug.startFpsLog()
