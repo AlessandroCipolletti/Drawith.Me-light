@@ -7,10 +7,8 @@ import './tpl/folderSharePopup.css'
 
 // import { v4 as uuidv4 } from 'uuid'
 import Params from 'main/Params'
-import * as Tracking from 'modules/Tracking'
 import * as Messages from 'modules/Messages'
 import * as LocalDB from 'utils/localDbUtils'
-import { callServerSideDrawingsDelete } from 'utils/serverDbUtils'
 import { addSpinnerOverlayTo, setSpinner, loadTemplate, preventDefault, enableElements, disableElements } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -23,16 +21,11 @@ import { goToPage } from 'modules/Router'
 import * as Coworking from 'modules/Coworking'
 
 
-const config = {
-  updateDrawingsLoadingDelay: 1000, // ms
-}
 let state = {}
 const initialState = {
   selectionMode: false,
   coworkingPopupOpened: false,
   sendCheckboxChecked: false,
-  checkDrawingsInterval: false,
-  loadingDrawingsIds: [],
 }
 const refs = {
   container: null,
@@ -73,7 +66,6 @@ const labels = {
   // send: 'Submit',
   // iUnderstand: 'I understand',
   // byClickingYouAccept: 'By clicking on "I understand" you accept',
-  // termsAndConditions: 'Terms and Conditions',
   // drawingSentConfirmation: 'Thank you! We will give you a feedback within a week.',
   // drawingSentError: 'Something went wrong, please contact us at info@drawith.me',
 }
@@ -83,8 +75,6 @@ let toolsButtons = []
 
 const createNewDrawing = (e) => {
   preventDefault(e)
-  Tracking.trackAction(Tracking.actions.CREATE_NEW_DRAWING)
-  Tracking.incrementProp('createdDrawings')
   setSpinner(true)
   goToPage('editor/open/')
 }
@@ -92,13 +82,6 @@ const createNewDrawing = (e) => {
 const openDrawing = async(drawingId) => {
   setSpinner(true)
   goToPage(`editor/open/${drawingId}`)
-
-  const drawing = await LocalDB.getOneDrawing(drawingId)
-  if (drawing.globalId) {
-    Tracking.trackAction(Tracking.actions.OPEN_DRAWING, {
-      drawingId: drawing.globalId,
-    })
-  }
 }
 
 const copyCoworkingUrl = (() => {
@@ -169,10 +152,8 @@ const onDrawingClick = (e) => {
   if (e.target.classList.contains('folder__drawing')) {
     if (state.selectionMode) {
       if (!e.target.classList.contains('folder__drawing-new-drawing')) {
-        if (!e.target.classList.contains('folder__drawing-loading')) {
-          e.target.classList.toggle('folder__drawing-selected')
-          updateTopnavButtons()
-        }
+        e.target.classList.toggle('folder__drawing-selected')
+        updateTopnavButtons()
       }
     } else {
       openDrawing(parseInt(e.target.getAttribute('data-local-id')))
@@ -252,7 +233,6 @@ const exportButtonClick = async() => {
   urls = undefined
   popupContent.addEventListener('gesturestart', preventDefault)
 
-  Tracking.trackAction(Tracking.actions.OPEN_SHARE_POPUP)
   setSpinner(false)
   Messages.panel(popupContent, {
     // onClose: doneButtonClick,
@@ -271,11 +251,9 @@ const deleteButtonClick = async() => {
 const deleteSelectedDrawings = async() => {
   setSpinner(true)
   const currentIds = getSelectedIds()
-  const drawingIds = getSelectedDrawingIds()
   disableElements(toolsButtons)
 
   if (Coworking.isConnected()) {
-    callServerSideDrawingsDelete(drawingIds)
     await LocalDB.deleteLocalDrawings(currentIds)
   } else {
     await LocalDB.setDrawingsDeleted(currentIds)
@@ -284,11 +262,6 @@ const deleteSelectedDrawings = async() => {
   await refreshContent()
   doneButtonClick()
   setSpinner(false)
-  Tracking.trackAction(Tracking.actions.DELETE_DRAWING, {
-    deletedIds: drawingIds,
-    length: drawingIds.length,
-  })
-  Tracking.incrementProp('deletedDrawings', currentIds.length)
 }
 
 const deselectAll = () => {
@@ -304,39 +277,8 @@ const getSelectedIds = () => {
     .map(el => parseInt(el.getAttribute('data-local-id')))
 }
 
-const getSelectedDrawingIds = () => {
-  return [...refs.drawingsContainer.querySelectorAll('.folder__drawing-selected')]
-    .map(el => el.getAttribute('data-global-id'))
-}
-
-const updateDrawingsLoading = async() => {
-  const drawings = await LocalDB.getSomeDrawings(state.loadingDrawingsIds)
-  for (const drawing of drawings) {
-    const drawingDom = document.querySelector(`.folder__drawing[data-local-id="${drawing.localDbId}"]`)
-    drawingDom.classList.toggle('folder__drawing-loading', LocalDB.drawingIsLoading(drawing))
-    drawingDom.classList.toggle('folder__drawing-error', LocalDB.drawingHasError(drawing))
-    drawingDom.dataset.globalId = drawing.globalId
-  }
-  state.loadingDrawingsIds = drawings.filter(LocalDB.drawingIsLoading).map(d => d.localDbId)
-  if (state.loadingDrawingsIds.length === 0) {
-    clearInterval(state.checkDrawingsInterval)
-  }
-}
-
 export const refreshContent = async() => {
   let drawings = await LocalDB.getAllLocalDrawings()
-
-  for (const drawing of drawings) {
-    drawing.hasError = LocalDB.drawingHasError(drawing)
-    drawing.isLoading = LocalDB.drawingIsLoading(drawing)
-  }
-
-  state.loadingDrawingsIds = drawings.filter(LocalDB.drawingIsLoading).map(d => d.localDbId)
-  if (state.loadingDrawingsIds.length > 0) {
-    clearInterval(state.checkDrawingsInterval)
-    state.checkDrawingsInterval = setInterval(updateDrawingsLoading, config.updateDrawingsLoadingDelay)
-  }
-
   const scroll = refs.drawingsContainer.scrollTop
   refs.drawingsContainer.innerHTML = ''
   await loadTemplate(tplContent, { drawings }, refs.drawingsContainer)
@@ -348,7 +290,6 @@ export const refreshContent = async() => {
 const initDom = async() => {
   refs.container = await loadTemplate(tplPage, {
     labels,
-    // termsLink: config.termsAndConditionLink,
   }, Params.pagesContainer)
   refs.selectButton = refs.container.querySelector('.folder__topbar-button-select')
   refs.doneButton = refs.container.querySelector('.folder__topbar-button-done')
@@ -360,31 +301,15 @@ const initDom = async() => {
   refs.coworkingId = refs.coworkingPopup.querySelector('.folder__coworking-popup-id')
   refs.copyCoworkingUrlButton = refs.coworkingPopup.querySelector('.folder__coworking-popup-copy')
   refs.copiedCoworkingLabel = refs.coworkingPopup.querySelector('.folder__coworking-popup-copied')
-  // refs.sendButton = refs.container.querySelector('.folder__topbar-button-send')
-  // refs.sendPopup = refs.container.querySelector('.folder__send-popup')
-  // refs.sendPopupCheckbox = refs.sendPopup.querySelector('input')
-  // refs.confirmSendPopupButton = refs.sendPopup.querySelector('button')
-
-  // refs.sendPopup.remove()
-  refs.coworkingPopup.remove()
-
   refs.topnav.addEventListener(Params.eventStart, onTopnavTouchStart, true)
   refs.coworkingId.addEventListener(Params.eventStart, shareCoworkingUrl)
   refs.copyCoworkingUrlButton.addEventListener(Params.eventStart, shareCoworkingUrl)
   refs.coworkingPopup.querySelector('.folder__coworking-copy-icon').addEventListener(Params.eventStart, shareCoworkingUrl)
   refs.coworkingPopup.addEventListener(Params.eventStart, preventDefault)
-  // refs.confirmSendPopupButton.addEventListener(Params.eventStart, sendSelectedDrawings)
-  // refs.sendPopupCheckbox.addEventListener('change', sendCheckboxChange)
-  // refs.sendPopup.addEventListener(Params.eventStart, (e) => {
-  //   if (e.target.tagName.toLowerCase() !== 'a' && e.target.tagName.toLowerCase() !== 'input') {
-  //     e.preventDefault()
-  //   }
-  // })
-  // refs.sendPopup.querySelector('span').addEventListener(Params.eventStart, sendCheckboxChange)
   refs.container.querySelector('.folder__drawing-new-drawing').addEventListener(Params.eventStart, createNewDrawing)
   refs.container.querySelector('.folder__drawing-new-coworking').addEventListener(Params.eventStart, openCoworkingPopup)
   refs.container.querySelector('.folder__new-container').addEventListener(Params.eventStart, preventDefault)
-
+  refs.coworkingPopup.remove()
   addListScrollClickAndPressHandlers(refs.drawingsContainer, onDrawingClick, onDrawingLongPress)
   addSpinnerOverlayTo(refs.container.querySelector('.folder__drawing-new-coworking'), onCoworkingSpinnerClick)
   toolsButtons.push(refs.exportButton, refs.deleteButton /*, refs.sendButton */)
@@ -403,7 +328,6 @@ export const open = async() => {
 export const close = async() => {
   await fadeOutElements(refs.container)
   removeGlobalStatus('drawith__FOLDER-OPEN')
-  clearInterval(state.checkDrawingsInterval)
   closeCoworkingPopup()
   toolsButtons = []
   state = {}

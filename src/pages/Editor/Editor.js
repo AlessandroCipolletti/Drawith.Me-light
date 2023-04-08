@@ -3,7 +3,6 @@ import './editor.css'
 
 import { debounce } from 'debounce'
 import Params from 'main/Params'
-import * as Tracking from 'modules/Tracking'
 import * as Coworking from 'modules/Coworking'
 import * as Debug from 'modules/Debug'
 import * as Messages from 'modules/Messages'
@@ -349,9 +348,6 @@ export const hidePipetteCursor = async() => {
 
 const closePipetteCursor = async() => {
   if (state.pipette.currentColor) {
-    Tracking.trackAction(Tracking.actions.PICK_PIPETTE_COLOR, {
-      color: state.pipette.currentColor,
-    })
     ColorPicker.addPaletteColor(state.pipette.currentColor, false)
     ColorPicker.confirmLastAddedColorIfNeeded()
   }
@@ -392,7 +388,6 @@ export const saveAndGoToFolder = async() => {
         await saveDrawToDB(currentDraw, false, Coworking.isConnected(), state.withCoworking)
       }
     }
-    Tracking.trackAction(Tracking.actions.CLOSE_DRAWING)
     goToPage('folder/open/true')
   }
 }
@@ -415,7 +410,6 @@ export const saveCopy = async() => {
         Messages.info(labels.copySaved, config.draftInfoDuration)
         state.drawnStepsSinceCopy = 0
         Toolbar.disableSaveCopy()
-        Tracking.trackAction(Tracking.actions.SAVE_DRAWING_COPY)
       } else {
         Messages.error(labels.draftError)
         state.canMakeACopy = true
@@ -820,7 +814,6 @@ const updateCurrentTouchType = (touchEvent) =>  {
   state.currentTouch.type = (touchEvent.touchType === TOUCH_TYPE_STYLUS) ? TOUCH_TYPE_STYLUS : TOUCH_TYPE_FINGER
   if (!state.currentDeviceHasStylus && state.currentTouch.type === TOUCH_TYPE_STYLUS) { // first touch event with pencil
     state.currentDeviceHasStylus = true
-    Tracking.trackAction(Tracking.actions.HAS_STYLUS_INPUT)
   }
 }
 

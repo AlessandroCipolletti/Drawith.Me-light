@@ -3,12 +3,11 @@ import './main.css'
 import { debounce } from 'debounce'
 
 import Params from 'main/Params'
-import * as Tracking from 'modules/Tracking'
 import { init as initMessages } from 'modules/Messages'
 import initDomUtils, { loadTemplate, preventDefault, setSpinner, preventMoveDefaultIfNeeded } from 'utils/domUtils'
 import { init as initHeader, menuButtonAnimations } from 'components/Header'
 import { initLocalDb } from 'utils/localDbUtils'
-import { openPageNotSupported, isSupportedOs, openPageFolder, openPageAboutUs, openPageTermsOfService, openPagePrivacyPolicy } from 'modules/Router'
+import { openPageNotSupported, isSupportedOs, openPageFolder, openPageAboutUs } from 'modules/Router'
 import { round } from 'utils/mathUtils'
 import { delay, securizeAsyncFn } from 'utils/jsUtils'
 import { cleanEventsForNextRefresh } from 'utils/moduleUtils'
@@ -35,8 +34,6 @@ const refs = {
 const labels = {
   folderPageLabel: 'My drawings',
   aboutUs: 'About Drawith.Me',
-  terms: 'Terms of Service',
-  privacy: 'Privacy Policy',
   genericError: 'Generic Error',
 }
 
@@ -230,24 +227,6 @@ const openFolder = (e) => {
   openPageFolder()
 }
 
-const openTiktok = (e) => {
-  Tracking.trackAction(Tracking.actions.OPEN_TIKTOK)
-  // closeMainMenu()
-  // return true
-}
-
-const openTermsOfService = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  openPageTermsOfService()
-}
-
-const openPrivacy = (e) => {
-  preventDefault(e)
-  closeMainMenu()
-  openPagePrivacyPolicy()
-}
-
 const openAboutUs = (e) => {
   preventDefault(e)
   closeMainMenu()
@@ -262,11 +241,8 @@ const initDom = async() => {
   refs.pagesContainer = refs.mainContainer.querySelector('.drawith__pages-container')
   refs.mainContainer.querySelector('.drawith__menu-pages-placeholder').addEventListener(Params.eventStart, preventDefault)
   refs.mainContainer.querySelector('.drawith__menu-item-folder').addEventListener(Params.eventStart, openFolder)
-  refs.mainContainer.querySelector('.drawith__menu-item-terms').addEventListener(Params.eventStart, openTermsOfService)
-  refs.mainContainer.querySelector('.drawith__menu-item-privacy').addEventListener(Params.eventStart, openPrivacy)
   refs.mainContainer.querySelector('.drawith__menu-item-about').addEventListener(Params.eventStart, openAboutUs)
   refs.mainContainer.querySelector('.drawith__menu-pages-clear').addEventListener(Params.eventStart, preventDefault)
-  refs.mainContainer.querySelector('.drawith__menu-icon-tiktok').addEventListener(Params.eventStart, openTiktok)
 
   if (Params.ipad) {
     refs.pagesContainer.addEventListener(Params.eventStart, (e) => {
@@ -285,7 +261,6 @@ const init = securizeAsyncFn(async(props = {}) => {
   cleanEventsForNextRefresh()
   initPolyfills()
   Params.init(AppState)
-  Tracking.init()
   await initViewportTryPixelPerfect()
   initTheme()
   await initDom()

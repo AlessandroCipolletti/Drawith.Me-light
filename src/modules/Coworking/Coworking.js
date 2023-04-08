@@ -115,7 +115,7 @@ const onReceiveCoworkinSteps = (data) => {
 }
 
 export const updateClientEnvironment = () => {
-  if (isConnected() && isLogged()) {
+  if (isConnected()) {
     const [canvasWidth, canvasHeight] = getCanvasPxSizes(true)
     socket.emit(editorEvents.clientEnvironment, {
       codeVersion: Params.appVersion,

@@ -1,6 +1,5 @@
-import { osVersion, isAndroid, isWearable, isSmartTV, fullBrowserVersion, browserVersion, isIOS, isIE, isChrome, isConsole, isWinPhone, isOpera, isTablet, browserName, mobileModel } from 'mobile-device-detect'
+import { osVersion, isAndroid, isWearable, isSmartTV, browserVersion, isIOS, isIE, isConsole, isWinPhone, isOpera, browserName } from 'mobile-device-detect'
 
-import Params from 'main/Params'
 import { config as supportedVersions } from 'pages/NotSupported/config'
 import * as Folder from 'pages/Folder'
 // import * as Dashboard from 'pages/Dashboard'
@@ -8,9 +7,7 @@ import * as Editor from 'pages/Editor'
 import * as VerifyEmail from 'pages/VerifyEmail'
 import * as Info from 'pages/Info'
 import * as NotSupported from 'pages/NotSupported'
-import * as NotConnected from 'pages/NotConnected'
 import * as Coworking from 'modules/Coworking'
-import * as Tracking from 'modules/Tracking'
 import { testDeviceSupported } from 'utils/jsUtils'
 
 const ROUTES = {
@@ -21,13 +18,11 @@ const ROUTES = {
   'notsupported': NotSupported,
   'verifyemail': VerifyEmail,
   'info': Info,
-  'offline': NotConnected,
 }
 
 const config = {
   defaultPage: 'folder',
   urlRedirectToVerifyEmail: 'verifyemail',
-  urlOffline: 'offline',
 }
 const state = {
   currentPage: '',
@@ -38,24 +33,6 @@ export const getCurrentPage = () => state.currentPage
 
 export const openPageNotSupported = () => {
   goToPage('/notsupported', false)
-  Tracking.trackAction(Tracking.actions.NOT_SUPPORTED_DEVICE, {
-    isIos: isIOS,
-    isAndroid,
-    isIE,
-    isSmartTV,
-    isWearable,
-    isConsole,
-    isChrome,
-    isWinPhone,
-    isOpera,
-    isTablet,
-    browserName,
-    fullBrowserVersion,
-    browserVersion,
-    osName: Params.osName,
-    osVersion,
-    mobileModel,
-  }, true)
 }
 
 export const openPageEditor = (track = true) => {
@@ -66,37 +43,12 @@ export const openPageFolder = (track = true) => {
   goToPage('/folder', track)
 }
 
-export const openPageNotConnected = () => {
-  goToPage(`/${config.urlOffline}`, false)
-}
-
 export const openPageVerifyEmail = (track = true) => {
   goToPage(`/${config.urlRedirectToVerifyEmail}`)
 }
 
 export const openPageAboutUs = (track = true) => {
   goToPage('/info/aboutUs', track)
-}
-
-export const openPageTermsOfService = (track = true) => {
-  if (track) {
-    Tracking.trackAction(Tracking.actions.OPEN_PAGE_INFO_TERMS)
-  }
-  window.open(Params.termsOfServiceUrl, '_blank')
-}
-
-export const openPagePrivacyPolicy = (track = true) => {
-  if (track) {
-    Tracking.trackAction(Tracking.actions.OPEN_PAGE_INFO_POLICY)
-  }
-  window.open(Params.privacyPolicyUrl, '_blank')
-}
-
-export const openPageCookiePolicy = (track = true) => {
-  if (track) {
-    Tracking.trackAction(Tracking.actions.OPEN_PAGE_INFO_COOKIE)
-  }
-  window.open(Params.cookiePolicyUrl, '_blank')
 }
 
 const decryptInitialPathUrl = (path) => {
@@ -173,19 +125,16 @@ export const goToPage = async(path, track = true, force = false) => {
   }
 
   let methodPath = ''
-  let action = `OPEN_PAGE_${page.toUpperCase()}`
   // 3. if there is a method in the url, now we can call it
   if (method && method !== 'open' && module[method]) {
     module[method](...params)
     methodPath = `/${method}`
-    action = `${action}_${method.toUpperCase()}`
   }
 
   // 4. track page visit
   if (track && (pageChanged || method)) {
     if (state.currentPath !== path) {
       console.log('goToPage: ', { page, method, params, path })
-      Tracking.trackAction(Tracking.actions[action])
     }
   }
 

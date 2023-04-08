@@ -78,14 +78,12 @@
 }
 
 .folder__topbar-button-delete,
-.folder__topbar-button-export,
-.folder__topbar-button-send {
+.folder__topbar-button-export {
   display: none;
   float: left;
 }
 .drawith__FOLDER-SELECT-MODE .folder__topbar-button-delete,
-.drawith__FOLDER-SELECT-MODE .folder__topbar-button-export,
-.drawith__FOLDER-SELECT-MODE .folder__topbar-button-send {
+.drawith__FOLDER-SELECT-MODE .folder__topbar-button-export {
   display: block;
 }
 
@@ -154,9 +152,8 @@ body:not(.drawith__SOCKET_CONNECTED) .folder__drawing-new-coworking .drawith__ov
 }
 
 
-/* COWORKING POPUP | SEND DRAWINGS POPUP*/
-.folder__coworking-popup,
-.folder__send-popup {
+/* COWORKING POPUP */
+.folder__coworking-popup {
   text-align: center;
   padding: 8% 10%;
   width: 65rem;

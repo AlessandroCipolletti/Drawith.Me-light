@@ -1,11 +1,9 @@
 const tplColorPicker = require('./colorPicker.tpl')
 import './colorPicker.css'
 
-import { debounce } from 'debounce'
 import Params from 'main/Params'
 import * as Tools from 'pages/Editor/components/Tools'
 import * as Layers from 'pages/Editor/components/Layers'
-import * as Tracking from 'modules/Tracking'
 import { preventDefault, preventDefaultTouchOnEls, loadTemplate, createDom } from 'utils/domUtils'
 import { applyBrightnessToHex, getHexBrightness, getSuggestedColors, getRandomHexColor } from 'utils/colorsUtils'
 import { cleanRefs } from 'utils/moduleUtils'
@@ -157,33 +155,20 @@ const onSuggestedColorsTouchStart = (e) => {
   if (e.target.classList.contains('editor-colorpicker__color')) {
     const colorHex = e.target.getAttribute('data-hex')
     addPaletteColor(colorHex)
-    Tracking.trackAction(Tracking.actions.SELECT_SUGGESTED_COLOR, {
-      color: colorHex,
-    })
   }
 }
 
-const trackColorBrightnessChanges = debounce((color, brightness, finalHex) => {
-  Tracking.trackAction(Tracking.actions.CHANGE_COLOR_BRIGHTNESS, {
-    color,
-    brightness,
-    finalHex,
-  })
-}, 5000)
-
 const updateColorBrightness = (brightness) => {
-  let initialHex, finalHex
+  let finalHex
   openParams()
   state.colors = state.colors.map(c => {
     if (c.id === state.selectedColorId) {
       finalHex = applyBrightnessToHex(c.initialHex, brightness)
-      initialHex = c.initialHex
       c.brightness = brightness
       c.finalHex = finalHex
     }
     return c
   })
-  trackColorBrightnessChanges(initialHex, brightness, finalHex)
   updateSuggestedColorByHex(finalHex)
   refs.brightnessCursor.style.left = `${brightness}%`
   refs.brightnessLabel.innerHTML = `${brightness}`
@@ -203,9 +188,6 @@ const removeLastAddedColorIfNeeded = () => {
 const confirmLastRandomColor = () => {
   if (state.currentRandomColor && state.currentRandomColor !== state.colors[0]?.initialHex) {
     addPaletteColor(state.currentRandomColor)
-    Tracking.trackAction(Tracking.actions.CONFIRM_RANDOM_COLOR, {
-      color: state.currentRandomColor,
-    })
   }
 }
 
@@ -256,7 +238,7 @@ const selectColor = (idColor, autoDeselect = true, showParams = true) => {
   setToolColor(getFinalColorById(idColor), false)
 }
 
-const selectRandom = (autoDeselect = true, track = true) => {
+const selectRandom = (autoDeselect = true) => {
   if (autoDeselect) {
     deselectAll()
   }
@@ -264,9 +246,6 @@ const selectRandom = (autoDeselect = true, track = true) => {
   state.selectedColorId = 'random'
   state.lastSelectedColorId = 'random'
   refs.randomButtom.classList.add('editor-colorpicker__random-selected')
-  if (track) {
-    Tracking.trackAction(Tracking.actions.SELECT_RANDOM)
-  }
   setToolColor(false, true)
 }
 
@@ -278,7 +257,6 @@ const selectPipette = (autoDeselect = true) => {
     state.selectedColorId = 'pipette'
     Tools.clickButton('pipette')
     refs.pipetteButtom.classList.add('editor-colorpicker__pipette-selected')
-    Tracking.trackAction(Tracking.actions.SELECT_PIPETTE)
   }
 }
 
@@ -291,7 +269,7 @@ export const deselectPipette = (selectLastUsedTool = true, showToolChange = fals
     }
     if (selectLastUsedColor) {
       if (state.lastSelectedColorId === 'random') {
-        selectRandom(false, false)
+        selectRandom(false)
       } else {
         selectColor(state.lastSelectedColorId, false)
       }
@@ -316,7 +294,6 @@ const startDragColor = (e, colorDom) => {
   closeParams()
   preventDefault(e)
   handleElementsListDragAndDrop(e, refs.colorsContainer, colorDom, onDragChange, 'horizontal')
-  Tracking.trackAction(Tracking.actions.DRAG_COLOR)
 }
 
 const onListClick = (e) => {
@@ -326,9 +303,6 @@ const onListClick = (e) => {
       toggleParams()
     } else {
       const idColor = parseInt(e.target.getAttribute('data-id'))
-      Tracking.trackAction(Tracking.actions.SELECT_COLOR, {
-        color: getFinalColorById(idColor),
-      })
       selectColor(idColor)
     }
   }
@@ -363,28 +337,20 @@ const onPipetteTouchStart = (e) => {
   }
 }
 
-const trackInputChange = debounce((color) => {
-  Tracking.trackAction(Tracking.actions.PICK_COLORPICKER_COLOR, { color })
-}, 5000)
-
 const onInputChange = (e) => {
-  trackInputChange(e.target.value)
   addPaletteColor(e.target.value)
 }
 
 const deleteSelectedColor = (e) => {
   preventDefault(e)
   if (Number.isInteger(state.selectedColorId)) {
-    Tracking.trackAction(Tracking.actions.DELETE_COLOR, {
-      color: getFinalColorById(state.selectedColorId),
-    })
     closeParams()
     removeOutElement(refs.colorsContainer.querySelector(`div[data-id="${state.selectedColorId}"]`))
     state.colors = state.colors.filter(c => c.id !== state.selectedColorId)
     if (state.lastAddedColorId === state.selectedColorId) {
       state.lastAddedColorId = false
     }
-    selectRandom(true, false)
+    selectRandom(true)
   }
 }
 
@@ -441,7 +407,7 @@ export const init = async(container, drawingColors = [], selectedColorId = -1) =
   if (selectedColorId >= 0 && colors.find(c => c.id === selectedColorId)) {
     selectColor(selectedColorId, true, false)
   } else {
-    selectRandom(true, false)
+    selectRandom(true)
   }
   refs.colorsContainer.scrollLeft = 0
 }

@@ -2,7 +2,6 @@ const tplTools = require('./tools.tpl')
 import './tools.css'
 
 import Params from 'main/Params'
-import * as Tracking from 'modules/Tracking'
 import * as Editor from 'pages/Editor'
 import * as Ruler from 'pages/Editor/components/Ruler'
 import * as Layers from 'pages/Editor/components/Layers'
@@ -203,14 +202,14 @@ export const selectTool = (tool, versionIndex = false, track = true, showToolCha
   }
   versionIndex = versionIndex !== false ? versionIndex : parseInt(state.selectedVersions[tool])
 
-  setEditorToolByVersion(tool, versionIndex, track)
+  setEditorToolByVersion(tool, versionIndex)
   closeVersions()
   if (showToolChange) {
     toggleVersions(tool)
   }
 }
 
-const setEditorToolByVersion = (tool, versionIndex, track = true) => {
+const setEditorToolByVersion = (tool, versionIndex) => {
   const toolProps = getOneToolVersionCompleteProps(tool, versionIndex)
   state.selectedTool = tool
 
@@ -229,13 +228,6 @@ const setEditorToolByVersion = (tool, versionIndex, track = true) => {
     refs.toolsVersions[tool].querySelector(`.editor-tools__versions-button[data-versionsIndex="${versionIndex}"]`).classList.add('editor-tools__versions-button-selected')
     state.selectedVersions[tool] = versionIndex
     toolProps.version = versionIndex
-  }
-
-  if (track) {
-    Tracking.trackAction(Tracking.actions.TOOL_CHANGE, {
-      tool,
-      version: toolProps.versionName,
-    })
   }
 
   ColorPicker.deselectPipette(false)
@@ -271,7 +263,7 @@ export const setCurrentToolCustomProps = (customProps) => {
     }
   }
 
-  setEditorToolByVersion(state.selectedTool, versionIndex, false)
+  setEditorToolByVersion(state.selectedTool, versionIndex)
 }
 
 export const getCurrentToolCustomProps = () => {

@@ -186,7 +186,6 @@ iframe {
   height: var(--header-height);
 }
 
-.drawith__menu-login:hover,
 .drawith__menu-item:hover {
   /* background: rgba(0, 0, 0, 0.075); */
 }
@@ -385,14 +384,6 @@ iframe {
   mask-image: url("../static/icons/svg/copy.svg");
   -webkit-mask-image: url("../static/icons/svg/copy.svg");
 }
-.svg-icon-login {
-  mask-image: url("../static/icons/svg/login.svg");
-  -webkit-mask-image: url("../static/icons/svg/login.svg");
-}
-.svg-icon-logout {
-  mask-image: url("../static/icons/svg/logout.svg");
-  -webkit-mask-image: url("../static/icons/svg/logout.svg");
-}
 .svg-icon-edit {
   mask-image: url("../static/icons/svg/edit.svg");
   -webkit-mask-image: url("../static/icons/svg/edit.svg");
@@ -509,10 +500,6 @@ iframe {
   mask-image: url("../static/icons/svg/flip-v.svg");
   -webkit-mask-image: url("../static/icons/svg/flip-v.svg");
 }
-/* .svg-icon-send-drawings {
-  mask-image: url("../static/icons/svg/send-drawings.svg");
-  -webkit-mask-image: url("../static/icons/svg/send-drawings.svg");
-} */
 .svg-icon-drawing {
   mask-image: url("../static/icons/svg/drawing.svg");
   -webkit-mask-image: url("../static/icons/svg/drawing.svg");
@@ -528,14 +515,6 @@ iframe {
 .svg-icon-mail {
   mask-image: url("../static/icons/svg/mail.svg");
   -webkit-mask-image: url("../static/icons/svg/mail.svg");
-}
-.svg-icon-tiktok {
-  mask-image: url("../static/icons/svg/tiktok.svg");
-  -webkit-mask-image: url("../static/icons/svg/tiktok.svg");
-}
-.svg-icon-privacy {
-  mask-image: url("../static/icons/svg/privacy.svg");
-  -webkit-mask-image: url("../static/icons/svg/privacy.svg");
 }
 .svg-icon-tos {
   mask-image: url("../static/icons/svg/tos.svg");

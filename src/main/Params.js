@@ -64,9 +64,7 @@ Params.init = (appState) => {
   Params.isHighPerformanceDesktop = Params.isDesktop && (Params.isLocal || (browserName === 'Chrome' && navigator.hardwareConcurrency >= 8))
   Params.deviceHasGoodPerformance = Params.isHighPerformanceTablet || Params.isHighPerformanceDesktop
 
-  Params.tiktokUrl = 'https://www.tiktok.com/@drawith.me_'
-
-  // Aws server config
+  // server config
   if (Params.isLocal) {
     // ~ /Workspace  ./ngrok http https://localhost:3000
     Params.socketUrl = 'https://dc41-109-136-172-74.ngrok.io'
@@ -75,7 +73,6 @@ Params.init = (appState) => {
     // Params.socketUrl = `${origin}:3000`
     // Params.apisUrl = `${origin}:3000`
   } else if (Params.isDevEnv) { // env dev online
-    // 'http://drawithmebackenddev-env.eba-as3f3kba.eu-central-1.elasticbeanstalk.com'
     Params.socketUrl = 'https://server-dev.drawith.me'
     Params.apisUrl = 'https://server-dev.drawith.me'
   } else { // prod

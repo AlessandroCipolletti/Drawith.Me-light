@@ -2,11 +2,7 @@
   <div class="drawith__menu-container">
 
     <div class="drawith__menu-header">
-      <div class="drawith__menu-icons">
-        <a href="{{tiktokUrl}}" target="_blank">
-          <div class="drawith__menu-icon-tiktok svg-icon-tiktok svg-icon-light"></div>
-        </a>
-      </div>
+      <div class="drawith__menu-icons"></div>
     </div>
 
     <div class="drawith__menu-pages">
@@ -22,15 +18,6 @@
       </div>
 
       <div class="drawith__menu-pages-clear"></div>
-
-      <div class="drawith__menu-item drawith__menu-item-terms">
-        <div class="drawith__menu-item-icon svg-icon-tos svg-icon-light"></div>
-        <span>{{labels.terms}}</span>
-      </div>
-      <div class="drawith__menu-item drawith__menu-item-privacy">
-        <div class="drawith__menu-item-icon svg-icon-privacy svg-icon-light"></div>
-        <span>{{labels.privacy}}</span>
-      </div>
 
     </div>
 

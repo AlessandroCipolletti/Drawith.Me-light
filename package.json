@@ -2,9 +2,6 @@
   "name": "drawith.me-vanillajs",
   "version": "1.0.0",
   "description": "",
-  "alias": {
-    "@auth0/auth0-spa-js": "./node_modules/@auth0/auth0-spa-js/dist/lib/auth0-spa-js.cjs.js"
-  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint -c .eslintrc.json src",
@@ -25,11 +22,6 @@
   },
   "homepage": "https://github.com/AlessandroCipolletti/Drawith.Me#readme",
   "dependencies": {
-    "@auth0/auth0-spa-js": "^2.0.4",
-    "@aws-sdk/client-cognito-identity": "^3.45.0",
-    "@aws-sdk/client-s3": "^3.45.0",
-    "@aws-sdk/credential-provider-cognito-identity": "^3.45.0",
-    "mixpanel-browser": "^2.41.0",
     "@babel/runtime": "^7.21.0",
     "d3-ease": "^3.0.1",
     "debounce": "^1.2.1",
