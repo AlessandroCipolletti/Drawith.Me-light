@@ -21,7 +21,7 @@ export const initLocalDb = securizeAsyncFn(async() => {
   LocalDatabase = new Dexie(Params.localDbName)
 
   LocalDatabase.version(1).stores({
-    Drawings: '++localDbId, globalId, folderId, title, state, wasSavedAsDraft, gpsCoordinates, createTimestamp, updateTimestamp, createdAt, updatedAt, localPathSmall, localPathBig, minX, minY, maxX, maxY, width, height, canvasWidth, canvasHeight, mainColor, dashboardCoordinates, selectedTool, selectedColorId, colors, layers, appVersions, toolsCustomProps',
+    Drawings: '++localDbId, folderId, title, state, wasSavedAsDraft, gpsCoordinates, createTimestamp, updateTimestamp, createdAt, updatedAt, localPathSmall, localPathBig, minX, minY, maxX, maxY, width, height, canvasWidth, canvasHeight, mainColor, dashboardCoordinates, selectedTool, selectedColorId, colors, layers, appVersions, toolsCustomProps',
   })
 
   return true
@@ -42,9 +42,6 @@ export const cleanCoworkerWaitingId = securizeAsyncFn(async() => await LocalData
 export const emptyDrawingsData = securizeAsyncFn(async() => await LocalDatabase.Drawings.clear(), DEFAULT_LOCAL_DB_ERROR_MSG, 'emptyDrawingsData')
 
 export const deleteLocalDrawings = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('localDbId').anyOf(ids).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteLocalDrawings')
-export const deleteLocalDrawingsByGlobalIds = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('globalId').anyOf(ids).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteLocalDrawingsByGlobalIds')
-
-export const deleteDrawingDraft = securizeAsyncFn(async(id) => await LocalDatabase.Drawings.where('localDbId').equals(id).filter(d => d.wasSavedAsDraft).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteDrawingDraft')
 
 export const getAllLocalDrawings = securizeAsyncFn(async() => (await LocalDatabase.Drawings.orderBy('updateTimestamp').reverse().toArray()), DEFAULT_LOCAL_DB_ERROR_MSG, 'getAllLocalDrawings')
 
@@ -53,8 +50,6 @@ export const getDrawingsCount = securizeAsyncFn(async() => await LocalDatabase.D
 export const getOneDrawing = securizeAsyncFn(async(localDbId) => ((await LocalDatabase.Drawings.where('localDbId').equals(localDbId).toArray())[0]), DEFAULT_LOCAL_DB_ERROR_MSG, 'getOneDrawing')
 
 export const getSomeDrawings = securizeAsyncFn(async(ids = []) => await Promise.all(ids.map(id => getOneDrawing(id))), DEFAULT_LOCAL_DB_ERROR_MSG, 'getSomeDrawings')
-
-export const setDrawingsDeleted = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('localDbId').anyOf(ids).modify({ deleted: true }), DEFAULT_LOCAL_DB_ERROR_MSG, 'setDrawingsDeleted')
 
 export const updateLocalDrawing = securizeAsyncFn(async(localDbId, drawing) => await LocalDatabase.Drawings.where('localDbId').equals(localDbId).modify(drawing), DEFAULT_LOCAL_DB_ERROR_MSG, 'updateLocalDrawing')
 
@@ -66,7 +61,6 @@ const updateDrawing = securizeAsyncFn(async(drawing, wasSavedAsDraft, madeByCoro
   if (!appVersions.includes(Params.appVersion)) {
     appVersions.push(Params.appVersion)
   }
-  drawing.globalId = oldDrawing.globalId
   drawing.createTimestamp = oldDrawing.createTimestamp
   drawing.appVersions = appVersions
   drawing.state = (wasSavedAsDraft ? DRAWING_STATE_DRAFT_SAVED_LOCALLY : DRAWING_STATE_SAVED_LOCALLY)

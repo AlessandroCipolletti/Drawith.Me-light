@@ -236,7 +236,6 @@ const openAboutUs = (e) => {
 const initDom = async() => {
   refs.mainContainer = await loadTemplate(tplApp, {
     labels,
-    tiktokUrl: Params.tiktokUrl,
   })
   refs.pagesContainer = refs.mainContainer.querySelector('.drawith__pages-container')
   refs.mainContainer.querySelector('.drawith__menu-pages-placeholder').addEventListener(Params.eventStart, preventDefault)

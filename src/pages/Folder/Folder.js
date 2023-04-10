@@ -245,13 +245,7 @@ const deleteSelectedDrawings = async() => {
   setSpinner(true)
   const currentIds = getSelectedIds()
   disableElements(toolsButtons)
-
-  if (Coworking.isConnected()) {
-    await LocalDB.deleteLocalDrawings(currentIds)
-  } else {
-    await LocalDB.setDrawingsDeleted(currentIds)
-  }
-
+  await LocalDB.deleteLocalDrawings(currentIds)
   await refreshContent()
   doneButtonClick()
   setSpinner(false)

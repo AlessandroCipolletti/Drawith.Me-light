@@ -27,11 +27,12 @@
   display: none;
 }
 
-/*
-.drawith__FOLDER-SELECT-MODE .folder__drawing-selected {
-  filter: opacity(60%);
+.drawith__FOLDER-SELECT-MODE .folder__drawing:not(.folder__drawing-selected) {
+  filter: opacity(70%);
 }
-*/
+.drawith__FOLDER-SELECT-MODE .folder__drawing-select-icon {
+  display: block;
+}
 .drawith__FOLDER-SELECT-MODE .folder__drawing-selected .folder__drawing-select-icon {
   background-color: rgb(25, 110, 225);
   background-image: url('../../../static/icons/png/select.png');
