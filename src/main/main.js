@@ -7,7 +7,7 @@ import { init as initMessages } from 'modules/Messages'
 import initDomUtils, { loadTemplate, preventDefault, setSpinner, preventMoveDefaultIfNeeded } from 'utils/domUtils'
 import { init as initHeader, menuButtonAnimations } from 'components/Header'
 import { initLocalDb } from 'utils/localDbUtils'
-import { openPageNotSupported, isSupportedOs, openPageFolder, openPageAboutUs } from 'modules/Router'
+import { openPageNotSupported, isSupportedOs, openPageFolder, openPageAboutUs, openCurrentUrlPage } from 'modules/Router'
 import { round } from 'utils/mathUtils'
 import { delay, securizeAsyncFn } from 'utils/jsUtils'
 import { cleanEventsForNextRefresh } from 'utils/moduleUtils'
@@ -236,7 +236,6 @@ const openAboutUs = (e) => {
 const initDom = async() => {
   refs.mainContainer = await loadTemplate(tplApp, {
     labels,
-    tiktokUrl: Params.tiktokUrl,
   })
   refs.pagesContainer = refs.mainContainer.querySelector('.drawith__pages-container')
   refs.mainContainer.querySelector('.drawith__menu-pages-placeholder').addEventListener(Params.eventStart, preventDefault)
@@ -274,6 +273,7 @@ const init = securizeAsyncFn(async(props = {}) => {
     if (dbInit) {
       initDomUtils()
       addEnviromentGlobalStatus()
+      openCurrentUrlPage()
     } else {
       openPageNotSupported()
     }
