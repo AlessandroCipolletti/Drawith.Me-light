@@ -8,28 +8,6 @@
   margin: 2rem 0rem;
   cursor: pointer;
 }
-/* .folder__drawing-draft-icon {
-  position: relative;
-  display: inline-block;
-  top: 0rem;
-  left: 0rem;
-  width: 4rem;
-  height: 4rem;
-  border-radius: 0.75rem 0rem;
-  border-right: solid 0.1rem rgb(220, 220, 220);
-  border-bottom: solid 0.1rem rgb(220, 220, 220);
-  background-color: rgba(245, 245, 245, 1);
-  background-size: 70%;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-image: url('../../../static/icons/png/draft.png');
-} */
-.folder__drawing .spinner {
-  display: inline-block;
-  margin: 0.5rem;
-  width: 2rem;
-  height: 2rem;
-}
 
 .folder__drawing-select-icon {
   float: right;
@@ -49,9 +27,11 @@
   display: none;
 }
 
+/*
 .drawith__FOLDER-SELECT-MODE .folder__drawing-selected {
-  /*filter: opacity(60%);*/
+  filter: opacity(60%);
 }
+*/
 .drawith__FOLDER-SELECT-MODE .folder__drawing-selected .folder__drawing-select-icon {
   background-color: rgb(25, 110, 225);
   background-image: url('../../../static/icons/png/select.png');

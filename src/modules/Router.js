@@ -4,7 +4,6 @@ import { config as supportedVersions } from 'pages/NotSupported/config'
 import * as Folder from 'pages/Folder'
 // import * as Dashboard from 'pages/Dashboard'
 import * as Editor from 'pages/Editor'
-import * as VerifyEmail from 'pages/VerifyEmail'
 import * as Info from 'pages/Info'
 import * as NotSupported from 'pages/NotSupported'
 import * as Coworking from 'modules/Coworking'
@@ -16,13 +15,11 @@ const ROUTES = {
   // 'dashboard': Dashboard,
   'coworking': Coworking,
   'notsupported': NotSupported,
-  'verifyemail': VerifyEmail,
   'info': Info,
 }
 
 const config = {
   defaultPage: 'folder',
-  urlRedirectToVerifyEmail: 'verifyemail',
 }
 const state = {
   currentPage: '',
@@ -32,23 +29,19 @@ const state = {
 export const getCurrentPage = () => state.currentPage
 
 export const openPageNotSupported = () => {
-  goToPage('/notsupported', false)
+  goToPage('/notsupported')
 }
 
-export const openPageEditor = (track = true) => {
-  goToPage('/editor', track)
+export const openPageEditor = () => {
+  goToPage('/editor')
 }
 
-export const openPageFolder = (track = true) => {
-  goToPage('/folder', track)
+export const openPageFolder = () => {
+  goToPage('/folder')
 }
 
-export const openPageVerifyEmail = (track = true) => {
-  goToPage(`/${config.urlRedirectToVerifyEmail}`)
-}
-
-export const openPageAboutUs = (track = true) => {
-  goToPage('/info/aboutUs', track)
+export const openPageAboutUs = () => {
+  goToPage('/info/aboutUs')
 }
 
 const decryptInitialPathUrl = (path) => {
@@ -86,7 +79,7 @@ export const isSupportedOs = async() => {
   )
 }
 
-export const goToPage = async(path, track = true, force = false) => {
+export const goToPage = async(path, force = false) => {
   let [page, method, ...params] = path.split('/').filter(e => e !== '')
   page = page || config.defaultPage
   page = page.toLowerCase()
@@ -107,11 +100,8 @@ export const goToPage = async(path, track = true, force = false) => {
     }
   })
 
-  let pageChanged = false
-
   if (state.currentPage !== page || force) {
     // 1. if there is a page change, and we had already a page opened, we close it
-    pageChanged = true
     if (state.currentPage && ROUTES[state.currentPage].close) {
       await ROUTES[state.currentPage].close()
     }
@@ -131,13 +121,7 @@ export const goToPage = async(path, track = true, force = false) => {
     methodPath = `/${method}`
   }
 
-  // 4. track page visit
-  if (track && (pageChanged || method)) {
-    if (state.currentPath !== path) {
-      console.log('goToPage: ', { page, method, params, path })
-    }
-  }
-
+  console.log('goToPage: ', { page, method, params, path })
   history.pushState({}, '', `/${page}${methodPath}${document.location.search}`)
 
   state.currentPage = page

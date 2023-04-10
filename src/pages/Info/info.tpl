@@ -12,11 +12,8 @@
         <div class="drawith__aboutus-draw"></div>
         <span class="drawith__aboutus-version">{{labels.version}}: {{version}}</span>
         <p class="drawith__aboutus-info">
-          Drawith.me Srl<br>
-          Rue de venise 12, Ixelles 1050, Bruxelles, Belgique<br>
-          <a href="mailto:info@drawith.me">info@drawith.me</a><br>
           {{labels.createdBy}}<br>
-          Alessandro Cipolletti<br>
+          <a href="mailto:cipolletti.alessandro@gmail.com">Cipolletti Alessandro</a><br>
           {{labels.and}}<br>
           Gaetano Saturno
         </p>

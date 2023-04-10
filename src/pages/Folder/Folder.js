@@ -61,13 +61,6 @@ const labels = {
   coworkingPopupIstructions1: 'Each unique url works for one session only.',
   coworkingPopupIstructions2: 'Do not reload the page until your friend has connected.',
   waitingToReconnect: 'Waiting for connections...',
-  // sendPopupTitle: 'Just a moment...',
-  // sendPopupMessage: 'Every illustration needs to be approved by our team. We work hard to review all illustrations and make sure they fit the purpose. You will receive a feedback by email.',
-  // send: 'Submit',
-  // iUnderstand: 'I understand',
-  // byClickingYouAccept: 'By clicking on "I understand" you accept',
-  // drawingSentConfirmation: 'Thank you! We will give you a feedback within a week.',
-  // drawingSentError: 'Something went wrong, please contact us at info@drawith.me',
 }
 
 let toolsButtons = []
