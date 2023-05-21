@@ -4,6 +4,7 @@ import { debounce } from 'debounce'
 
 import Params from 'main/Params'
 import { init as initMessages } from 'modules/Messages'
+import { init as initCoworking } from 'modules/Coworking'
 import initDomUtils, { loadTemplate, preventDefault, setSpinner, preventMoveDefaultIfNeeded } from 'utils/domUtils'
 import { init as initHeader, menuButtonAnimations } from 'components/Header'
 import { initLocalDb } from 'utils/localDbUtils'
@@ -22,7 +23,7 @@ import { mergeObject, handleGlobalResize, addGlobalStatus, removeGlobalStatus } 
 const AppState = {
   NAME: 'Drawith.Me',
   VERSION: '2.6.0',
-  DEBUG: true,
+  DEBUG: false,
 }
 const state = {
   menuIsOpen: false,
@@ -273,6 +274,7 @@ const init = securizeAsyncFn(async(props = {}) => {
     if (dbInit) {
       initDomUtils()
       addEnviromentGlobalStatus()
+      await initCoworking()
       openCurrentUrlPage()
     } else {
       openPageNotSupported()

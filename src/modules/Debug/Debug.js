@@ -18,7 +18,7 @@ const updateFps = () => {
 }
 
 export let startFpsLog = () => {
-  if (Params.isDebug) {
+  if (Params.debugMode) {
     startFpsLog = () => {
       state.fpsTotal = state.fpsCurrent = 0
       state.fpsInterval = setInterval(updateFps, 1000)
@@ -30,7 +30,7 @@ export let startFpsLog = () => {
 }
 
 export let logFps = () => {
-  if (Params.isDebug) {
+  if (Params.debugMode) {
     logFps = () => {
       state.fpsCurrent += 1
       state.fpsTotal += 1
@@ -45,7 +45,7 @@ export let logFps = () => {
 }
 
 export let stopFpsLog = () => {
-  if (Params.isDebug) {
+  if (Params.debugMode) {
     stopFpsLog = () => {
       state.fpsTotal = state.fpsCurrent = 0
       state.fpsLastUpdateTime = 0

@@ -1,140 +1,162 @@
-
-import io from 'socket.io-client'
-
 import Params from 'main/Params'
-import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
+import PeerSocket from 'modules/PeerSocket'
+import { goToPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
-import { goToPage, openPageFolder } from 'modules/Router'
-import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { deepCopy } from 'utils/jsUtils'
+import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
+import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 
 
-let socket
+let peerClient = {}
+const config = {
+  maxConcurrentConnections: 1,
+}
 const state = {
-  isConnected: false, // socket connected to our server
+  isOpen: false,
+  clientData: {
+    codeVersion: 0,
+    screenWidth: 0,
+    screenHeight: 0,
+    deviceType: '',
+    canvasWidth: 0,
+    canvasHeight: 0,
+  },
+  coworkingData: {
+    minCanvasWidth: 0,
+    minCanvasHeight: 0,
+  },
   isWaitingConnection: false,
-  isOpen: false, // user is coworking with someone else
   waitingToConnectToCliendId: false, // false or coworkerClientId. If coworkerClientId, onConnect we try to open coworking with that coworkerClientId
-  steps: [],
-  callbackOnConnection: false,
+  callbackOnConnection: null,
+  stepsBuffer: [],
 }
 const labels = {
   networkError: 'Network Error',
-  coworkingClosed: 'Session successfully stopped',
-  coworkerDisconnected: 'Your coworker lost connection',
-  coworkerHasClosed: 'Your coworker quit the session',
+  coworkingClosed: 'Session closed',
   errorHimself: 'You can\'t connect to yourself',
   alreadyConnected: 'You are already connected to someone',
-  badCode: 'Your friend is no longer connected to Drawith.me, you will need a new url',
-  notAvailable: 'Selected user is already connected with someone',
-  coworkingConfirmed: 'Session started!',
-  coworkingStarted: 'Someone just connected with you!',
-  preventRefresh: 'This will stop your coworking session. Are you sure?',
-  genericError: 'Something went wrong. Refresh the page and retry later.',
+  badCode: 'Your friend is no longer connected to Drawith.me, you need a new url',
+  coworkingStarted: 'Coworking session started!',
+  userNotAvailable: 'Selected user is already connected with someone',
   coworkerNeedsToUpdate: 'Your coworker needs to update the app at the latest version',
   youNeedToUpdate: 'You need to update the app to connect with someone else',
 }
 
-export const isConnected = () => state.isConnected
+export const isOnline = () => peerClient.online
+export const isConnectedToSomeone = () => peerClient.connected
 export const isOpen = () => state.isOpen
-export const getSocketId = () => socket?.id || false
-
-// TODO che succede che io inserisco l'url di qualcun'altro, ma quest'altro è già dentro l'editor ?
-// a me si apre l'editor vuoto, e a lui ?
+export const getClientId = () => peerClient.id
 
 
-export const addStep = (step, tool = false) => {
-  state.steps.push(step)
-}
-
-export const clearSteps = () => state.steps = []
-
-export const sendSteps = (tool) => {
-  // console.log('SEND STEPS', state.steps.length)
-  tool = deepCopy(tool)
-  delete tool.frameImageFile
-
-  socket.emit(editorEvents.sendCoworkingSteps, {
-    steps: state.steps,
-    tool,
-  })
-
-  clearSteps()
-}
-
-const requestConnectionTo = (coworkerClientId) => {
-  socket.emit(editorEvents.requestCoworking, {
-    coworkerClientId,
-  })
-}
-
-// to call from module Editor, when url drawith.me/editor/coworking/abc123 is open
-export const requestSession = (coworkerClientId) => {
-  if (coworkerClientId) {
-    console.log('requestSession', coworkerClientId)
-    if (isConnected()) {
-      requestConnectionTo(coworkerClientId)
-    } else {
-      state.waitingToConnectToCliendId = coworkerClientId
-    }
+const handlePeerMessage = (message) => {
+  if (message.event === editorEvents.coworkingSteps) {
+    drawCoworkingMultipleStepsData(message.data)
+  } else if (message.event === editorEvents.clientEnvironment) {
+    checkCoworkerEnvironment(message.data)
   }
 }
 
-const startCoworkingSession = (minCanvasWidth, minCanvasHeight) => {
+export const addStep = (step, tool = false) => {
+  state.stepsBuffer.push(step)
+}
+export const clearSteps = () => state.stepsBuffer = []
+export const sendSteps = (tool) => {
+  tool = deepCopy(tool)
+  delete tool.frameImageFile
+
+  const message = {
+    event: editorEvents.coworkingSteps,
+    data: {
+      steps: state.stepsBuffer,
+      tool,
+    },
+  }
+
+  peerClient.sendMessage(message)
+  clearSteps()
+}
+
+const startCoworkingSession = () => {
   state.isOpen = true
   // qui passo la dimensione dello schermo piú piccolo tra i due per farli disegnare sullo stesso foglio
   // ma questa cosa dovrà essere modificata quando sarà possibile anche aprire un coworking da dentro l'editor con un disegno già esistente
   // il canvas li resterà alle sue dimensioni attuali, ma chi ha lo schermo più piccolo deve ricevere una notifica
-  goToPage(`/editor/open/false/true/${minCanvasWidth}/${minCanvasHeight}`)
-}
-
-export const stop = () => { // to call from Editor, if the user want to stop
-  if (isOpen()) {
-    socket.emit(editorEvents.stopCoworking)
-    Messages.info(labels.coworkingClosed)
-    state.isOpen = false
-  }
-}
-
-// when you asked to connect to someone else by opening his url, and connection is now open
-const onCoworkingConfirmed = (data) => {
-  Messages.success(labels.coworkingConfirmed)
-  startCoworkingSession(data.minCanvasWidth, data.minCanvasHeight)
-}
-
-// when someone asked to connect to you, and connection is now open
-const onCoworkingStarted = (data) => {
-  Messages.success(labels.coworkingStarted)
-  startCoworkingSession(data.minCanvasWidth, data.minCanvasHeight)
-}
-
-// you received some data from your coworker drawing
-const onReceiveCoworkinSteps = (data) => {
-  drawCoworkingMultipleStepsData(data)
+  Messages.info(labels.coworkingStarted)
+  goToPage(`/editor/open/false/true/${state.coworkingData.minCanvasWidth}/${state.coworkingData.minCanvasHeight}`)
 }
 
 export const updateClientEnvironment = () => {
-  if (isConnected()) {
+  if (isOnline()) {
     const [canvasWidth, canvasHeight] = getCanvasPxSizes(true)
-    socket.emit(editorEvents.clientEnvironment, {
-      codeVersion: Params.appVersion,
-      screenWidth: Params.width,
-      screenHeight: Params.height,
-      deviceType: Params.deviceType,
-      canvasWidth,
-      canvasHeight,
-    })
+    state.clientData.canvasWidth = canvasWidth
+    state.clientData.canvasHeight = canvasHeight
+    state.clientData.codeVersion = Params.appVersion
+    state.clientData.screenWidth = Params.width
+    state.clientData.screenHeight = Params.height
+    state.clientData.deviceType = Params.deviceType
   }
 }
 
-const onSocketConnect = async() => {
-  console.log('Socket Connection OK. ID:', socket.id)
-  state.isConnected = true
+const sendClientEnvironmentToCoworker = () => {
+  peerClient.sendMessage({
+    event: editorEvents.clientEnvironment,
+    data: state.clientData,
+  })
+}
+
+const checkCoworkerEnvironment = (coworkerEnvironment) => {
+  if (coworkerEnvironment.codeVersion !== state.clientData.codeVersion) {
+    if (coworkerEnvironment.codeVersion < state.clientData.codeVersion) {
+      Messages.info(labels.coworkerNeedsToUpdate)
+    } else {
+      Messages.info(labels.youNeedToUpdate)
+    }
+    return
+  }
+
+  state.coworkingData.minCanvasWidth = Math.min(coworkerEnvironment.canvasWidth, state.clientData.canvasWidth)
+  state.coworkingData.minCanvasHeight = Math.min(coworkerEnvironment.canvasHeight, state.clientData.canvasHeight)
+
+  startCoworkingSession()
+}
+
+// to call from module Editor, when url drawith.me/editor/coworking/abc123 is open
+export const requestSession = (coworkerClientId) => {
+  console.log('requestSession', coworkerClientId)
+  if (!coworkerClientId) {
+    return
+  }
+  if (!isOnline()) {
+    state.waitingToConnectToCliendId = coworkerClientId
+    return
+  }
+  if (isOpen()) {
+    Messages.error(labels.alreadyConnected)
+    return
+  }
+  if (coworkerClientId === peerClient.id) {
+    Messages.error(labels.errorHimself)
+    return
+  }
+
+  peerClient.connectTo(coworkerClientId)
+}
+
+export const stop = () => {
+  if (isOpen()) {
+    peerClient.disconnectFrom()
+    Messages.info(labels.coworkingClosed)
+  }
+}
+
+const handlePeerClientConnect = async(id) => {
+  console.log('Peer client online', id)
   state.isWaitingConnection = false
   addGlobalStatus(SOCKET_CONNECTED_STATUS)
+  updateClientEnvironment()
   if (state.waitingToConnectToCliendId) {
-    requestConnectionTo(state.waitingToConnectToCliendId)
+    requestSession(state.waitingToConnectToCliendId)
     state.waitingToConnectToCliendId = false
   }
   if (state.callbackOnConnection) {
@@ -142,88 +164,54 @@ const onSocketConnect = async() => {
   }
 }
 
-const onSocketDisconnect = (reason) => {
-  console.log('socket disconnect:', reason)
+const handlePeerClientDisonnect = (duringCoworkingSession) => {
+  console.log('Peer client offline')
   removeGlobalStatus(SOCKET_CONNECTED_STATUS)
-  state.isConnected = false
-  if (state.isOpen) {
+  if (duringCoworkingSession) {
     Messages.error(labels.networkError)
-    state.isOpen = false
   }
 }
 
-const onSocketError = (e) => {
-  console.log('socket error:', e)
-  state.isWaitingConnection = false
-  Messages.error(labels.networkError)
+const handleNewConnection = () => {
+  console.log('Coworking newConnection')
+  sendClientEnvironmentToCoworker()
 }
 
-// coworker disconnected
-const onCoworkerSocketDisconnect = () => {
-  console.log('coworker disconnected')
-  Messages.error(labels.coworkerDisconnected)
+const handleConnectionFailed = () => {
+  console.log('Coworking newConnectionFailed')
+  Messages.error(labels.badCode)
+}
+
+const handleConnectionRefused = () => {
+  console.log('Coworking newConnectionRefused')
+  Messages.error(labels.userNotAvailable)
+}
+
+const handleConnectionClosed = () => {
+  console.log('Coworking connectionClosed')
+  Messages.info(labels.coworkingClosed)
   state.isOpen = false
 }
 
-// coworker closed the session
-const onCoworkingClosed = () => {
-  console.log('coworker closed the session')
-  Messages.info(labels.coworkerHasClosed)
-  state.isOpen = false
-}
-
-const handleInfo = (msg) => {
-  Messages.info(msg)
-  openPageFolder()
-}
-
-const handleError = (msg) => {
-  Messages.error(msg)
-  openPageFolder()
-}
-
-export const connect = () => {
+export const init = () => {
   return new Promise((resolve, reject) => {
-    if (!isConnected() && !state.isWaitingConnection) {
+    if (!isOnline() && !state.isWaitingConnection) {
       state.isWaitingConnection = true
       state.callbackOnConnection = resolve
 
-      if (socket) {
-        // try to fix
-        socket.disconnect()
-        socket.close()
-        socket = undefined
-      }
+      peerClient = new PeerSocket({
+        maxConcurrentConnections: config.maxConcurrentConnections,
+      })
 
-      socket = io(Params.socketUrl)
-      socket.on('connect', onSocketConnect)
-      socket.on('disconnect', onSocketDisconnect)
-      socket.on('error', onSocketError)
-      socket.on(editorEvents.coworkingConfirmed, onCoworkingConfirmed)
-      socket.on(editorEvents.coworkingStarted, onCoworkingStarted)
-      socket.on(editorEvents.receiveCoworkingSteps, onReceiveCoworkinSteps)
-      socket.on(editorEvents.disconnectCoworker, onCoworkerSocketDisconnect)
-      socket.on(editorEvents.coworkingClosed, onCoworkingClosed)
-      socket.on(editorEvents.coworkerNeedsToUpdate, handleInfo.bind({}, labels.coworkerNeedsToUpdate)) // coworker is using a older code version than yours
-      socket.on(editorEvents.youNeedToUpdate, handleInfo.bind({}, labels.youNeedToUpdate)) // you are using a older code version than your coworker
-      socket.on(editorEvents.coworkingErrorHimself, handleError.bind({}, labels.errorHimself)) // user tryed to connected to himself
-      socket.on(editorEvents.coworkingErrorAlreadyConnected, handleError.bind({}, labels.alreadyConnected)) // you are already in session, u can not open another one
-      socket.on(editorEvents.coworkingErrorBadCode, handleError.bind({}, labels.badCode)) // the code you tryed to connect to, doesn't exist
-      socket.on(editorEvents.coworkingErrorNotAvailable, handleError.bind({}, labels.notAvailable)) // other user is already connected with someone
-      socket.on(editorEvents.coworkingGenericError, handleError.bind({}, labels.genericError)) // clientCodeVersion not found serverside
+      peerClient.on('online', handlePeerClientConnect)
+      peerClient.on('offline', handlePeerClientDisonnect)
+      peerClient.on('newConnection', handleNewConnection)
+      peerClient.on('message', handlePeerMessage)
+      peerClient.on('newConnectionFailed', handleConnectionFailed)
+      peerClient.on('newConnectionRefused', handleConnectionRefused)
+      peerClient.on('connectionClosed', handleConnectionClosed)
     } else {
       resolve()
     }
   })
-}
-
-export const disconnect = () => {
-  if (socket) {
-    socket.disconnect()
-    socket.close()
-    socket = undefined
-  }
-  state.isConnected = false
-  state.isOpen = false
-  state.isWaitingConnection = false
 }

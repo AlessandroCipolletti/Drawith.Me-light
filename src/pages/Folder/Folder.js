@@ -116,9 +116,9 @@ const closeCoworkingPopup = () => {
 
 const openCoworkingPopup = (e) => {
   preventDefault(e)
-  if (Coworking.isConnected()) {
+  if (Coworking.isOnline()) {
     state.coworkingPopupOpened = true
-    refs.coworkingId.innerHTML = `${document.location.origin}/E/${Coworking.getSocketId()}`
+    refs.coworkingId.innerHTML = `${document.location.origin}/E/${Coworking.getClientId()}`
     Messages.panel(refs.coworkingPopup, {
       onClose: onCloseCoworkingPopup,
     })

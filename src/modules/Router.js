@@ -129,24 +129,6 @@ export const goToPage = async(path, force = false) => {
 }
 
 export const openCurrentUrlPage = () => {
-  if (urlIsTryingCoworking()) {
-    openPageFolder()
-  } else {
-    const nextPage = decryptInitialPathUrl(document.location.pathname)
-    goToPage(nextPage, nextPage !== `/${config.defaultPage}`)
-  }
-}
-
-export const urlIsTryingCoworking = () => {
-  return `${document.location.pathname}`.includes('/E/')
-}
-
-export const getCoworkerIdUrlParam = () => {
-  if (urlIsTryingCoworking()) {
-    let coworkerId = `${document.location.pathname}`.split('/E/')[1]
-    coworkerId = coworkerId.split('/')[0]
-    return coworkerId
-  } else {
-    return false
-  }
+  const nextPage = decryptInitialPathUrl(document.location.pathname)
+  goToPage(nextPage, nextPage !== `/${config.defaultPage}`)
 }

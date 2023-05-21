@@ -165,10 +165,6 @@ iframe {
   stroke: var(--palette-primary-2);
 }
 
-.drawith__EDITOR-COWORKING .notAvailableForCoworking {
-  display: none !important;
-}
-
 /* START MENU */
 .drawith__menu-container {
 	z-index: 100;
