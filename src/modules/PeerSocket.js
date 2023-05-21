@@ -3,6 +3,8 @@ import Params from 'main/Params'
 
 import { exponentialTimeout } from 'utils/jsUtils'
 
+const CONFIRMED = 'confirmed'
+const REFUSED = 'refused'
 
 class PeerSocket {
   connections = [] // connections with other users
@@ -11,18 +13,25 @@ class PeerSocket {
   id = null // local peer id
 
   #peer = null
+  #maxConcurrentConnections = 1
   #reconnectTimeout = false
   #reopenTimeout = false
 
   #eventsCallbacks = {
     newConnection: [],
+    newConnectionFailed: [],
+    newConnectionRefused: [],
     message: [],
     connectionClosed: [],
     online: [],
     offline: [],
+    peerError: [],
   }
 
-  constructor() {
+  constructor({
+    maxConcurrentConnections = 1,
+  } = {}) {
+    this.#maxConcurrentConnections = maxConcurrentConnections
     if (navigator.onLine) {
       this.#initPeerConnection()
     } else {
@@ -44,6 +53,27 @@ class PeerSocket {
     })
   }
 
+  connectTo(peerId) {
+    if (peerId === this.id) {
+      console.error('cannot connect to yourself')
+      return
+    }
+
+    this.#handleNewConnection(this.#peer.connect(peerId))
+  }
+
+  disconnectFrom(peerId = this.connections[0]?.peer) {
+    if (peerId) {
+      const dataConnection = this.connections.find(conn => conn.peer === peerId)
+
+      if (dataConnection) {
+        dataConnection.close()
+      } else {
+        console.error(`not connected to ${peerId}`)
+      }
+    }
+  }
+
   #initPeerConnection = () => {
     window.removeEventListener('online', this.#initPeerConnection)
     this.#peer = new Peer({
@@ -56,6 +86,7 @@ class PeerSocket {
     })
 
     this.#peer.on('open', (id) => {
+      this.id = id
       if (!this.online) {
         // perché viene chiamato anche quando si riconnette per una semplice perdita di connessione momentanea
         // ma l'id ed il peer non cambiano
@@ -71,11 +102,11 @@ class PeerSocket {
 
     this.#peer.on('close', () => {
       console.log('peer close')
+      this.#eventsCallbacks.offline.forEach(callback => callback(this.connected))
       this.connections = []
-      this.connected = []
+      this.connected = false
       this.online = false
       this.id = null
-      this.#eventsCallbacks.offline.forEach(callback => callback())
 
       if (!this.#reopenTimeout && this.#reopenIfNeeded()) {
         exponentialTimeout(this.#reopenIfNeeded)
@@ -84,7 +115,11 @@ class PeerSocket {
 
     this.#peer.on('connection', (conn) => {
       console.log('peer connection')
-      this.#saveConnection(conn)
+      if (this.connections.length < this.#maxConcurrentConnections) {
+        this.#handleNewConnection(conn)
+      } else {
+        conn.close
+      }
     })
 
     this.#peer.on('disconnected', (data) => {
@@ -97,38 +132,65 @@ class PeerSocket {
 
     this.#peer.on('error', (e) => {
       console.log('peer error', e)
-      this.#peer.destroy()
+      if (e.type === 'peer-unavailable') {
+        this.#eventsCallbacks.newConnectionFailed.forEach(callback => callback())
+      } else {
+        this.#peer.destroy()
+      }
     })
   }
 
-  #saveConnection = (conn) => {
+  #confirmConnection = (conn) => {
+    this.connections.push(conn)
+    this.connected = true
+    console.log('new conn:', this.connections)
+    this.#eventsCallbacks.newConnection.forEach(callback => callback())
+
+    conn.on('close', () => {
+      console.log('connection close', conn)
+      this.#eventsCallbacks.connectionClosed.forEach(callback => callback())
+      this.#removeClosedConnections()
+    })
+    conn.on('error', (error) => {
+      console.log('connection error', error)
+      conn.close()
+    })
+    conn.peerConnection.oniceconnectionstatechange = () => {
+      if (conn.peerConnection.iceConnectionState === 'disconnected') {
+        console.log('l altro utente ha chiuso il tab cosi de botto senza senso')
+        conn.close()
+      }
+      // else if (conn.peerConnection.iceConnectionState === 'failed') {
+      //   console.log('FAILED')
+      //   conn.close()
+      // }
+    }
+  }
+
+  #handleNewConnection = (conn) => {
     if (conn) {
       conn.on('open', () => {
-        this.connections.push(conn)
-        console.log('new conn:', this.connections)
-        this.#eventsCallbacks.newConnection.forEach(callback => callback())
-
         conn.on('data', (data) => {
+          if (data === REFUSED) {
+            console.log('refused')
+            this.#eventsCallbacks.newConnectionRefused.forEach(callback => callback())
+            conn.close()
+            return
+          }
+          if (data === CONFIRMED) {
+            console.log('peer connection')
+            this.#confirmConnection(conn)
+            return
+          }
+
           console.log('Received:', data)
           this.#eventsCallbacks.message.forEach(callback => callback(data))
         })
-        conn.on('close', () => {
-          console.log('connection close', conn)
-          this.#removeClosedConnections()
-        })
-        conn.on('error', (error) => {
-          console.log('connection error', error)
-          conn.close()
-        })
-        conn.peerConnection.oniceconnectionstatechange = () => {
-          if (conn.peerConnection.iceConnectionState === 'disconnected') {
-            console.log('l altro utente ha chiuso il tab cosi de botto senza senso')
-            conn.close()
-          }
-          // else if (conn.peerConnection.iceConnectionState === 'failed') {
-          //   console.log('FAILED')
-          //   conn.close()
-          // }
+        if (this.connections.length >= this.#maxConcurrentConnections) {
+          console.log('new connection refused')
+          conn.send(REFUSED)
+        } else {
+          conn.send(CONFIRMED)
         }
       })
     }
@@ -153,9 +215,8 @@ class PeerSocket {
   }
 
   #removeClosedConnections = () => {
-    this.connections = this.connections.filter(conn => conn.peerConnection)
+    this.connections = this.connections.filter(conn => !!conn.peerConnection)
     this.connected = !!this.connections.length
-    this.#eventsCallbacks.connectionClosed.forEach(callback => callback())
   }
 }
 

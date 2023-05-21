@@ -55,30 +55,53 @@ const reopenIfNeeded = () => {
   return false
 }
 
-const saveConnection = (conn) => {
-  if (conn) {
-    conn.on('open', () => {
-      connections.push(conn)
-      console.log('new conn:', connections)
+const connectionConfirmed = (conn) => {
+  connections.push(conn)
+  console.log('new conn:', connections)
 
+  conn.on('close', () => {
+    console.log('connection close', conn)
+    removeClosedConnections()
+  })
+  conn.peerConnection.oniceconnectionstatechange = (data) => {
+    console.log('oniceconnectionstatechange', conn.peerConnection.iceConnectionState, data)
+    if (conn.peerConnection.iceConnectionState === 'disconnected') {
+      console.log('l altro utente ha chiuso il tab cosi de botto senza senso')
+      conn.close()
+    } else if (conn.peerConnection.iceConnectionState === 'failed') {
+      console.log('FAILED')
+      conn.close()
+    }
+  }
+  conn.on('error', (error) => {
+    console.log('connection error', error)
+  })
+}
+
+const handleNewConnection = (conn) => {
+  if (conn) {
+    console.log('handleNewConnection')
+
+    conn.on('open', () => {
+      console.log('open')
       conn.on('data', (data) => {
+        if (data === 'refused') {
+          console.log('refused')
+          conn.close()
+          return
+        }
+        if (data === 'confirmed') {
+          console.log('peer connection')
+          connectionConfirmed(conn)
+          return
+        }
         console.log('Received:', data)
       })
-      conn.on('close', () => {
-        console.log('connection close', conn)
-        removeClosedConnections()
-      })
-      conn.on('error', (error) => {
-        console.log('connection error', error)
-      })
-      conn.peerConnection.oniceconnectionstatechange = (data) => {
-        if (conn.peerConnection.iceConnectionState === 'disconnected') {
-          console.log('l altro utente ha chiuso il tab cosi de botto senza senso')
-          conn.close()
-        } else if (conn.peerConnection.iceConnectionState === 'failed') {
-          console.log('FAILED')
-          conn.close()
-        }
+      if (connections.length) {
+        console.log('new connection refused')
+        conn.send('refused')
+      } else {
+        conn.send('confirmed')
       }
     })
   }
@@ -100,7 +123,7 @@ const initDom = () => {
         conn.send(textarea.value)
       })
     } else {
-      saveConnection(peer.connect(textarea.value))
+      handleNewConnection(peer.connect(textarea.value))
     }
   })
 }
@@ -130,14 +153,14 @@ const openPeer = () => {
   })
   peer.on('connection', (conn) => {
     console.log('peer connection')
-    saveConnection(conn)
+    handleNewConnection(conn)
   })
   peer.on('disconnected', (data) => {
     console.log('peer disconnected', data)
     !reconnectTimeout && exponentialTimeout(reconnectIfNeeded)
   })
   peer.on('error', (e) => {
-    console.log('peer error', e)
+    console.log('peer error', e.type, e)
   })
 }
 
