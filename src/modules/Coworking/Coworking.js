@@ -43,9 +43,9 @@ const labels = {
   youNeedToUpdate: 'You need to update the app to connect with someone else',
 }
 
-export const isOnline = () => peerClient.online
-export const isConnectedToSomeone = () => peerClient.connected
-export const isOpen = () => state.isOpen
+export const isOnline = () => !!peerClient.online
+export const isConnectedToSomeone = () => !!peerClient.connected
+export const isOpen = () => !!state.isOpen
 export const getClientId = () => peerClient.id
 
 
@@ -163,6 +163,7 @@ const handlePeerClientConnect = async(id) => {
   }
   if (state.callbackOnConnection) {
     await state.callbackOnConnection()
+    state.callbackOnConnection = null
   }
 }
 
@@ -199,7 +200,7 @@ export const init = () => {
   return new Promise((resolve, reject) => {
     if (!isOnline() && !state.isWaitingConnection) {
       state.isWaitingConnection = true
-      state.callbackOnConnection = resolve
+      // state.callbackOnConnection = resolve
 
       peerClient = new PeerSocket({
         maxConcurrentConnections: config.maxConcurrentConnections,
@@ -212,8 +213,7 @@ export const init = () => {
       peerClient.on('newConnectionFailed', handleConnectionFailed)
       peerClient.on('newConnectionRefused', handleConnectionRefused)
       peerClient.on('connectionClosed', handleConnectionClosed)
-    } else {
-      resolve()
     }
+    resolve()
   })
 }

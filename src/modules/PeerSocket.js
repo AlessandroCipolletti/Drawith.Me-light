@@ -6,6 +6,11 @@ import { exponentialTimeout } from 'utils/jsUtils'
 const CONFIRMED = 'confirmed'
 const REFUSED = 'refused'
 
+const config = {
+  defaultMaxConcurrentConnections: 1,
+}
+
+
 class PeerSocket {
   connections = [] // connections with other users
   connected = false // if one or more connections are open
@@ -13,7 +18,7 @@ class PeerSocket {
   id = null // local peer id
 
   #peer = null
-  #maxConcurrentConnections = 1
+  #maxConcurrentConnections = 0
   #reconnectTimeout = false
   #reopenTimeout = false
 
@@ -29,7 +34,7 @@ class PeerSocket {
   }
 
   constructor({
-    maxConcurrentConnections = 1,
+    maxConcurrentConnections = config.defaultMaxConcurrentConnections,
   } = {}) {
     this.#maxConcurrentConnections = maxConcurrentConnections
     this.#initWhenOnline()
@@ -159,6 +164,14 @@ class PeerSocket {
     }
   }
 
+  #handleInternetOffline = () => {
+    setTimeout(() => {
+      if (!navigator.onLine) {
+        this.#peer.destroy()
+      }
+    }, 5000)
+  }
+
   #handlePeerOpen = (id) => {
     this.id = id
     if (!this.online) {
@@ -166,6 +179,7 @@ class PeerSocket {
       // ma l'id ed il peer non cambiano
       this.online = true
       this.#eventsCallbacks.online.forEach(callback => callback(id))
+      window.addEventListener('offline',this.#handleInternetOffline)
       console.log('peer open', id)
     } else {
       console.log('peer reconnected')
@@ -182,13 +196,14 @@ class PeerSocket {
     this.connected = false
     this.online = false
     this.id = null
+    window.removeEventListener('offline',this.#handleInternetOffline)
 
-    if (!this.#reopenTimeout && this.#reopenIfNeeded()) {
-      if (navigator.onLine) {
+    if (navigator.onLine) {
+      if (!this.#reopenTimeout && this.#reopenIfNeeded()) {
         exponentialTimeout(this.#reopenIfNeeded)
-      } else {
-        this.#initWhenOnline()
       }
+    } else {
+      this.#initWhenOnline()
     }
   }
 
