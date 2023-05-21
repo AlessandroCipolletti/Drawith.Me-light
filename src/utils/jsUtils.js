@@ -6,6 +6,27 @@ import * as Messages from 'modules/Messages'
 import { setSpinner } from 'utils/domUtils'
 
 
+const fibonacciTimeoutSequence = [
+  1, 1, 1,
+  2, 2, 2,
+  3, 3, 3,
+  5, 5, 5,
+  8, 8, 8,
+  13, 13, 13,
+  21, 21, 21,
+  34, 34, 34,
+  55, 55, 55,
+]
+
+export const exponentialTimeout = (fn, iteration = 0) => {
+  setTimeout(() => {
+    const shouldTryAgain = fn()
+    if (shouldTryAgain) {
+      exponentialTimeout(fn, iteration + 1)
+    }
+  }, (fibonacciTimeoutSequence[iteration] || Math.max(fibonacciTimeoutSequence)) * 1000)
+}
+
 export const arrayOrderStringDown = (a, b) => {
   if (a < b) {return +1}
   if (a > b) {return -1}
