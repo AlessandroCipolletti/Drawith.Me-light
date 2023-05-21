@@ -90,6 +90,7 @@ class PeerSocket {
       if (!this.online) {
         // perché viene chiamato anche quando si riconnette per una semplice perdita di connessione momentanea
         // ma l'id ed il peer non cambiano
+        this.online = true
         this.#eventsCallbacks.online.forEach(callback => callback(id))
         console.log('peer open', id)
       } else {
@@ -114,7 +115,6 @@ class PeerSocket {
     })
 
     this.#peer.on('connection', (conn) => {
-      console.log('peer connection')
       if (this.connections.length < this.#maxConcurrentConnections) {
         this.#handleNewConnection(conn)
       } else {
@@ -184,7 +184,6 @@ class PeerSocket {
             return
           }
 
-          console.log('Received:', data)
           this.#eventsCallbacks.message.forEach(callback => callback(data))
         })
         if (this.connections.length >= this.#maxConcurrentConnections) {

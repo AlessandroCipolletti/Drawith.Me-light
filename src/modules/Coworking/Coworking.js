@@ -42,10 +42,6 @@ const labels = {
   coworkerNeedsToUpdate: 'Your coworker needs to update the app at the latest version',
   youNeedToUpdate: 'You need to update the app to connect with someone else',
 }
-const eventCallbacks = {
-  [editorEvents.coworkingSteps]: drawCoworkingMultipleStepsData,
-  [editorEvents.clientEnvironment]: checkCoworkerEnvironment,
-}
 
 export const isOnline = () => peerClient.online
 export const isConnectedToSomeone = () => peerClient.connected
@@ -54,11 +50,10 @@ export const getClientId = () => peerClient.id
 
 
 const handlePeerMessage = (message) => {
-  message = JSON.parse(message)
-  console.log('Peer receved message:', message)
-
-  if (eventCallbacks[message.event]) {
-    eventCallbacks[message.event](message.data)
+  if (message.event === editorEvents.coworkingSteps) {
+    drawCoworkingMultipleStepsData(message.data)
+  } else if (message.event === editorEvents.clientEnvironment) {
+    checkCoworkerEnvironment(message.data)
   }
 }
 
@@ -70,13 +65,13 @@ export const sendSteps = (tool) => {
   tool = deepCopy(tool)
   delete tool.frameImageFile
 
-  const message = JSON.stringify({
+  const message = {
     event: editorEvents.coworkingSteps,
     data: {
       steps: state.stepsBuffer,
       tool,
     },
-  })
+  }
 
   peerClient.sendMessage(message)
   clearSteps()
@@ -128,11 +123,11 @@ const checkCoworkerEnvironment = (coworkerEnvironment) => {
 
 // to call from module Editor, when url drawith.me/editor/coworking/abc123 is open
 export const requestSession = (coworkerClientId) => {
+  console.log('requestSession', coworkerClientId)
   if (!coworkerClientId) {
     return
   }
   if (!isOnline()) {
-    // Messages.error(labels.networkError)
     state.waitingToConnectToCliendId = coworkerClientId
     return
   }
@@ -159,6 +154,7 @@ const handlePeerClientConnect = async(id) => {
   console.log('Peer client online', id)
   state.isWaitingConnection = false
   addGlobalStatus(SOCKET_CONNECTED_STATUS)
+  updateClientEnvironment()
   if (state.waitingToConnectToCliendId) {
     requestSession(state.waitingToConnectToCliendId)
     state.waitingToConnectToCliendId = false
@@ -206,6 +202,7 @@ export const init = () => {
       peerClient = new PeerSocket({
         maxConcurrentConnections: config.maxConcurrentConnections,
       })
+
       peerClient.on('online', handlePeerClientConnect)
       peerClient.on('offline', handlePeerClientDisonnect)
       peerClient.on('newConnection', handleNewConnection)

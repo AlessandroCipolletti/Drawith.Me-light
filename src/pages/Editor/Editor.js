@@ -216,7 +216,6 @@ const addToolDataKeys = (toolDataArray) => ({
 })
 const removeToolDataKeys = (toolData) => [toolData.name, toolData.version, toolData.color, globalCompositeOperationValues.indexOf(toolData.globalCompositeOperation), toolData.frameImageName, toolData.customProps]
 export const drawCoworkingMultipleStepsData = (data) => {
-  // console.log('received steps data:', data)
   if (state?.pageOpened) {
     requestAnimationFrame(() => {
       drawMultipleCoworkingSteps(refs.layerContext, data.steps.map(addTouchStepDataKeys), addToolDataKeys(data.tool), {
