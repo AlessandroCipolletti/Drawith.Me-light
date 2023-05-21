@@ -135,6 +135,7 @@ class PeerSocket {
       if (e.type === 'peer-unavailable') {
         this.#eventsCallbacks.newConnectionFailed.forEach(callback => callback())
       } else {
+        this.#eventsCallbacks.peerError.forEach(callback => callback(this.connected))
         this.#peer.destroy()
       }
     })

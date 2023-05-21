@@ -27,7 +27,7 @@ const callApi = ({ url, method, isPrivate, asFormData }, api) => {
 
     // options.headers['X-SessionId'] = `${User.getUserSessionId() || ''}`
     // options.headers['X-DeviceId'] = `${User.getDeviceId() || ''}`
-    options.headers['X-SocketId'] = `${Coworking.getSocketId() || ''}`
+    options.headers['X-SocketId'] = `${Coworking.getClientId() || ''}`
 
     if (method !== 'GET') {
       if (asFormData) {

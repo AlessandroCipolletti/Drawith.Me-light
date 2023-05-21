@@ -385,7 +385,7 @@ export const saveAndGoToFolder = async() => {
     if (state.modified) {
       const currentDraw = await getCurrentDrawInfo()
       if (currentDraw.maxX >= 0) {
-        await saveDrawToDB(currentDraw, false, Coworking.isConnected(), state.withCoworking)
+        await saveDrawToDB(currentDraw, false, Coworking.isOpen(), state.withCoworking)
       }
     }
     goToPage('folder/open/true')
@@ -405,7 +405,7 @@ export const saveCopy = async() => {
     delete currentDraw.localDbId
 
     if (currentDraw.maxX >= 0) {
-      const savedId = await saveDrawToDB(currentDraw, false, Coworking.isConnected(), false)
+      const savedId = await saveDrawToDB(currentDraw, false, Coworking.isOpen(), false)
       if (savedId) {
         Messages.info(labels.copySaved, config.draftInfoDuration)
         state.drawnStepsSinceCopy = 0
