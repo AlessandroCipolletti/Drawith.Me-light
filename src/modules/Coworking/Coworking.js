@@ -60,7 +60,9 @@ const handlePeerMessage = (message) => {
 export const addStep = (step, tool = false) => {
   state.stepsBuffer.push(step)
 }
+
 export const clearSteps = () => state.stepsBuffer = []
+
 export const sendSteps = (tool) => {
   tool = deepCopy(tool)
   delete tool.frameImageFile

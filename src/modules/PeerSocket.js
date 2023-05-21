@@ -32,11 +32,7 @@ class PeerSocket {
     maxConcurrentConnections = 1,
   } = {}) {
     this.#maxConcurrentConnections = maxConcurrentConnections
-    if (navigator.onLine) {
-      this.#initPeerConnection()
-    } else {
-      window.addEventListener('online', this.#initPeerConnection)
-    }
+    this.#initWhenOnline()
   }
 
   on(event, callback) {
@@ -74,6 +70,14 @@ class PeerSocket {
     }
   }
 
+  #initWhenOnline = () => {
+    if (navigator.onLine) {
+      this.#initPeerConnection()
+    } else {
+      window.addEventListener('online', this.#initPeerConnection)
+    }
+  }
+
   #initPeerConnection = () => {
     window.removeEventListener('online', this.#initPeerConnection)
     this.#peer = new Peer({
@@ -85,60 +89,11 @@ class PeerSocket {
       debug: Params.debugMode ? 3 : 0,
     })
 
-    this.#peer.on('open', (id) => {
-      this.id = id
-      if (!this.online) {
-        // perché viene chiamato anche quando si riconnette per una semplice perdita di connessione momentanea
-        // ma l'id ed il peer non cambiano
-        this.online = true
-        this.#eventsCallbacks.online.forEach(callback => callback(id))
-        console.log('peer open', id)
-      } else {
-        console.log('peer reconnected')
-      }
-
-      this.#reconnectTimeout = false
-      this.#reopenTimeout = false
-    })
-
-    this.#peer.on('close', () => {
-      console.log('peer close')
-      this.#eventsCallbacks.offline.forEach(callback => callback(this.connected))
-      this.connections = []
-      this.connected = false
-      this.online = false
-      this.id = null
-
-      if (!this.#reopenTimeout && this.#reopenIfNeeded()) {
-        exponentialTimeout(this.#reopenIfNeeded)
-      }
-    })
-
-    this.#peer.on('connection', (conn) => {
-      if (this.connections.length < this.#maxConcurrentConnections) {
-        this.#handleNewConnection(conn)
-      } else {
-        conn.close
-      }
-    })
-
-    this.#peer.on('disconnected', (data) => {
-      console.log('peer disconnected', data)
-      this.online = false
-      if (!this.#reconnectTimeout && this.#reconnectIfNeeded()) {
-        exponentialTimeout(this.#reconnectIfNeeded)
-      }
-    })
-
-    this.#peer.on('error', (e) => {
-      console.log('peer error', e)
-      if (e.type === 'peer-unavailable') {
-        this.#eventsCallbacks.newConnectionFailed.forEach(callback => callback())
-      } else {
-        this.#eventsCallbacks.peerError.forEach(callback => callback(this.connected))
-        this.#peer.destroy()
-      }
-    })
+    this.#peer.on('open', this.#handlePeerOpen)
+    this.#peer.on('close', this.#handlePeerClose)
+    this.#peer.on('connection', this.#checkMaxConcurrentConnections)
+    this.#peer.on('disconnected', this.#handlePeerDisconnect)
+    this.#peer.on('error', this.#handlePeerError)
   }
 
   #confirmConnection = (conn) => {
@@ -165,6 +120,14 @@ class PeerSocket {
       //   console.log('FAILED')
       //   conn.close()
       // }
+    }
+  }
+
+  #checkMaxConcurrentConnections = (conn) => {
+    if (this.connections.length < this.#maxConcurrentConnections) {
+      this.#handleNewConnection(conn)
+    } else {
+      conn.close()
     }
   }
 
@@ -196,6 +159,57 @@ class PeerSocket {
     }
   }
 
+  #handlePeerOpen = (id) => {
+    this.id = id
+    if (!this.online) {
+      // perché viene chiamato anche quando si riconnette per una semplice perdita di connessione momentanea
+      // ma l'id ed il peer non cambiano
+      this.online = true
+      this.#eventsCallbacks.online.forEach(callback => callback(id))
+      console.log('peer open', id)
+    } else {
+      console.log('peer reconnected')
+    }
+
+    this.#reconnectTimeout = false
+    this.#reopenTimeout = false
+  }
+
+  #handlePeerClose = () => {
+    console.log('peer close')
+    this.#eventsCallbacks.offline.forEach(callback => callback(this.connected))
+    this.connections = []
+    this.connected = false
+    this.online = false
+    this.id = null
+
+    if (!this.#reopenTimeout && this.#reopenIfNeeded()) {
+      if (navigator.onLine) {
+        exponentialTimeout(this.#reopenIfNeeded)
+      } else {
+        this.#initWhenOnline()
+      }
+    }
+  }
+
+  #handlePeerDisconnect = () => {
+    console.log('peer disconnected')
+    this.online = false
+    if (!this.#reconnectTimeout && this.#reconnectIfNeeded()) {
+      exponentialTimeout(this.#reconnectIfNeeded)
+    }
+  }
+
+  #handlePeerError = (e) => {
+    console.log('peer error', e)
+    if (e.type === 'peer-unavailable') {
+      this.#eventsCallbacks.newConnectionFailed.forEach(callback => callback())
+    } else {
+      this.#eventsCallbacks.peerError.forEach(callback => callback(this.connected))
+      this.#peer.destroy()
+    }
+  }
+
   #reconnectIfNeeded = () => {
     if (this.#peer.disconnected && !this.#peer.destroyed) {
       this.#peer.reconnect()
@@ -206,6 +220,7 @@ class PeerSocket {
   }
 
   #reopenIfNeeded = () => {
+    console.log('reopenIfNeeded', this.#peer.destroyed)
     if (this.#peer.destroyed) {
       this.#initPeerConnection()
       this.#reopenTimeout = true
