@@ -107,7 +107,7 @@ const onCloseCoworkingPopup = () => {
   state.coworkingPopupOpened = false
 }
 
-const closeCoworkingPopup = () => {
+export const closeCoworkingPopup = () => {
   if (state.coworkingPopupOpened) {
     onCloseCoworkingPopup()
     Messages.panel(refs.coworkingPopup)

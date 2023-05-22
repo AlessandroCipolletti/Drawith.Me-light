@@ -1,9 +1,10 @@
 import Params from 'main/Params'
 import PeerSocket from 'modules/PeerSocket'
-import { goToPage } from 'modules/Router'
+import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
 import { deepCopy } from 'utils/jsUtils'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
+import { closeCoworkingPopup } from 'pages/Folder'
 import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 
@@ -28,7 +29,6 @@ const state = {
   },
   isWaitingConnection: false,
   waitingToConnectToCliendId: false, // false or coworkerClientId. If coworkerClientId, onConnect we try to open coworking with that coworkerClientId
-  callbackOnConnection: null,
   stepsBuffer: [],
 }
 const labels = {
@@ -36,16 +36,16 @@ const labels = {
   coworkingClosed: 'Session closed',
   errorHimself: 'You can\'t connect to yourself',
   alreadyConnected: 'You are already connected to someone',
-  badCode: 'Your friend is no longer connected to Drawith.me, you need a new url',
+  badCode: 'This code is not valid',
   coworkingStarted: 'Coworking session started!',
   userNotAvailable: 'Selected user is already connected with someone',
   coworkerNeedsToUpdate: 'Your coworker needs to update the app at the latest version',
   youNeedToUpdate: 'You need to update the app to connect with someone else',
 }
 
-export const isOnline = () => peerClient.online
-export const isConnectedToSomeone = () => peerClient.connected
-export const isOpen = () => state.isOpen
+export const isOnline = () => !!peerClient.online
+export const isConnectedToSomeone = () => !!peerClient.connected
+export const isOpen = () => !!state.isOpen
 export const getClientId = () => peerClient.id
 
 
@@ -60,7 +60,9 @@ const handlePeerMessage = (message) => {
 export const addStep = (step, tool = false) => {
   state.stepsBuffer.push(step)
 }
+
 export const clearSteps = () => state.stepsBuffer = []
+
 export const sendSteps = (tool) => {
   tool = deepCopy(tool)
   delete tool.frameImageFile
@@ -159,9 +161,6 @@ const handlePeerClientConnect = async(id) => {
     requestSession(state.waitingToConnectToCliendId)
     state.waitingToConnectToCliendId = false
   }
-  if (state.callbackOnConnection) {
-    await state.callbackOnConnection()
-  }
 }
 
 const handlePeerClientDisonnect = (duringCoworkingSession) => {
@@ -169,6 +168,9 @@ const handlePeerClientDisonnect = (duringCoworkingSession) => {
   removeGlobalStatus(SOCKET_CONNECTED_STATUS)
   if (duringCoworkingSession) {
     Messages.error(labels.networkError)
+  }
+  if (getCurrentPage() === 'folder') {
+    closeCoworkingPopup()
   }
 }
 
@@ -180,11 +182,13 @@ const handleNewConnection = () => {
 const handleConnectionFailed = () => {
   console.log('Coworking newConnectionFailed')
   Messages.error(labels.badCode)
+  openPageFolder()
 }
 
 const handleConnectionRefused = () => {
   console.log('Coworking newConnectionRefused')
   Messages.error(labels.userNotAvailable)
+  openPageFolder()
 }
 
 const handleConnectionClosed = () => {
@@ -197,7 +201,6 @@ export const init = () => {
   return new Promise((resolve, reject) => {
     if (!isOnline() && !state.isWaitingConnection) {
       state.isWaitingConnection = true
-      state.callbackOnConnection = resolve
 
       peerClient = new PeerSocket({
         maxConcurrentConnections: config.maxConcurrentConnections,
@@ -210,8 +213,7 @@ export const init = () => {
       peerClient.on('newConnectionFailed', handleConnectionFailed)
       peerClient.on('newConnectionRefused', handleConnectionRefused)
       peerClient.on('connectionClosed', handleConnectionClosed)
-    } else {
-      resolve()
     }
+    resolve()
   })
 }
