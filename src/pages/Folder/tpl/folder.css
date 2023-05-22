@@ -201,15 +201,18 @@ body:not(.drawith__SOCKET_CONNECTED) .folder__drawing-new-coworking .drawith__ov
 }
 .folder__coworking-popup-id {
   width: 100%;
-  height: 4rem;
-  font-size: 1.5rem;
+  height: 4.2rem;
+  font-size: 1.25rem;
   line-height: 4rem;
-  text-align: center;
+  text-align: left;
   border-radius: 5px;
   border: solid 1px var(--palette-gray-3);
   outline: none;
   user-select: none;
+  padding-left: 2rem;
   cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
 }
 .drawith__PHONE .folder__coworking-popup-id {
   font-size: 1.2rem;
@@ -232,7 +235,7 @@ body:not(.drawith__SOCKET_CONNECTED) .folder__drawing-new-coworking .drawith__ov
   height: 2rem;
   width: 2rem;
   top: 1rem;
-  right: 1rem;
+  right: 1.4rem;
   display: none;
   cursor: pointer;
 }
