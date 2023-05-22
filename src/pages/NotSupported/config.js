@@ -2,7 +2,7 @@
 export const config = {
   ios: {
     supported: true,
-    minVersion: '13.3.1', // compared by string with something like '14.2.1'. So the real min working version is ios 13.4
+    minVersion: '16.4.0', // compared by string with something like '14.2.1'. So the real min working version is ios 13.4
   },
   android: {
     supported: true,
