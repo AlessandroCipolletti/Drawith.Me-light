@@ -44,7 +44,7 @@ const labels = {
 }
 
 export const isOnline = () => !!peerClient.online
-export const isConnectedToSomeone = () => !!peerClient.connected
+export const isConnectedWithSomeone = () => !!peerClient.connected
 export const isOpen = () => !!state.isOpen
 export const getClientId = () => peerClient.id
 
