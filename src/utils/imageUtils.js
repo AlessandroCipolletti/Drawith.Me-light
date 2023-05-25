@@ -5,7 +5,7 @@ logo.src = require('static/img/logoExport.png')
 import { fetchUrlFileOffThread, waitWorkerMessage } from 'utils/jsUtils'
 import { getNumberInBetween, round, valuesAreSimilar } from 'utils/mathUtils'
 
-const DRAWING_SCALE_RATION_ON_SHARE = 1
+const DRAWING_SCALE_RATIO_ON_SHARE = 1
 const MIN_LOGO_SIZE = 60
 const MAX_LOGO_SIZE = 300
 const MAX_THUMBNAIL_SIZE = 400
@@ -15,6 +15,21 @@ const tempImage = new Image()
 tempImage.crossOrigin = 'Anonymous'
 const tempCanvas = document.createElement('canvas')
 const tempContext = tempCanvas.getContext('2d')
+
+export const resizeImage = (image, maxSize = MAX_THUMBNAIL_SIZE) => {
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  const imgRatio = (image.naturalWidth || image.width) / (image.naturalHeight || image.height)
+  if (imgRatio > 1) {
+    canvas.width = maxSize
+    canvas.height = maxSize / imgRatio
+  } else {
+    canvas.height = maxSize
+    canvas.width = maxSize * imgRatio
+  }
+  context.drawImage(image, 0, 0, canvas.width, canvas.height)
+  return canvas
+}
 
 export const resizeBase64AndGetBase64 = (base64, maxSize = MAX_THUMBNAIL_SIZE) => {
   return new Promise((resolve, reject) => {
@@ -28,33 +43,16 @@ export const resizeBase64AndGetBase64 = (base64, maxSize = MAX_THUMBNAIL_SIZE) =
 
 export const resizeImageAndGetBlob = (image, maxSize = MAX_THUMBNAIL_SIZE) => {
   return new Promise((resolve, reject) => {
-    const imgRatio = (image.naturalWidth || image.width) / (image.naturalHeight || image.height)
-    if (imgRatio > 1) {
-      tempCanvas.width = maxSize
-      tempCanvas.height = maxSize / imgRatio
-    } else {
-      tempCanvas.height = maxSize
-      tempCanvas.width = maxSize * imgRatio
-    }
-    tempContext.drawImage(image, 0, 0, tempCanvas.width, tempCanvas.height)
-
-    tempCanvas.toBlob((blob) => {
+    const canvas = resizeImage(image, maxSize)
+    canvas.toBlob((blob) => {
       resolve(URL.createObjectURL(blob))
     })
   })
 }
 
 export const resizeImageAndGetBase64 = (image, maxSize = MAX_THUMBNAIL_SIZE) => {
-  const imgRatio = (image.naturalWidth || image.width) / (image.naturalHeight || image.height)
-  if (imgRatio > 1) {
-    tempCanvas.width = maxSize
-    tempCanvas.height = maxSize / imgRatio
-  } else {
-    tempCanvas.height = maxSize
-    tempCanvas.width = maxSize * imgRatio
-  }
-  tempContext.drawImage(image, 0, 0, tempCanvas.width, tempCanvas.height)
-  return tempCanvas.toDataURL('image/png')
+  const canvas = resizeImage(image, maxSize)
+  return canvas.toDataURL('image/png')
 }
 
 const coordsWorker = new Worker('./workers/canvasContentCoords.js')
@@ -121,6 +119,9 @@ export const base64ImageToBlobByCanvas = (base64) => {
 }
 
 export const getCanvasBlobAsync = (canvas) => {
+  if (canvas instanceof OffscreenCanvas) {
+    return canvas.convertToBlob()
+  }
   return new Promise((resolve, reject) => {
     canvas.toBlob(resolve)
   })
@@ -135,7 +136,7 @@ export const imgToCanvas = (img) => {
 }
 
 export const getCanvasBase64Async = async(dom) => {
-  if (dom.tagName.toLowerCase() !== 'canvas') {
+  if (dom.tagName?.toLowerCase() !== 'canvas' && !(dom instanceof OffscreenCanvas)) {
     dom = imgToCanvas(dom)
   }
   return blobToBase64Async(await getCanvasBlobAsync(dom))
@@ -163,6 +164,20 @@ export const mergeBase64Images = async(bases64) => {
   }
   // return tempCanvas.toDataURL('image/png')
   return await getCanvasBase64Async(tempCanvas)
+}
+
+export const mergeImagesAndGetBase64Async = (images) => {
+  tempCanvas.width = tempCanvas.height = 0
+  for (const img of images) {
+    if ((img.naturalWidth || img.width) > 1) {
+      if (!tempCanvas.width) {
+        tempCanvas.width = img.naturalWidth || img.width
+        tempCanvas.height = img.naturalHeight || img.height
+      }
+      tempContext.drawImage(img, 0, 0)
+    }
+  }
+  return getCanvasBase64Async(tempCanvas)
 }
 
 export const blobToBase64Async = (blob) => {
@@ -231,8 +246,8 @@ export const addImageWhiteBgAndGetBase64 = (img) => {
 
 export const shareImageWithBase64 = async(base64, bgWhite = false) => {
   const img = await getImageFromUrl(base64)
-  tempCanvas.width = img.naturalWidth * DRAWING_SCALE_RATION_ON_SHARE
-  tempCanvas.height = img.naturalHeight * DRAWING_SCALE_RATION_ON_SHARE
+  tempCanvas.width = img.naturalWidth * DRAWING_SCALE_RATIO_ON_SHARE
+  tempCanvas.height = img.naturalHeight * DRAWING_SCALE_RATIO_ON_SHARE
 
   // bg
   if (bgWhite) {

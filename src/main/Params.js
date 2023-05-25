@@ -71,7 +71,7 @@ Params.init = (appState) => {
   Params.peerPingInterval = 5000,
 
   // Local db name
-  Params.localDbName = 'drawith.me_new_db'
+  Params.localDbName = 'drawith.me_DB'
 }
 
 Params.set = (key, value) => {

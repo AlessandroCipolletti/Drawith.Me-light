@@ -21,7 +21,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { loadImageOffThread, resizeImageAndGetBase64, cropImageWithMargin, flipImage, findImageContentCoords, getCanvasBase64Async, mergeBase64Images } from 'utils/imageUtils'
+import { loadImageOffThread, resizeImageAndGetBase64, cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, getCanvasBase64Async, mergeBase64Images } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -298,17 +298,17 @@ export const setLayerCoordsAfterDragResize = (minX, minY, maxX, maxY) => {
   }
 }
 
-// credo che non si possa ottimizzare più di cosi,
-// ritorna una promise per caricare l'immagine in un altro thread
 const updateLayerPreview = (layerId = state.currentSelectedLayerId) => {
   const layer = state.layers[layerId]
   if (Number.isFinite(layer.minX)) {
-    const [content] = cropImageWithMargin(layer.selected ? refs.canvas : layer.img, layer.minX, layer.minY, layer.maxX, layer.maxY)
-    layer.localPathSmall = resizeImageAndGetBase64(content, PREVIEW_SIZE)
+    let [preview] = cropImageWithMargin(layer.selected ? refs.canvas : layer.img, layer.minX, layer.minY, layer.maxX, layer.maxY)
+    preview = resizeImage(preview, PREVIEW_SIZE)
+    layer.previewRef.width = preview.width
+    layer.previewRef.height = preview.height
+    layer.previewRef.context.drawImage(preview, 0, 0)
   } else {
-    layer.localPathSmall = EMPTY_BASE64
+    layer.previewRef.context.clearRect(0, 0, layer.previewRef.width, layer.previewRef.height)
   }
-  return loadImageOffThread(layer.previewRef, layer.localPathSmall)
 }
 
 export const undoLayers = async(madeByTools = false) => {
@@ -410,7 +410,6 @@ const layerDeepCopy = (layer) => ({
   active: layer.active,
   name: layer.name,
   opacity: layer.opacity,
-  localPathSmall: layer.localPathSmall,
   localPathBig: layer.localPathBig,
   selected: layer.selected,
   order: layer.order,
@@ -433,7 +432,6 @@ export const getGlobalDrawingFullInfo = async() => {
       delete l.selectedByCoworker
       delete l.resizeMode
       delete l.gco
-      l.localPathSmall = ''
       return l
     })
   return currentDrawingInfo
@@ -529,7 +527,6 @@ const createNewLayerObject = () => {
     active: true,
     name: `Layer ${++state.maxLayerCount}`,
     opacity: 1,
-    localPathSmall: '',
     localPathBig: '',
     selected: false,
     order: getMaxOrder() + 1,
@@ -620,6 +617,7 @@ const createNewLayerListElementDom = (layerId, withAnimation = true) => {
   const layerListDom = refs.layerListElement.cloneNode(true)
   layerListDom.setAttribute('data-id', layerId)
   state.layers[layerId].previewRef = layerListDom.querySelector('.editor-layers__layer-preview')
+  state.layers[layerId].previewRef.context = state.layers[layerId].previewRef.getContext('2d')
   if (state.layers[layerId].selected) {
     layerListDom.classList.add('editor-layers__layer-selected')
   }

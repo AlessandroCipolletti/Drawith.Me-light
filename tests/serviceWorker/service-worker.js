@@ -20,9 +20,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(new Promise(async(resolve) => {
       const formdata = await event.request.formData()
       const base64 = formdata.get('base64')
-      const block = base64.split(";")
-      const contentType = block[0].split(":")[1]
-      const realData = block[1].split(",")[1]
+      const block = base64.split(';')
+      const contentType = block[0].split(':')[1]
+      const realData = block[1].split(',')[1]
       const blob = base64ImageToBlob(realData, contentType)
 
       const filename = 'ciaoone.png'

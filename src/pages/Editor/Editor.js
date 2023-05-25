@@ -30,6 +30,37 @@ import { TOUCH_TYPE_STYLUS, TOUCH_TYPE_FINGER } from 'main/constants'
 import { spacing } from 'main/Theme'
 
 
+/*
+  ----- OFFSCREEN CANVAS -----
+  - fatto: ottimizzata la preview del layer con un piccolo canvas.
+  - da fare: provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
+             ma devo testare bene quanta memoria si occupa con tanti canvas VS tante immagini, e se c'è un limite di canvas nel browser.
+             oppure direttamente un offscreenCanvas per ogni layer, ma in un branch a parte.
+
+  FASE 1
+    Rimpiazzare tutti i base64 con le immagini bitmap degli offscreen canvas.
+    - offscreenCanvas.transferToImageBitmap()
+    e salvare queste img bitmap nell indexedDB.
+    Sia al salvataggio dei disegni interi, che alla loro apertura, che al caricamento/salvataggio/switch dei singoli layer.
+    Per fare questa cosa devo scoprire come poter usare sempre e solo delle immagini bitmap al posto di tutti i base64.
+    Per il DrawImage è easy, ma tante volte usavo i base64 anche per riempire delle variabili di tipo immagine.
+  FASE 2
+    Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.
+    - const offscreenCanvas = canvas2.transferControlToOffscreen()
+    - const worker = new Worker(
+    -   new URL('worker.js', import.meta.url),
+    -   { type: 'module' }
+    - )
+    - worker.postMessage({ id, canvas: offscreenCanvas }, [offscreenCanvas])
+    - await waitWorkerMessage(worker, id)
+    Da dentro al worker posso accedere alle stesse funzioni che oggi uso dal CanvasUtils,
+    ed il codice principale deve solo occuparsi di inviare un messaggio al worker con i dati dello step/tool da disegnare.
+  FASE N
+    In teoria quando sto disegnando molti step in un colpo solo per il corowking,
+    potremmo anche spezzettare il lavoro su più worker, uno per ogni step, e poi disegnarli sul canvas finale in ordine.
+*/
+
+
 export const config = {
   draftTimeInterval: 45 * 1000,
   draftStepsInterval: 50,
