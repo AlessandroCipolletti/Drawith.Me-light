@@ -150,7 +150,7 @@ export const base64ToImageData = async(base64, x = 0, y = 0, width = 0, height =
   return tempContext.getImageData(x, y, tempCanvas.width, tempCanvas.height).data
 }
 
-export const mergeBase64Images = async(bases64) => {
+export const mergeBase64ImagesAsync = async(bases64) => {
   tempCanvas.width = tempCanvas.height = 0
   const imgs = await Promise.all(bases64.map(getImageFromUrl))
   for (const img of imgs) {
@@ -162,11 +162,10 @@ export const mergeBase64Images = async(bases64) => {
       tempContext.drawImage(img, 0, 0)
     }
   }
-  // return tempCanvas.toDataURL('image/png')
   return await getCanvasBase64Async(tempCanvas)
 }
 
-export const mergeImagesAndGetBase64Async = (images) => {
+export const mergeImagesAndGetBitmapAsync = (images) => {
   tempCanvas.width = tempCanvas.height = 0
   for (const img of images) {
     if ((img.naturalWidth || img.width) > 1) {
@@ -177,7 +176,7 @@ export const mergeImagesAndGetBase64Async = (images) => {
       tempContext.drawImage(img, 0, 0)
     }
   }
-  return getCanvasBase64Async(tempCanvas)
+  return createImageBitmap(tempCanvas)
 }
 
 export const blobToBase64Async = (blob) => {

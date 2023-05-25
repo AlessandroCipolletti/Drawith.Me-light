@@ -21,7 +21,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { loadImageOffThread, resizeImageAndGetBase64, cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, getCanvasBase64Async, mergeBase64Images } from 'utils/imageUtils'
+import { resizeImageAndGetBase64, cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -36,10 +36,10 @@ const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQA
 
 const config = {
   stepHistoryMaxLength: 20 + 1,
-  maxLayersNumber: 20,
-  maxLayersNumberLowPerf: 15,
-  maxLayersNumberMediumPerf: 20,
-  maxLayersNumberHightPerf: 25,
+  maxLayersNumber: 10, // 20
+  maxLayersNumberLowPerf: 10, // 15
+  maxLayersNumberMediumPerf: 10, // 20
+  maxLayersNumberHightPerf: 10, // 25
   paramsCloseDelay: 7 * 1000,
   coordsImgScale: 1,
 }
@@ -87,8 +87,6 @@ const refs = {
   opacitySlider: null,
   opacityCursor: null,
   opacityLabel: null,
-  canvas: null,
-  context: null,
 }
 const labels = {
   areYouSureToDeleteLayer: 'Are you sure ?',
@@ -168,7 +166,7 @@ const addGlobalLayersHistoryAction = (action) => {
 const getLayerCurrentData = async(layerId = state.currentSelectedLayerId) => {
   const layer = state.layers[layerId]
   return {
-    data: await getCanvasBase64Async(layer.selected ? refs.canvas : layer.img),
+    bitmap: await createImageBitmap(layer.canvas),
     minX: layer.minX,
     minY: layer.minY,
     maxX: layer.maxX,
@@ -182,13 +180,12 @@ const restoreLayerContentStep = async(layerId, step) => {
   layer.minY = step.minY
   layer.maxX = step.maxX
   layer.maxY = step.maxY
-  layer.localPathBig = step.data
-  if (layer.localPathBig) {
-    await loadImageOffThread(layer.img, layer.localPathBig)
+  layer.bitmap = step.bitmap
+  if (layer.bitmap) {
+    layer.canvas.context.drawImage(layer.bitmap, 0, 0)
   }
   if (layerId === state.currentSelectedLayerId) {
     const canBeResized = layerCanBeResized(layerId)
-    fillCanvasWithImage(refs.context, layer.img)
     updateLayerPreview(layerId)
     updateResizeMode(state.resizeMode && canBeResized, canBeResized)
     updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
@@ -203,17 +200,16 @@ export const addLayerHistoryContentChangedStep = async() => {
   const layer = state.layers[state.currentSelectedLayerId]
   const canBeResized = layerCanBeResized(state.currentSelectedLayerId)
   layer.updateTimestamp = Date.now()
-  const step = await getLayerCurrentData(state.currentSelectedLayerId)
+  const step = await getLayerCurrentData()
   addGlobalLayersHistoryAction({
     layerId: state.currentSelectedLayerId,
     type: HISTORY_STEP_LAYER_CONTENT,
   })
   layer.history.add(step)
   updateLayerPreview(state.currentSelectedLayerId)
-  state.layers[state.currentSelectedLayerId].localPathBig = step.data
+  state.layers[state.currentSelectedLayerId].bitmap = step.bitmap
   updateResizeMode(state.resizeMode && canBeResized, canBeResized)
   updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
-  // await loadImageOffThread(layer.img, layer.localPathBig)
 }
 
 const addLayerHistoryOpacityStep = async(layerId, newValue, oldValue) => {
@@ -283,11 +279,9 @@ const addLayerHistoryMergeStep = async(layerOneId, layerTwoId, newLayerId) => {
 
 // questa andrebbe fatta in un altro thread
 const updateLayerRealCoords = async(layerId = state.currentSelectedLayerId) => {
-  const dom = state.layers[layerId].selected ? refs.canvas : state.layers[layerId].img
-
   state.layers[layerId] = {
     ...state.layers[layerId],
-    ...(await findImageContentCoords(dom, config.coordsImgScale)),
+    ...(await findImageContentCoords(state.layers[layerId].canvas, config.coordsImgScale)),
   }
 }
 
@@ -301,7 +295,7 @@ export const setLayerCoordsAfterDragResize = (minX, minY, maxX, maxY) => {
 const updateLayerPreview = (layerId = state.currentSelectedLayerId) => {
   const layer = state.layers[layerId]
   if (Number.isFinite(layer.minX)) {
-    let [preview] = cropImageWithMargin(layer.selected ? refs.canvas : layer.img, layer.minX, layer.minY, layer.maxX, layer.maxY)
+    let [preview] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY)
     preview = resizeImage(preview, PREVIEW_SIZE)
     layer.previewRef.width = preview.width
     layer.previewRef.height = preview.height
@@ -401,7 +395,7 @@ export const redoLayers = async(madeByTools = false) => {
   }
 }
 
-const layerDeepCopy = (layer) => ({
+const layerDeepCopy = async(layer) => ({
   id: layer.id,
   minX: layer.minX,
   minY: layer.minY,
@@ -410,30 +404,34 @@ const layerDeepCopy = (layer) => ({
   active: layer.active,
   name: layer.name,
   opacity: layer.opacity,
-  localPathBig: layer.localPathBig,
   selected: layer.selected,
   order: layer.order,
   selectedByCoworker: layer.selectedByCoworker,
   createTimestamp: layer.createTimestamp,
   updateTimestamp: layer.updateTimestamp,
+  bitmap: await createImageBitmap(layer.bitmap),
 })
 
 export const getGlobalDrawingFullInfo = async() => {
   const currentDrawingInfo = await getCurrentGlobalImageData()
   if (state.resizeMode) {
     updateLayerPreview(state.currentSelectedLayerId)
-    state.layers[state.currentSelectedLayerId].localPathBig = await getCanvasBase64Async(refs.canvas)
+    state.layers[state.currentSelectedLayerId].bitmap = await createImageBitmap(state.layers[state.currentSelectedLayerId].canvas)
   }
-  currentDrawingInfo.layers = Object.values(state.layers)
+
+  currentDrawingInfo.layers = []
+  const layers = Object.values(state.layers)
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
-    .map(layerDeepCopy)
-    .map(l => {
-      delete l.selectedByCoworker
-      delete l.resizeMode
-      delete l.gco
-      return l
-    })
+
+  for (let layer of layers) {
+    layer = await layerDeepCopy(layer)
+    delete layer.selectedByCoworker
+    delete layer.resizeMode
+    delete layer.gco
+    currentDrawingInfo.layers.push(layer)
+  }
+
   return currentDrawingInfo
 }
 
@@ -448,7 +446,7 @@ export const getCurrentGlobalImageData = async(returnCanvas = false) => {
   for (const layer of layers) {
     if (layer.active) {
       tempContext.globalAlpha = layer.opacity
-      tempContext.drawImage(layer.selected ? refs.canvas : layer.img, 0, 0)
+      tempContext.drawImage(layer.canvas, 0, 0)
       minX = Math.min(minX, layer.minX)
       minY = Math.min(minY, layer.minY)
       maxX = Math.max(maxX, layer.maxX)
@@ -504,8 +502,10 @@ export const clearCurrentLayer = () => {
   closeParams()
   updateGcoMode(false, false)
   if (Number.isFinite(layer.maxX)) {
-    refs.context.clearRect(0, 0, state.canvases.width, state.canvases.height)
-    layer.img.src = refs.canvas.toDataURL('image/png')
+    layer.canvas.context.clearRect(0, 0, state.canvases.width, state.canvases.height)
+    createImageBitmap(layer.canvas).then((bitmap) => {
+      layer.bitmap = bitmap
+    })
     layer.minX = Infinity
     layer.minY = Infinity
     layer.maxY = -Infinity
@@ -527,12 +527,11 @@ const createNewLayerObject = () => {
     active: true,
     name: `Layer ${++state.maxLayerCount}`,
     opacity: 1,
-    localPathBig: '',
     selected: false,
     order: getMaxOrder() + 1,
     selectedByCoworker: false,
     history: new History(config.stepHistoryMaxLength),
-    img: null,
+    canvas: null,
     previewRef: null,
     createTimestamp: now,
     updateTimestamp: now,
@@ -545,7 +544,7 @@ const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
   state.canvases.width = canvasWidth
   state.canvases.height = canvasHeight
   if (initialLayers.length) {
-    initialLayers = initialLayers.map(layerDeepCopy)
+    initialLayers = await Promise.all(initialLayers.map(layerDeepCopy))
     state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, {
       ...l,
       selectedByCoworker: false,
@@ -600,8 +599,8 @@ const restoreDeletedLayer = async(layerId, withAnimation = true) => {
 
   createNewLayerListElementDom(layerId, withAnimation)
   reorderLayersList()
-  layer.img.style.zIndex = layer.order * 10
-  layer.img.style.opacity = layer.opacity
+  layer.canvas.style.zIndex = layer.order * 10
+  layer.canvas.style.opacity = layer.opacity
 
   if (state.layers[layerId].active) {
     enableLayer(layerId)
@@ -610,7 +609,7 @@ const restoreDeletedLayer = async(layerId, withAnimation = true) => {
   }
 
   await updateLayerPreview(layerId)
-  Editor.appendLayer(layer.img)
+  Editor.appendLayer(layer.canvas)
 }
 
 const createNewLayerListElementDom = (layerId, withAnimation = true) => {
@@ -641,10 +640,14 @@ const createNewLayerListElementDom = (layerId, withAnimation = true) => {
 const createNewLayerDom = async(layerId, withAnimation = false) => {
   createNewLayerListElementDom(layerId, withAnimation)
   const layer = state.layers[layerId]
-  layer.img = new Image()
-  layer.img.crossOrigin = 'Anonymous'
-  layer.img.style.zIndex = layer.order * 10
-  layer.img.style.opacity = layer.opacity
+  layer.canvas = document.createElement('canvas')
+  layer.canvas.width = state.canvases.width
+  layer.canvas.height = state.canvases.height
+  layer.canvas.context = getNewContextForCanvas(layer.canvas)
+  // const offscreenCanvas = canvas.transferControlToOffscreen()
+
+  layer.canvas.style.zIndex = layer.order * 10
+  layer.canvas.style.opacity = layer.opacity
 
   if (state.layers[layerId].active) {
     enableLayer(layerId)
@@ -652,26 +655,25 @@ const createNewLayerDom = async(layerId, withAnimation = false) => {
     disableLayer(layerId)
   }
 
-  if (layer.localPathBig) {
-    await loadImageOffThread(layer.img, layer.localPathBig)
-    const { minX, minY, maxX, maxY } = await findImageContentCoords(layer.img, config.coordsImgScale)
+  if (layer.bitmap) {
+    layer.canvas.context.drawImage(layer.bitmap, 0, 0)
+    const { minX, minY, maxX, maxY } = await findImageContentCoords(layer.canvas, config.coordsImgScale)
     layer.minX = minX
     layer.minY = minY
     layer.maxX = maxX
     layer.maxY = maxY
     updateLayerPreview(layerId)
   } else {
-    layer.localPathBig = EMPTY_BASE64
-    await loadImageOffThread(layer.img, EMPTY_BASE64)
+    layer.canvas.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height)
   }
   layer.history.add({
-    data: layer.localPathBig,
+    bitmap: layer.bitmap,
     minX: layer.minX,
     minY: layer.minY,
     maxX: layer.maxX,
     maxY: layer.maxY,
   })
-  Editor.appendLayer(layer.img)
+  Editor.appendLayer(layer.canvas)
 }
 
 const addNewLayer = (e) => {
@@ -691,7 +693,7 @@ const addNewLayer = (e) => {
 
 const updateEditorCanvas = () => {
   Editor.updateEditorLayer(
-    parseInt(state.layers[state.currentSelectedLayerId].img.style.zIndex),
+    parseInt(state.layers[state.currentSelectedLayerId].canvas.style.zIndex),
     state.layers[state.currentSelectedLayerId].opacity,
     state.gcoMode ? 'source-atop' : 'source-over',
     state.layers[state.currentSelectedLayerId].active
@@ -706,10 +708,6 @@ const selectLayer = async(layerId, showParams = true) => {
       if (state.resizeMode) {
         await saveResizeModeIfNeeded()
       }
-      if (state.layers[state.currentSelectedLayerId].localPathBig) {
-        await loadImageOffThread(state.layers[state.currentSelectedLayerId].img, state.layers[state.currentSelectedLayerId].localPathBig)
-      }
-      state.layers[state.currentSelectedLayerId].img.classList.remove('editor__layer-img-selected')
     }
 
     Object.values(state.layers).forEach(l => {
@@ -723,13 +721,9 @@ const selectLayer = async(layerId, showParams = true) => {
       openParams()
     }
 
-    fillCanvasWithImage(refs.context, state.layers[layerId].img)
-    state.layers[layerId].img.classList.add('editor__layer-img-selected')
-    refs.canvas.style.zIndex = state.layers[layerId].order * 10
-    refs.canvas.style.opacity = state.layers[layerId].opacity
-    refs.canvas.classList.toggle('displayNone', !state.layers[layerId].active)
     updateLayerPreview(layerId)
     updateEditorCanvas()
+    Editor.setLayerContext(state.layers[layerId].canvas.context)
     if (state.resizeMode) {
       startResizeMode()
     } else if (wasInResizeMode) {
@@ -741,10 +735,7 @@ const selectLayer = async(layerId, showParams = true) => {
 const reorderLayersList = () => {
   Object.values(state.layers).sort((l1, l2) => l1.order > l2.order ? 1 : -1).forEach((layer, i) => {
     layer.order = i
-    layer.img.style.zIndex = i * 10
-    if (layer.selected) {
-      refs.canvas.style.zIndex = i * 10
-    }
+    layer.canvas.style.zIndex = i * 10
   })
 
   const layersCount = Object.keys(state.layers).length
@@ -766,10 +757,10 @@ const _deleteLayer = async(layerId, nextSelectedId) => {
   refs.imageForResize = null
   await selectLayer(nextSelectedId, false)
   closeParams()
-  fadeOutElements(state.layers[layerId].img)
+  fadeOutElements(state.layers[layerId].canvas)
   await removeOutElement(refs.layersList.querySelector(`div[data-id="${layerId}"]`))
   state.layers[layerId].previewRef = null
-  state.layers[layerId].img.remove()
+  state.layers[layerId].canvas.remove()
   state.deletedLayers[layerId] = state.layers[layerId]
   delete state.layers[layerId]
   updateUndoRedoButtons()
@@ -833,7 +824,7 @@ const duplicateSelectedLayer = async(e) => {
 
   await saveResizeModeIfNeeded()
   const newId = uuidv4()
-  const newLayer = layerDeepCopy(state.layers[state.currentSelectedLayerId])
+  const newLayer = await layerDeepCopy(state.layers[state.currentSelectedLayerId])
   const now = Date.now()
   newLayer.id = newId
   newLayer.selected = false
@@ -882,16 +873,12 @@ const mergeDownSelectedLayer = async(e) => {
     state.layers[newLayerData.id] = newLayerData
 
     // merge the two source layers
-    const res = await Promise.all([
-      mergeBase64Images([lowerLayer.localPathBig, selectedLayer.localPathBig]),
-      loadImageOffThread(selectedLayer.img, selectedLayer.localPathBig || EMPTY_BASE64),
-    ])
-    state.layers[newLayerData.id].localPathBig = res[0]
+    state.layers[newLayerData.id].bitmap = await mergeImagesAndGetBitmapAsync([lowerLayer.bitmap, selectedLayer.bitmap])
 
     // animate in and out new and old list dom
     closeParams()
     await Promise.all([
-      fadeOutElements([state.layers[selectedLayer.id].img, state.layers[lowerLayer.id].img, refs.canvas]),
+      fadeOutElements([state.layers[selectedLayer.id].canvas, state.layers[lowerLayer.id].canvas]),
       removeOutElement(refs.layersList.querySelector(`div[data-id="${selectedLayer.id}"]`)),
       removeOutElement(refs.layersList.querySelector(`div[data-id="${lowerLayer.id}"]`)),
     ])
@@ -901,8 +888,8 @@ const mergeDownSelectedLayer = async(e) => {
     // delete the two source layers
     state.layers[selectedLayer.id].previewRef = null
     state.layers[lowerLayer.id].previewRef = null
-    state.layers[selectedLayer.id].img.remove()
-    state.layers[lowerLayer.id].img.remove()
+    state.layers[selectedLayer.id].canvas.remove()
+    state.layers[lowerLayer.id].canvas.remove()
     state.deletedLayers[selectedLayer.id] = state.layers[selectedLayer.id]
     state.deletedLayers[lowerLayer.id] = state.layers[lowerLayer.id]
     delete state.layers[selectedLayer.id]
@@ -925,11 +912,10 @@ const enableLayer = (layerId = state.currentSelectedLayerId) => {
   layerOptionButton.classList.add('svg-icon-visible')
   layerOptionButton.classList.remove('svg-icon-hidden')
 
-  fadeInElements(layer.img, { maxFadeIn: layer.opacity })
+  fadeInElements(layer.canvas, { maxFadeIn: layer.opacity })
   if (layerId === state.currentSelectedLayerId) {
     const canBeResized = layerCanBeResized(layerId)
     updateEditorCanvas()
-    fadeInElements(refs.canvas, { maxFadeIn: layer.opacity })
     updateResizeMode(false, canBeResized)
     updateGcoMode(false, canBeResized)
     refs.visibilityLayerButton.classList.toggle('svg-icon-visible', layer.active)
@@ -945,10 +931,9 @@ const disableLayer = (layerId = state.currentSelectedLayerId) => {
   layerOptionButton.classList.add('svg-icon-hidden')
   layerOptionButton.classList.remove('svg-icon-visible')
 
-  fadeOutElements(layer.img, { maxFadeIn: layer.opacity })
+  fadeOutElements(layer.canvas, { maxFadeIn: layer.opacity })
   if (layerId === state.currentSelectedLayerId) {
     updateEditorCanvas()
-    fadeOutElements(refs.canvas, { maxFadeIn: layer.opacity })
     updateResizeMode(false, false)
     updateGcoMode(state.gcoMode, false)
     refs.visibilityLayerButton.classList.toggle('svg-icon-visible', layer.active)
@@ -977,7 +962,7 @@ const toggleEnableLayer = (e, layerId = state.currentSelectedLayerId, clickedByL
 }
 
 export const updateCanvasContent = (minX, minY, w, h, rotation) => {
-  fillCanvasWithImage(refs.context, refs.imageForResize, minX, minY, w, h, convertAngleDegToRad(rotation))
+  fillCanvasWithImage(state.layers[state.currentSelectedLayerId].canvas.context, refs.imageForResize, minX, minY, w, h, convertAngleDegToRad(rotation))
   state.resizeModeMadeChanges = true
   Tools.toggleButton('undo', true)
 }
@@ -996,7 +981,7 @@ export const updateMagnetismCoords = (layerId = state.currentSelectedLayerId, ha
 }
 export const getMagnetismCoords = () => state.magnetismCoords
 
-const startResizeMode = (track = false) => {
+const startResizeMode = () => {
   const layerOptionButton = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"] .editor-layers__layer-options-button`)
   layerOptionButton.classList.add('disabled')
   updateResizeMode(true, true)
@@ -1010,8 +995,7 @@ const startResizeMode = (track = false) => {
   ColorPicker.deselectPipette(true, false, true)
 
   const layer = state.layers[state.currentSelectedLayerId]
-  const dom = layer.selected ? refs.canvas : layer.img
-  const [image, minX, minY, width, height] = cropImageWithMargin(dom, layer.minX, layer.minY, layer.maxX, layer.maxY, 0)
+  const [image, minX, minY, width, height] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY, 0)
   refs.imageForResize = image
   updateMagnetismCoords(state.currentSelectedLayerId)
   Editor.showDragBox(round(minX + width / 2, 1), round(minY + height / 2, 1), width, height, true)
@@ -1053,21 +1037,20 @@ export const updateCurrentTool = (isUsingEraser) => {
 
 const flipLayer = async(e, layerId, horizontally) => {
   preventDefault(e)
-  if (state.paramsTimeout === false) {
+  if (state.paramsTimeout === false) { // params are closed
     return
-  } // params are closed
+  }
   openParams()
   const layer = state.layers[layerId]
   if (Number.isFinite(layer.maxX)) {
-    const dom = layer.selected ? refs.canvas : layer.img
     if (state.resizeMode) {
       refs.imageForResize = flipImage(refs.imageForResize, horizontally)
-      const { minX, minY, maxX, maxY } = await findImageContentCoords(dom, config.coordsImgScale)
-      const [content, x, y] = cropImageWithMargin(dom, minX, minY, maxX, maxY)
-      fillCanvasWithImage(refs.context, flipImage(content, horizontally), x, y)
+      const { minX, minY, maxX, maxY } = await findImageContentCoords(layer.canvas, config.coordsImgScale)
+      const [content, x, y] = cropImageWithMargin(layer.canvas, minX, minY, maxX, maxY)
+      fillCanvasWithImage(layer.canvas.context, flipImage(content, horizontally), x, y)
     } else {
-      const [content, x, y] = cropImageWithMargin(dom, layer.minX, layer.minY, layer.maxX, layer.maxY)
-      fillCanvasWithImage(refs.context, flipImage(content, horizontally), x, y)
+      const [content, x, y] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY)
+      fillCanvasWithImage(layer.canvas.context, flipImage(content, horizontally), x, y)
     }
     addLayerHistoryContentChangedStep()
   }
@@ -1082,7 +1065,7 @@ const resizeButtonTouchStart = (e) => {
     if (state.resizeMode) {
       endResizeMode()
     } else {
-      startResizeMode(true)
+      startResizeMode()
     }
   }
 }
@@ -1122,8 +1105,7 @@ const _updateLayerOpacity = (layerId, opacity, inProgress) => {
   refs.opacitySlider.style.background = `linear-gradient(0deg, var(--palette-green-1) ${opacity}%, var(--palette-white) ${opacity}%)`
   opacity = round(opacity / 100, 2)
   state.layers[layerId].opacity = opacity
-  state.layers[layerId].img.style.opacity = opacity
-  refs.canvas.style.opacity = opacity
+  state.layers[layerId].canvas.style.opacity = opacity
 
   if (!inProgress) {
     const canBeResized = layerCanBeResized(layerId)
@@ -1313,14 +1295,6 @@ const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking)
     refs.resizeButton.addEventListener(Params.eventStart, resizeButtonTouchStart)
   }
 
-  refs.canvas = document.createElement('canvas')
-  refs.canvas.width = canvasWidth
-  refs.canvas.height = canvasHeight
-  refs.context = getNewContextForCanvas(refs.canvas)
-
-  Editor.setLayerContext(refs.context)
-  Editor.appendLayer(refs.canvas)
-
   dom = undefined
 }
 
@@ -1350,9 +1324,12 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
 
 export const remove = () => {
   Object.values(state.layers).forEach(layer => {
-    layer.img.remove()
+    layer.canvas.remove()
+    if (layer.bitmap) {
+      layer.bitmap.close()
+    }
     layer.history.clear()
-    layer.img = layer.history = layer.localPathBig = undefined
+    layer.canvas = layer.history = layer.bitmap = undefined
   })
   LayersHistory.clear()
   cleanRefs(refs)

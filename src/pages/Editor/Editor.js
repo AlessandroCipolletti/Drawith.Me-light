@@ -466,7 +466,7 @@ export const changePaper = (paper) => {
 }
 
 export const appendLayer = (layerCanvas) => {
-  layerCanvas.classList.add('editor__layer-img')
+  layerCanvas.classList.add('editor__layer-canvas')
   refs.canvasContainer.appendChild(layerCanvas)
 }
 

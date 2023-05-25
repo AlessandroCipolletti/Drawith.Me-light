@@ -159,9 +159,9 @@ const selectInitialTools = (selectedTool = false, hideToolsForCoworking = false)
   }
 
   if (selectedTool && config.tools.includes(selectedTool.name)) {
-    selectTool(selectedTool.name, selectedTool.version, false, false)
+    selectTool(selectedTool.name, selectedTool.version, false)
   } else {
-    selectTool(state.selectedTool, false, false, false)
+    selectTool(state.selectedTool, false, false)
   }
 
   refs.toolsContainer.scrollTop = 0
@@ -194,7 +194,7 @@ const toggleVersions = (tool) => {
   }
 }
 
-export const selectTool = (tool, versionIndex = false, track = true, showToolChange = true) => {
+export const selectTool = (tool, versionIndex = false, showToolChange = true) => {
   Layers.closeResizeModeIfNeeded()
   Layers.updateCurrentTool(tool === 'eraser')
   if (state.lastUsedTool !== state.selectedTool && config.writingTools.includes(state.selectedTool)) {
@@ -236,7 +236,7 @@ const setEditorToolByVersion = (tool, versionIndex) => {
 
 export const selectLastUsedTool = (showToolChange = true) => {
   if (state.lastUsedTool) {
-    selectTool(state.lastUsedTool, false, false, showToolChange)
+    selectTool(state.lastUsedTool, false, showToolChange)
   }
 }
 
