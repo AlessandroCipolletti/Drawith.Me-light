@@ -190,7 +190,7 @@ const restoreLayerContentStep = async(layerId, step) => {
   }
 }
 
-// funzione chiamata da editor ad ogni fine tratto
+// funzione chiamata da editor ad ogni fine tratto, o su fine resize / flip
 export const addLayerHistoryContentChangedStep = async() => {
   await updateLayerRealCoords(state.currentSelectedLayerId)
   const layer = state.layers[state.currentSelectedLayerId]
@@ -869,7 +869,10 @@ const mergeDownSelectedLayer = async(e) => {
     state.layers[newLayerData.id] = newLayerData
 
     // merge the two source layers
-    state.layers[newLayerData.id].bitmap = await mergeImagesAndGetBitmapAsync([lowerLayer.bitmap, selectedLayer.bitmap])
+    state.layers[newLayerData.id].bitmap = await mergeImagesAndGetBitmapAsync([
+      [lowerLayer.bitmap, lowerLayer.opacity],
+      [selectedLayer.bitmap, selectedLayer.opacity],
+    ])
 
     // animate in and out new and old list dom
     closeParams()

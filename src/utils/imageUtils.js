@@ -167,15 +167,17 @@ export const mergeBase64ImagesAsync = async(bases64) => {
 
 export const mergeImagesAndGetBitmapAsync = (images) => {
   tempCanvas.width = tempCanvas.height = 0
-  for (const img of images) {
+  for (const [img, opacity = 1] of images) {
     if ((img.naturalWidth || img.width) > 1) {
       if (!tempCanvas.width) {
         tempCanvas.width = img.naturalWidth || img.width
         tempCanvas.height = img.naturalHeight || img.height
       }
+      tempContext.globalAlpha = opacity
       tempContext.drawImage(img, 0, 0)
     }
   }
+  tempContext.globalAlpha = 1
   return createImageBitmap(tempCanvas)
 }
 
