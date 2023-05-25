@@ -166,6 +166,20 @@ export const mergeBase64Images = async(bases64) => {
   return await getCanvasBase64Async(tempCanvas)
 }
 
+export const mergeImagesAndGetBase64Async = (images) => {
+  tempCanvas.width = tempCanvas.height = 0
+  for (const img of images) {
+    if ((img.naturalWidth || img.width) > 1) {
+      if (!tempCanvas.width) {
+        tempCanvas.width = img.naturalWidth || img.width
+        tempCanvas.height = img.naturalHeight || img.height
+      }
+      tempContext.drawImage(img, 0, 0)
+    }
+  }
+  return getCanvasBase64Async(tempCanvas)
+}
+
 export const blobToBase64Async = (blob) => {
   return new Promise((resolve) => {
     let reader = new FileReader()
