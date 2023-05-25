@@ -15,7 +15,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { resizeImageAndGetBase64, cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync } from 'utils/imageUtils'
+import { resizeImageAndGetBase64, cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getCanvasBase64Async } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -433,10 +433,8 @@ export const getGlobalDrawingFullInfo = async() => {
 
 export const getCurrentGlobalImageData = async(returnCanvas = false) => {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  let tempCanvas = document.createElement('canvas')
+  let tempCanvas = new OffscreenCanvas(state.canvases.width, state.canvases.height)
   let tempContext = tempCanvas.getContext('2d')
-  tempCanvas.width = state.canvases.width
-  tempCanvas.height = state.canvases.height
 
   const layers = Object.values(state.layers).sort((l1, l2) => l1.order > l2.order ? 1 : -1)
   for (const layer of layers) {
@@ -455,11 +453,11 @@ export const getCurrentGlobalImageData = async(returnCanvas = false) => {
 
   if (Number.isFinite(minX)) {
     if (returnCanvas) {
-      localPathBig = tempCanvas.toDataURL('image/png')
+      localPathBig = await getCanvasBase64Async(tempCanvas)
       localPathSmall = resizeImageAndGetBase64(tempCanvas)
     } else {
       const [drawing] = cropImageWithMargin(tempCanvas, minX, minY, maxX, maxY)
-      localPathBig = drawing.toDataURL('image/png')
+      localPathBig = await getCanvasBase64Async(tempCanvas)
       localPathSmall = resizeImageAndGetBase64(drawing)
     }
   } else {
