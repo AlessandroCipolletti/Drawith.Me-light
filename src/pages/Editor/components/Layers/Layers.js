@@ -1,9 +1,3 @@
-/*
-  layer.localPathBig è sempre aggiornato in ogni momento all'attuale contentuto del layer
-  ma layer.img viene aggiornato solo quando il layer viene deselezionato.
-  Se il layer è attualmente selezionato, il suo contenuto aggiornato è dentro il Editor.canvas e non dentro layer.img
-*/
-
 const tplLayers = require('./layers.tpl')
 import './layers.css'
 
@@ -181,8 +175,10 @@ const restoreLayerContentStep = async(layerId, step) => {
   layer.maxX = step.maxX
   layer.maxY = step.maxY
   layer.bitmap = step.bitmap
-  if (layer.bitmap) {
-    layer.canvas.context.drawImage(layer.bitmap, 0, 0)
+  if (step.bitmap) {
+    fillCanvasWithImage(layer.canvas.context, step.bitmap)
+  } else {
+    layer.canvas.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height)
   }
   if (layerId === state.currentSelectedLayerId) {
     const canBeResized = layerCanBeResized(layerId)
@@ -656,7 +652,7 @@ const createNewLayerDom = async(layerId, withAnimation = false) => {
   }
 
   if (layer.bitmap) {
-    layer.canvas.context.drawImage(layer.bitmap, 0, 0)
+    fillCanvasWithImage(layer.canvas.context, layer.bitmap)
     const { minX, minY, maxX, maxY } = await findImageContentCoords(layer.canvas, config.coordsImgScale)
     layer.minX = minX
     layer.minY = minY
