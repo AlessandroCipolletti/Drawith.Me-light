@@ -300,14 +300,14 @@ export const setLayerCoordsAfterDragResize = (minX, minY, maxX, maxY) => {
 
 const updateLayerPreview = (layerId = state.currentSelectedLayerId) => {
   const layer = state.layers[layerId]
-  layer.previewRef.context.clearRect(0, 0, layer.previewRef.width, layer.previewRef.height)
-
   if (Number.isFinite(layer.minX)) {
     let [preview] = cropImageWithMargin(layer.selected ? refs.canvas : layer.img, layer.minX, layer.minY, layer.maxX, layer.maxY)
     preview = resizeImage(preview, PREVIEW_SIZE)
     layer.previewRef.width = preview.width
     layer.previewRef.height = preview.height
     layer.previewRef.context.drawImage(preview, 0, 0)
+  } else {
+    layer.previewRef.context.clearRect(0, 0, layer.previewRef.width, layer.previewRef.height)
   }
 }
 
