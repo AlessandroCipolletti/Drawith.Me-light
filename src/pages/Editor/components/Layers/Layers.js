@@ -15,7 +15,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getCanvasBase64Async } from 'utils/imageUtils'
+import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getCanvasBase64Async, getImageFromUrl } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -27,6 +27,8 @@ import { HISTORY_STEP_LAYER_CONTENT, HISTORY_STEP_LAYER_OPACITY, HISTORY_STEP_LA
 const MAX_LAYER_NAME_LENGTH = 12
 const PREVIEW_SIZE = 300
 const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+let emptyBitmap
+
 
 const config = {
   stepHistoryMaxLength: 20 + 1,
@@ -462,7 +464,7 @@ export const getCurrentGlobalImageData = async(returnCanvas = false) => {
     }
   } else {
     localPathBig = EMPTY_BASE64
-    bitmap = EMPTY_BASE64
+    bitmap = emptyBitmap
   }
 
   const res = {
@@ -1296,6 +1298,9 @@ const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking)
 }
 
 export const init = async(moduleContainer, initialLayers = [], canvasWidth, canvasHeight, withCoworking = false) => {
+  const emptyImage = await getImageFromUrl(EMPTY_BASE64)
+  emptyBitmap = await createImageBitmap(emptyImage)
+
   config.maxLayersNumber = config.maxLayersNumberHightPerf
   if (Params.isTablet && Params.ios) {
     const screenMaxSize = getRealScreenMaxSize()
