@@ -12,6 +12,7 @@ import * as LocalDB from 'utils/localDbUtils'
 import { addSpinnerOverlayTo, setSpinner, loadTemplate, preventDefault, enableElements, disableElements } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
+import { fillCanvasWithImage } from 'utils/canvasUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { shareImageWithBase64 } from 'utils/imageUtils'
 import { deepCopy, copyTextToClipboard } from 'utils/jsUtils'
@@ -19,6 +20,8 @@ import { addListScrollClickAndPressHandlers } from 'utils/uiUtils'
 
 import { goToPage } from 'modules/Router'
 import * as Coworking from 'modules/Coworking'
+
+const MAX_DRAWING_PREVIEW_SIZE = 300
 
 
 let state = {}
@@ -142,14 +145,15 @@ const onCoworkingSpinnerClick = (() => {
 })()
 
 const onDrawingClick = (e) => {
-  if (e.target.classList.contains('folder__drawing')) {
+  if (e.target.classList.contains('folder__drawing') || e.target.classList.contains('folder__drawing-preview-canvas')) {
     if (state.selectionMode) {
       if (!e.target.classList.contains('folder__drawing-new-drawing')) {
         e.target.classList.toggle('folder__drawing-selected')
         updateTopnavButtons()
       }
     } else {
-      openDrawing(parseInt(e.target.getAttribute('data-local-id')))
+      const drawingId = parseInt(e.target.getAttribute('data-local-id')) || parseInt(e.target.parentNode.getAttribute('data-local-id'))
+      openDrawing(drawingId)
     }
   }
 }
@@ -270,6 +274,12 @@ export const refreshContent = async() => {
   refs.drawingsContainer.innerHTML = ''
   await loadTemplate(tplContent, { drawings }, refs.drawingsContainer)
   refs.drawingsContainer.scrollTop = scroll
+  for (const drawing of drawings) {
+    const drawingCanvas = refs.drawingsContainer.querySelector(`[data-local-id='${drawing.localDbId}'] canvas`)
+    drawingCanvas.width = MAX_DRAWING_PREVIEW_SIZE
+    drawingCanvas.height = MAX_DRAWING_PREVIEW_SIZE * (drawing.bitmap.height / drawing.bitmap.width)
+    fillCanvasWithImage(drawingCanvas.getContext('2d'), drawing.bitmap, 0, 0, drawingCanvas.width, drawingCanvas.height)
+  }
   refs.topnav.classList.toggle('displayNone', !drawings.length)
   drawings = undefined
 }

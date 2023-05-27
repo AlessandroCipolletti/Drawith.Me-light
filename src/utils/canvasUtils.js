@@ -221,6 +221,23 @@ export const fillCanvasWithImage = (destinationContext, image, x = 0, y = 0, w, 
   }
 }
 
+export const fillCanvasBackground = (destinationContext, tileImg) => {
+  const pattern = destinationContext.createPattern(tileImg, 'repeat')
+  destinationContext.clearRect(0, 0, destinationContext.canvas.width, destinationContext.canvas.height)
+  destinationContext.globalAlpha = 1
+  destinationContext.globalCompositeOperation = 'source-over'
+  destinationContext.fillStyle = pattern
+  destinationContext.fillRect(0, 0, destinationContext.canvas.width, destinationContext.canvas.height)
+}
+
+export const drawCanvasImageContain = (destinationContext, image, alpha = 1) => {
+  destinationContext.clearRect(0, 0, destinationContext.canvas.width, destinationContext.canvas.height)
+  destinationContext.globalAlpha = alpha
+  destinationContext.globalCompositeOperation = 'source-over'
+  const ratio = Math.min(destinationContext.canvas.width / image.width, destinationContext.canvas.height / image.height)
+  destinationContext.drawImage(image, 0, 0, image.width * ratio, image.height * ratio)
+}
+
 const drawCanvasImage = (destinationContext, x, y, alpha, size, rotation) => {
   const image = destinationContext.toolImageShape.canvas
   destinationContext.lastDrawCoordX = x
@@ -285,7 +302,6 @@ export const drawMultipleSteps = (destinationContext, steps, tool) => {
 
   steps.forEach(step => multipleStepsFns[step.type](destinationContext, step, tool))
 }
-
 
 export const drawMultipleCoworkingSteps = async(destinationContext, steps, tool, fns) => {
   // Recupero lo strumento usato da questi step, se è diverso dal precedente

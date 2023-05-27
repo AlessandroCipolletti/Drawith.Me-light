@@ -7,10 +7,25 @@
     0 4px 4px rgba(0, 0, 0, 0.15);
   margin: 2rem 0rem;
   cursor: pointer;
+  background: url('../../../static/img/paper/white.png');
+  background-size: 43px;
+  background-repeat: repeat;
+  position: relative;
+}
+
+.folder__drawings-container .folder__drawing {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.folder__drawing-preview-canvas {
+  max-width: 95%;
+  max-height: 95%;
 }
 
 .folder__drawing-select-icon {
-  float: right;
+  position: absolute;
   top: 0rem;
   right: 0rem;
   margin: 0.75rem;

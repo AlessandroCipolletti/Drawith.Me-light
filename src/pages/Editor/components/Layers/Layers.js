@@ -15,7 +15,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { resizeImageAndGetBase64, cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getCanvasBase64Async } from 'utils/imageUtils'
+import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getCanvasBase64Async } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -449,24 +449,24 @@ export const getCurrentGlobalImageData = async(returnCanvas = false) => {
   }
   const width = round(maxX - minX, 0)
   const height = round(maxY - minY, 0)
-  let localPathBig, localPathSmall
+  let localPathBig, bitmap
 
   if (Number.isFinite(minX)) {
     if (returnCanvas) {
       localPathBig = await getCanvasBase64Async(tempCanvas)
-      localPathSmall = resizeImageAndGetBase64(tempCanvas)
+      bitmap = await createImageBitmap(tempCanvas)
     } else {
       const [drawing] = cropImageWithMargin(tempCanvas, minX, minY, maxX, maxY)
       localPathBig = await getCanvasBase64Async(tempCanvas)
-      localPathSmall = resizeImageAndGetBase64(drawing)
+      bitmap = await createImageBitmap(drawing)
     }
   } else {
     localPathBig = EMPTY_BASE64
-    localPathSmall = EMPTY_BASE64
+    bitmap = EMPTY_BASE64
   }
 
   const res = {
-    localPathBig, localPathSmall,
+    localPathBig, bitmap,
     minX, minY, maxX, maxY,
     width, height,
     canvasWidth: tempCanvas.width,
