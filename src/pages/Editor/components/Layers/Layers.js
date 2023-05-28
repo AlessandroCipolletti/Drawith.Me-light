@@ -29,6 +29,12 @@ const PREVIEW_SIZE = 300
 const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
 let emptyBitmap
 
+/*
+  BUGS:
+  - se faccio un Undo durante il resizeMode, tutto il resto dello storico degli Undo viene perso
+  - Sembra che la bozza venga salvata solo la prima volta, e non venga mai aggiornata
+  - Undo / Redo troppo veloci danno errore
+*/
 
 const config = {
   stepHistoryMaxLength: 20 + 1,
@@ -960,10 +966,12 @@ const toggleEnableLayer = (e, layerId = state.currentSelectedLayerId, clickedByL
   }
 }
 
-export const updateCanvasContent = (minX, minY, w, h, rotation) => {
+export const updateCanvasContent = (madeChanges, minX, minY, w, h, rotation) => {
   fillCanvasWithImage(state.layers[state.currentSelectedLayerId].canvas.context, refs.imageForResize, minX, minY, w, h, convertAngleDegToRad(rotation))
-  state.resizeModeMadeChanges = true
   Tools.toggleButton('undo', true)
+  if (madeChanges) {
+    state.resizeModeMadeChanges = true
+  }
 }
 
 export const updateMagnetismCoords = (layerId = state.currentSelectedLayerId, hasRotation = false) => {
@@ -1018,6 +1026,9 @@ const endResizeMode = async() => {
   refs.visibilityLayerButton.classList.remove('disabled')
   refs.resizeButton.classList.toggle('selected', state.resizeMode)
   Editor.hideDragBox()
+  if (state.resizeModeMadeChanges) {
+    Tools.toggleButton('undo', true)
+  }
 }
 
 export const closeResizeModeIfNeeded = () => {

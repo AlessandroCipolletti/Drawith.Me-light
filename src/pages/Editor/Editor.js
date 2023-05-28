@@ -36,6 +36,8 @@ import { spacing } from 'main/Theme'
   - da fare: provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
              ma devo testare bene quanta memoria si occupa con tanti canvas VS tante immagini, e se c'è un limite di canvas nel browser.
              oppure direttamente un offscreenCanvas per ogni layer, ma in un branch a parte.
+  - Bitmap salvata in indexDB e rimpiazzate tutte le locahPathSmall
+  - Folder con piccoli canvas
 
   FASE 1
     Rimpiazzare tutti i base64 con le immagini bitmap degli offscreen canvas.
@@ -493,7 +495,7 @@ export const showDragBox = (x, y, w, h, useMagnetism) => {
     refs.dragBulletT, refs.dragBulletL, refs.dragBulletR, refs.dragBulletB,
     refs.dragBulletRT,
   ])
-  updateDragBox(x, y, w, h)
+  updateDragBox(false, x, y, w, h)
 }
 
 const updateLayerContentCoordsAfterDragResize = () => {
@@ -505,7 +507,7 @@ const updateLayerContentCoordsAfterDragResize = () => {
   )
 }
 
-const updateDragBox = (x, y, w, h, r = 0) => {
+const updateDragBox = (madeChanges, x, y, w, h, r = 0) => {
   refs.dragBox.style.cssText = `
     left: ${round(x / Params.pxScale, 1)}px;
     top: ${round(y / Params.pxScale, 1)}px;
@@ -517,8 +519,8 @@ const updateDragBox = (x, y, w, h, r = 0) => {
     ...state.resizeMode,
     x, y, w, h, r,
   }
-  Layers.updateCanvasContent(round(x - w / 2, 1), round(y - h / 2, 1), w, h, r)
   updateDragBoxHandlersPosition()
+  Layers.updateCanvasContent(madeChanges, round(x - w / 2, 1), round(y - h / 2, 1), w, h, r)
 }
 
 const updateDragBoxHandlersPosition = () => {
@@ -937,7 +939,7 @@ const onResizeLayerContentTouchMove = (newResizeState, left, top, right, bottom,
     }
   }
 
-  updateDragBox(newResizeState.x, newResizeState.y, newResizeState.w, newResizeState.h, newResizeState.r)
+  updateDragBox(true, newResizeState.x, newResizeState.y, newResizeState.w, newResizeState.h, newResizeState.r)
 }
 
 const onDragLayerContentTouchMove = (touchEvent) => {
@@ -957,7 +959,7 @@ const onDragLayerContentTouchMove = (touchEvent) => {
   refs.magnetisedLineX.classList.toggle('displayNone', !magnetismLineX)
   refs.magnetisedLineY.classList.toggle('displayNone', !magnetismLineY)
 
-  updateDragBox(round(newX, 1), round(newY, 1), state.resizeMode.w, state.resizeMode.h, state.resizeMode.r)
+  updateDragBox(true, round(newX, 1), round(newY, 1), state.resizeMode.w, state.resizeMode.h, state.resizeMode.r)
 }
 
 const onStepTouchMove = (touchEvent) => {
