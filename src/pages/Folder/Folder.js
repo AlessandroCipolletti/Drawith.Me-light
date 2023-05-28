@@ -146,14 +146,17 @@ const onCoworkingSpinnerClick = (() => {
 
 const onDrawingClick = (e) => {
   if (e.target.classList.contains('folder__drawing') || e.target.classList.contains('folder__drawing-preview-canvas')) {
+    let touchedDrawing = e.target
+    if (e.target.classList.contains('folder__drawing-preview-canvas')) {
+      touchedDrawing = e.target.parentNode
+    }
     if (state.selectionMode) {
-      if (!e.target.classList.contains('folder__drawing-new-drawing')) {
-        e.target.classList.toggle('folder__drawing-selected')
+      if (!touchedDrawing.classList.contains('folder__drawing-new-drawing')) {
+        touchedDrawing.classList.toggle('folder__drawing-selected')
         updateTopnavButtons()
       }
     } else {
-      const drawingId = parseInt(e.target.getAttribute('data-local-id')) || parseInt(e.target.parentNode.getAttribute('data-local-id'))
-      openDrawing(drawingId)
+      openDrawing(touchedDrawing.getAttribute('data-local-id'))
     }
   }
 }
