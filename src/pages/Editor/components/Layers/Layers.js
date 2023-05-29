@@ -32,7 +32,6 @@ let emptyBitmap
 /*
   BUGS:
   - se faccio un Undo durante il resizeMode, tutto il resto dello storico degli Undo viene perso
-  - Sembra che la bozza venga salvata solo la prima volta, e non venga mai aggiornata
   - Undo / Redo troppo veloci danno errore
 */
 
