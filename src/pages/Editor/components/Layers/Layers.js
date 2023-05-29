@@ -29,10 +29,6 @@ const PREVIEW_SIZE = 300
 const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
 let emptyBitmap
 
-/*
-  BUGS:
-  - Undo / Redo troppo veloci danno errore
-*/
 
 const config = {
   stepHistoryMaxLength: 20 + 1,
@@ -280,7 +276,6 @@ const addLayerHistoryMergeStep = async(layerOneId, layerTwoId, newLayerId) => {
   })
 }
 
-// questa andrebbe fatta in un altro thread
 const updateLayerRealCoords = async(layerId = state.currentSelectedLayerId) => {
   state.layers[layerId] = {
     ...state.layers[layerId],
@@ -311,7 +306,7 @@ const updateLayerPreview = (layerId = state.currentSelectedLayerId) => {
   }
 }
 
-export const undoLayers = async(madeByTools = false) => {
+export const undoLayers = async() => {
   if (state.resizeMode) {
     // if I'm in resize mode, I just 'cancel' the changes made during this resize mode
     const step = state.layers[state.currentSelectedLayerId].history.getCurrent()
@@ -346,7 +341,7 @@ export const undoLayers = async(madeByTools = false) => {
           await _deleteLayer(action.layerId, action.prevSelectedId)
           selectedLayerId = action.prevSelectedId
         } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
-          restoreDeletedLayer(action.layerId)
+          await restoreDeletedLayer(action.layerId)
         } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
           await Promise.all([
             restoreDeletedLayer(action.layerOneId),
@@ -355,13 +350,13 @@ export const undoLayers = async(madeByTools = false) => {
           await _deleteLayer(action.newLayerId, action.layerOneId)
           selectedLayerId = action.layerOneId
         }
-        selectLayer(selectedLayerId, false)
+        await selectLayer(selectedLayerId, false)
       }
     }
   }
 }
 
-export const redoLayers = async(madeByTools = false) => {
+export const redoLayers = async() => {
   if (!Coworking.isOpen()) {
     if (LayersHistory.canGoForward && !state.resizeMode) {
       const action = LayersHistory.forward()
@@ -382,20 +377,22 @@ export const redoLayers = async(madeByTools = false) => {
         } else if (action.type === HISTORY_STEP_LAYER_ORDER) {
           onListDragChange(refs.layersList.querySelector(`div[data-id="${action.layerId}"]`), Object.values(state.layers).length - 1 - action.newValue)
         } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
-          restoreDeletedLayer(action.newLayerId)
+          await restoreDeletedLayer(action.newLayerId)
           selectedLayerId = action.newLayerId
         } else if (action.type === HISTORY_STEP_LAYER_NEW) {
-          restoreDeletedLayer(action.layerId)
+          await restoreDeletedLayer(action.layerId)
         } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
           await _deleteLayer(action.layerId, action.nextSelectedId)
           selectedLayerId = action.nextSelectedId
         } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
-          await restoreDeletedLayer(action.newLayerId)
-          await _deleteLayer(action.layerOneId, action.newLayerId)
-          await _deleteLayer(action.layerTwoId, action.newLayerId)
+          await Promise.all([
+            restoreDeletedLayer(action.newLayerId),
+            _deleteLayer(action.layerOneId),
+            _deleteLayer(action.layerTwoId),
+          ])
           selectedLayerId = action.newLayerId
         }
-        selectLayer(selectedLayerId, false)
+        await selectLayer(selectedLayerId, false)
       }
     }
   }
@@ -695,12 +692,14 @@ const addNewLayer = (e) => {
 }
 
 const updateEditorCanvas = () => {
-  Editor.updateEditorLayer(
-    parseInt(state.layers[state.currentSelectedLayerId].canvas.style.zIndex),
-    state.layers[state.currentSelectedLayerId].opacity,
-    state.gcoMode ? 'source-atop' : 'source-over',
-    state.layers[state.currentSelectedLayerId].active
-  )
+  if (state.currentSelectedLayerId) {
+    Editor.updateEditorLayer(
+      parseInt(state.layers[state.currentSelectedLayerId].canvas.style.zIndex),
+      state.layers[state.currentSelectedLayerId].opacity,
+      state.gcoMode ? 'source-atop' : 'source-over',
+      state.layers[state.currentSelectedLayerId].active
+    )
+  }
 }
 
 const selectLayer = async(layerId, showParams = true) => {
@@ -751,17 +750,27 @@ const reorderLayersList = () => {
   }
 
   [...refs.layersList.children]
+    .filter(l => !!state.layers[l.getAttribute('data-id')])
     .sort((l1, l2) => state.layers[l1.getAttribute('data-id')].order < state.layers[l2.getAttribute('data-id')].order ? 1 : -1)
     .forEach(node => refs.layersList.appendChild(node))
   updateEditorCanvas()
 }
 
-const _deleteLayer = async(layerId, nextSelectedId) => {
+const _deleteLayer = async(layerId, nextSelectedId = 0, withAnimation = true) => {
   refs.imageForResize = null
-  await selectLayer(nextSelectedId, false)
+  if (nextSelectedId) {
+    await selectLayer(nextSelectedId, false)
+  } else if (layerId === state.currentSelectedLayerId) {
+    state.currentSelectedLayerId = false
+  }
   closeParams()
-  fadeOutElements(state.layers[layerId].canvas)
-  await removeOutElement(refs.layersList.querySelector(`div[data-id="${layerId}"]`))
+  if (withAnimation) {
+    fadeOutElements(state.layers[layerId].canvas)
+    await removeOutElement(refs.layersList.querySelector(`div[data-id="${layerId}"]`))
+  } else {
+    state.layers[layerId].canvas.classList.add('displayNone')
+    refs.layersList.querySelector(`div[data-id="${layerId}"]`).remove()
+  }
   state.layers[layerId].previewRef = null
   state.layers[layerId].canvas.remove()
   state.deletedLayers[layerId] = state.layers[layerId]

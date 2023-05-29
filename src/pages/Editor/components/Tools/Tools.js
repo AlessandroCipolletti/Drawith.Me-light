@@ -37,6 +37,7 @@ const initialState = {
   versionsTimeout: false,
   lastUsedTool: '',
   selectedVersions: { ...config.initialSelectedVersions },
+  actionsPromises: [],
 }
 const refs = {
   toolsContainer: null,
@@ -44,7 +45,6 @@ const refs = {
   toolsButtons: {},
   toolsVersions: {},
 }
-
 
 const toolsFrameFiles = {}
 
@@ -113,12 +113,26 @@ const toolsFunctions = {
     refs.toolsButtons.paper.classList.add(`paper-${config.papers[(config.papers.indexOf(state.currentPaper) + 1) % config.papers.length]}`)
     Editor.changePaper(state.currentPaper)
   },
-  undo: () => Layers.undoLayers(true),
-  redo: () => Layers.redoLayers(true),
+  undo: () => PushNewActionPromise(Layers.undoLayers),
+  redo: () => PushNewActionPromise(Layers.redoLayers),
   // save: () => Editor.save(),
   clear: () => {
     Editor.clear()
   },
+}
+
+const PushNewActionPromise = async(promise) => {
+  state.actionsPromises.push(promise)
+  if (state.actionsPromises.length === 1) {
+    await executeOlderActionPromise()
+  }
+}
+const executeOlderActionPromise = async() => {
+  if (state.actionsPromises.length > 0) {
+    await state.actionsPromises[0]()
+    state.actionsPromises.shift()
+    await executeOlderActionPromise()
+  }
 }
 
 export const toggleButton = (tool, enabled) => {
@@ -369,7 +383,7 @@ const onToolsScrollTouchStart = (e) => {
   }
 }
 
-const onToolsScrollTouchEnd = (e) => {
+const onToolsScrollTouchEnd = async(e) => {
   preventDefault(e)
   document.removeEventListener(Params.eventEnd, onToolsScrollTouchEnd)
   if (state.toolsMaxScroll > 0 && Math.abs(state.currentScroll - refs.toolsContainer.scrollTop) > 10) {
@@ -379,7 +393,7 @@ const onToolsScrollTouchEnd = (e) => {
   const tool = e.target.getAttribute('data-tool')
   if (e.target.classList.contains('editor-tools__tool') && !e.target.classList.contains('disabled')) {
     if (Object.prototype.hasOwnProperty.call(toolsFunctions, tool)) {
-      (toolsFunctions[tool])(e.target.classList.contains('editor-tools__tool-selected'))
+      await toolsFunctions[tool](e.target.classList.contains('editor-tools__tool-selected'))
     }
   }
 }
