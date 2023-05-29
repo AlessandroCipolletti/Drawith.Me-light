@@ -31,7 +31,6 @@ let emptyBitmap
 
 /*
   BUGS:
-  - se faccio un Undo durante il resizeMode, tutto il resto dello storico degli Undo viene perso
   - Undo / Redo troppo veloci danno errore
 */
 
@@ -970,8 +969,8 @@ const toggleEnableLayer = (e, layerId = state.currentSelectedLayerId, clickedByL
 
 export const updateCanvasContent = (madeChanges, minX, minY, w, h, rotation) => {
   fillCanvasWithImage(state.layers[state.currentSelectedLayerId].canvas.context, refs.imageForResize, minX, minY, w, h, convertAngleDegToRad(rotation))
-  Tools.toggleButton('undo', true)
   if (madeChanges) {
+    Tools.toggleButton('undo', true)
     state.resizeModeMadeChanges = true
   }
 }
@@ -1002,7 +1001,6 @@ const startResizeMode = () => {
   refs.resizeButton.classList.toggle('selected', state.resizeMode)
   refs.visibilityLayerButton.classList.add('disabled')
   ColorPicker.deselectPipette(true, false, true)
-
   const layer = state.layers[state.currentSelectedLayerId]
   const [image, minX, minY, width, height] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY, 0)
   refs.imageForResize = image
@@ -1028,9 +1026,7 @@ const endResizeMode = async() => {
   refs.visibilityLayerButton.classList.remove('disabled')
   refs.resizeButton.classList.toggle('selected', state.resizeMode)
   Editor.hideDragBox()
-  if (state.resizeModeMadeChanges) {
-    Tools.toggleButton('undo', true)
-  }
+  updateUndoRedoButtons()
 }
 
 export const closeResizeModeIfNeeded = () => {
