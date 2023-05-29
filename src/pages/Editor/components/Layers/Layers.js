@@ -163,6 +163,7 @@ const addGlobalLayersHistoryAction = (action) => {
   const deletedActions = LayersHistory.add(action)
   deletedActions.forEach(cleanLayersHistoryOverwrittenActionIfNeeded)
   updateUndoRedoButtons()
+  Editor.setDrawingModified()
 }
 
 const getLayerCurrentData = async(layerId = state.currentSelectedLayerId) => {
@@ -298,7 +299,10 @@ export const setLayerCoordsAfterDragResize = (minX, minY, maxX, maxY) => {
 
 const updateLayerPreview = (layerId = state.currentSelectedLayerId) => {
   const layer = state.layers[layerId]
-  if (Number.isFinite(layer.minX)) {
+  if (
+    Number.isFinite(layer.minX) && // layer isn't empty
+    (layerId !== state.currentSelectedLayerId || !state.resizeMode) // and it's not the current layer in resize mode
+  ) {
     let [preview] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY)
     preview = resizeImage(preview, PREVIEW_SIZE)
     layer.previewRef.width = preview.width
@@ -419,7 +423,6 @@ const layerDeepCopy = async(layer) => ({
 export const getGlobalDrawingFullInfo = async() => {
   const currentDrawingInfo = await getCurrentGlobalImageData()
   if (state.resizeMode) {
-    updateLayerPreview(state.currentSelectedLayerId)
     state.layers[state.currentSelectedLayerId].bitmap = await createImageBitmap(state.layers[state.currentSelectedLayerId].canvas)
   }
 

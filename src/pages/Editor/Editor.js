@@ -64,7 +64,7 @@ import { spacing } from 'main/Theme'
 
 
 export const config = {
-  draftTimeInterval: 45 * 1000,
+  draftTimeInterval: 30 * 1000,
   draftStepsInterval: 50,
   stepsRequiredToMakeACopy: 10,
   maxSpeedFactorLength: 150,
@@ -178,7 +178,6 @@ const initialState = {
   currentDeviceHasStylus: false,
   changedSinceDraft: false,
   drawnStepsSinceDraft: 0,
-  drawnStepsSinceCopy: 0,
   draftInterval: false,
   canMakeACopy: false,
   currentSavingDraw: false,
@@ -267,18 +266,21 @@ export const drawCoworkingMultipleStepsData = (data) => {
 const getResizeState = () => deepCopy(state.resizeMode)
 const saveStepHistory = () => {
   Layers.addLayerHistoryContentChangedStep()
+}
+const debounceSaveStep = debounce(saveStepHistory, 50)
+
+export const setDrawingModified = () => {
   state.modified = true
+  state.changedSinceDraft = true
   state.drawnStepsSinceDraft += 1
   if (state.drawnStepsSinceDraft >= config.draftStepsInterval) {
     saveDraftIfNeeded()
   }
-  state.drawnStepsSinceCopy += 1
-  if (!state.canMakeACopy && state.drawnStepsSinceCopy >= config.stepsRequiredToMakeACopy) {
+  if (!state.canMakeACopy) {
     state.canMakeACopy = true
     Toolbar.enableSaveCopy()
   }
 }
-const debounceSaveStep = debounce(saveStepHistory, 50)
 
 export const clear = () => {
   if (Layers.clearCurrentLayer()) {
@@ -387,7 +389,7 @@ const closePipetteCursor = async() => {
 }
 
 const saveDraftIfNeeded = async() => {
-  if (!state.currentTouch.isDown && state.changedSinceDraft && state.drawnStepsSinceCopy) {
+  if (!state.currentTouch.isDown && state.changedSinceDraft) {
     state.changedSinceDraft = false
     state.drawnStepsSinceDraft = 0
     if (state.modified) {
@@ -440,7 +442,6 @@ export const saveCopy = async() => {
       const savedId = await saveDrawToDB(currentDraw, false, Coworking.isOpen(), false)
       if (savedId) {
         Messages.info(labels.copySaved, config.draftInfoDuration)
-        state.drawnStepsSinceCopy = 0
         Toolbar.disableSaveCopy()
       } else {
         Messages.error(labels.draftError)
@@ -477,7 +478,6 @@ export const setLayerContext = (layerContext) => {
 }
 
 export const updateEditorLayer = (layerZIndex, opacity, globalCompositeOperation, active) => {
-  state.modified = true
   refs.canvasForLine.style.zIndex = layerZIndex + 1
   refs.canvasForLine.style.opacity = opacity
   state.currentLayerGCO = globalCompositeOperation
