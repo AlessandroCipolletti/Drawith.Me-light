@@ -223,6 +223,32 @@ export const getScaledFunction = (fn, horizontalScale, verticalScale) => (x) => 
 
 export const getScaledAndTranslatedFunction = (fn, horizontalScale, verticalScale, dx, dy) => (x) => verticalScale * fn(horizontalScale * (x - dx)) + dy
 
+export const functionIsEven = (fn, tests = 10) => {
+  const randomXValues = (new Array(tests)).fill().map(() => getRandomNumber(1000))
+  return randomXValues.every((x) => fn(x) === fn(-x))
+}
+
+export const functionIsOdd = (fn, tests = 10) => {
+  const randomXValues = (new Array(tests)).fill().map(() => getRandomNumber(1000))
+  return randomXValues.every((x) => fn(x) === -fn(-x))
+}
+
+export const functionIsPeriodic = (fn, period, tests = 10) => {
+  const randomXValues = (new Array(tests)).fill().map(() => getRandomNumber(1000))
+  return randomXValues.every((x) => fn(x) === fn(x + period))
+}
+
+export const getQuadraticFunctionVertex = (a, b, c) => {
+  // quadratic function standard form: F(y) = ax^2 + bx + c
+  // if a === 0 ==> it's a line
+  // if a > 0 ==> it's a parabola with vertex at the bottom
+  // if a < 0 ==> it's a parabola with vertex at the top
+  const x = -b / (2 * a)
+  const y = a * x * x + b * x + c
+  return [x, y]
+}
+
+
 
 // const logSlider = (position) => {
 //   // position will be between 0 and 100
