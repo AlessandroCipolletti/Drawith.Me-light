@@ -1312,6 +1312,13 @@ const initDom = async () => {
 
 const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
   await Toolbar.init(refs.container)
+  await Layers.init(
+    refs.container,
+    preloadedDrawing.layers || [],
+    state.canvas.width,
+    state.canvas.height,
+    withCoworking
+  )
   await Promise.all([
     Tools.init(
       refs.container,
@@ -1323,13 +1330,6 @@ const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
       refs.container,
       preloadedDrawing.colors || [],
       preloadedDrawing.selectedColorId || -1
-    ),
-    Layers.init(
-      refs.container,
-      preloadedDrawing.layers || [],
-      state.canvas.width,
-      state.canvas.height,
-      withCoworking
     ),
     Ruler.init(refs.container, {
       touchStart: makeTouchStartNearRuler,
