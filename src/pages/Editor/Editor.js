@@ -17,6 +17,7 @@ import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 import { round, getNumberInBetween, getOriginalCoordsFromScaleRotation, getAverage, roundAngleForSteps } from 'utils/mathUtils'
 import { rgbToHex } from 'utils/colorsUtils'
+import { getCanvasBase64Async } from 'utils/imageUtils'
 import { saveDrawToDB, getOneDrawing, saveDrawingPaletteColors } from 'utils/localDbUtils'
 import { addRotationHandler, removeRotationHandler, cleanRefs } from 'utils/moduleUtils'
 import { handlePointerEvents } from 'utils/pointerEventsUtils'
@@ -33,14 +34,14 @@ import { spacing } from 'main/Theme'
 /*
   ----- OFFSCREEN CANVAS -----
   FATTO:
-  - ottimizzata la preview del layer con un piccolo canvas.
-  - provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
+  - Ottimizzata la preview del layer con un piccolo canvas.
+  - Provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
   - Bitmap salvata in indexDB e rimpiazzate tutte le locahPathSmall
   - Folder con piccoli canvas
 
   DA FARE:
-  - new branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
-  - test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
+  - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
+  - Test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
   - Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.
     - const offscreenCanvas = canvas2.transferControlToOffscreen()
     - const worker = new Worker(
@@ -284,7 +285,7 @@ export const clear = () => {
   console.clear()
 }
 
-const useBucket = async(context, x, y, color, canvasWidth, canvasHeight, sendForCoworking = true) => {
+const useBucket = async (context, x, y, color, canvasWidth, canvasHeight, sendForCoworking = true) => {
   if (coordsAreInsideLayer(x, y)) {
     if (Layers.currentLayerIsEmpty()) {
       // this layer is empty, we can fill it all
@@ -343,12 +344,16 @@ const updatePipette = (canvasX, canvasY, domX, domY) => {
   }
 }
 
-const initPipetteCursor = async() => {
+const initPipetteCursor = async () => {
   const currentImageData = await Layers.getCurrentGlobalImageData(true)
-  state.pipette.bg = currentImageData.localPathBig
+  state.pipette.bg = 'none'
+  getCanvasBase64Async(currentImageData.tempCanvas).then(base64 => {
+    state.pipette.bg = base64
+    refs.pipetteBackground.style.backgroundImage = `url(${base64})`
+  })
   state.pipette.context = currentImageData.tempContext
   refs.pipetteBackground.style.backgroundImage = 'none'
-  state.pipette.isOnCanvas = false
+  state.pipette.isOnCanvas = true
 
   fadeInElements(refs.pipetteCursor)
   state.pipette.isVisible = true
@@ -366,7 +371,7 @@ const initPipetteCursor = async() => {
   )
 }
 
-export const hidePipetteCursor = async() => {
+export const hidePipetteCursor = async () => {
   state.pipette.currentColor = false
   await fadeOutElements(refs.pipetteCursor)
   state.pipette.isVisible = false
@@ -375,7 +380,7 @@ export const hidePipetteCursor = async() => {
   state.pipette.context = null
 }
 
-const closePipetteCursor = async() => {
+const closePipetteCursor = async () => {
   if (state.pipette.currentColor) {
     ColorPicker.addPaletteColor(state.pipette.currentColor, false)
     ColorPicker.confirmLastAddedColorIfNeeded()
@@ -383,7 +388,7 @@ const closePipetteCursor = async() => {
   ColorPicker.deselectPipette(true, true, !state.pipette.currentColor)
 }
 
-const saveDraftIfNeeded = async() => {
+const saveDraftIfNeeded = async () => {
   if (!state.currentTouch.isDown && state.changedSinceDraft) {
     state.changedSinceDraft = false
     state.drawnStepsSinceDraft = 0
@@ -405,7 +410,7 @@ const saveDraftIfNeeded = async() => {
   }
 }
 
-export const saveAndGoToFolder = async() => {
+export const saveAndGoToFolder = async () => {
   if (!Coworking.isOpen() || await Messages.confirm(labels.areYouSureToCloseCoworking)) {
     setSpinner(true)
     await delay(20)
@@ -427,7 +432,7 @@ export const saveDrawingsPalette = (colors = []) => {
   }
 }
 
-export const saveCopy = async() => {
+export const saveCopy = async () => {
   if (state.canMakeACopy) {
     state.canMakeACopy = false
     const currentDraw = await getCurrentDrawInfo()
@@ -498,7 +503,7 @@ const updateLayerContentCoordsAfterDragResize = () => {
     Math.max(0, round(state.resizeMode.x - state.resizeMode.w / 2)),
     Math.max(0, round(state.resizeMode.y - state.resizeMode.h / 2)),
     Math.min(state.canvas.width, round(state.resizeMode.x + state.resizeMode.w / 2)),
-    Math.min(state.canvas.height, round(state.resizeMode.y + state.resizeMode.h/2))
+    Math.min(state.canvas.height, round(state.resizeMode.y + state.resizeMode.h / 2))
   )
 }
 
@@ -536,7 +541,7 @@ const updateDragBoxHandlersPosition = () => {
   refs.dragBulletL.style = `left: ${getAverage([tlRect.left, blRect.left])}px; top: ${getAverage([tlRect.top, blRect.top])}px`
 }
 
-const animateDragBoxHandlersPositionToOrigin = async(duration = 250) => {
+const animateDragBoxHandlersPositionToOrigin = async (duration = 250) => {
   const frameDuration = 1000 / 30 // 30 fps
   let totTime = 0
   updateDragBoxHandlersPosition()
@@ -558,7 +563,7 @@ export const hideDragBox = () => {
   ])
 }
 
-const getCurrentDrawInfo = async() => {
+const getCurrentDrawInfo = async () => {
   const currentDraw = await Layers.getGlobalDrawingFullInfo()
   currentDraw.localDbId = state.localDbDrawId // db id or false
   currentDraw.colors = ColorPicker.getCurrentColorsPalette()
@@ -837,7 +842,7 @@ const handleTouchEndStep = (context = refs.layerContext) => {
   }
 }
 
-const updateCurrentTouchType = (touchEvent) =>  {
+const updateCurrentTouchType = (touchEvent) => {
   state.currentTouch.type = (touchEvent.touchType === TOUCH_TYPE_STYLUS) ? TOUCH_TYPE_STYLUS : TOUCH_TYPE_FINGER
   if (!state.currentDeviceHasStylus && state.currentTouch.type === TOUCH_TYPE_STYLUS) { // first touch event with pencil
     state.currentDeviceHasStylus = true
@@ -1074,8 +1079,8 @@ const onGestureStart = (x, y, scale, rotation) => {
   state.currentTouch.isZooming = true
   const [X, Y] = getOriginalCoordsFromScaleRotation(x, y, state.canvas.originCoordX, state.canvas.originCoordY, state.canvas.scale, state.canvas.rotation)
   refs.canvasContainer.style.transition = 'none'
-  state.canvas.translateX = round((x - X) , 1)
-  state.canvas.translateY = round((y - Y) , 1)
+  state.canvas.translateX = round((x - X), 1)
+  state.canvas.translateY = round((y - Y), 1)
   state.canvas.translateStartX = state.canvas.translateX
   state.canvas.translateStartY = state.canvas.translateY
   state.canvas.dragStartX = x
@@ -1222,8 +1227,8 @@ const initCanvasDimension = (canvasWidth, canvasHeight, withCoworking = false) =
   refs.canvasContainer.style.cssText = `
     top: ${state.canvas.offset.top}px;
     left: ${state.canvas.offset.left}px;
-    width: ${canvasWidth  / Params.pxScale}px;
-    height: ${canvasHeight  / Params.pxScale}px;
+    width: ${canvasWidth / Params.pxScale}px;
+    height: ${canvasHeight / Params.pxScale}px;
   `
   updateZoomCss()
 }
@@ -1255,7 +1260,7 @@ const getEditorChildCenterCoords = (el) => {
   ]
 }
 
-const initDom = async() => {
+const initDom = async () => {
   refs.container = await loadTemplate(editorTemplate, {}, Params.pagesContainer)
   refs.canvasContainer = refs.container.querySelector('.editor__canvas-container')
   refs.canvasOrigin = refs.container.querySelector('.editor__canvas-origin')
@@ -1305,7 +1310,7 @@ const initDom = async() => {
   })
 }
 
-const initSubModules = async(preloadedDrawing = {}, withCoworking = false) => {
+const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
   await Toolbar.init(refs.container)
   await Promise.all([
     Tools.init(
@@ -1334,7 +1339,7 @@ const initSubModules = async(preloadedDrawing = {}, withCoworking = false) => {
   ])
 }
 
-export const open = async(preloadedDrawindId, withCoworking = false, coworkingCanvasWidth, coworkingCanvasHeight) => {
+export const open = async (preloadedDrawindId, withCoworking = false, coworkingCanvasWidth, coworkingCanvasHeight) => {
   console.log('editor show', preloadedDrawindId, withCoworking, coworkingCanvasWidth, coworkingCanvasHeight)
   coworking = Coworking.requestSession // just to have an alias for app.drawith.me?editor/coworking
   state = initState(initialState)
@@ -1373,7 +1378,7 @@ export const open = async(preloadedDrawindId, withCoworking = false, coworkingCa
   setSpinner(false)
 }
 
-export const close = async() => {
+export const close = async () => {
   removeGlobalStatus('drawith__EDITOR-OPEN')
   removeGlobalStatus('drawith__EDITOR-COWORKING')
   setDraftInterval(false)

@@ -245,10 +245,9 @@ export const addImageWhiteBgAndGetBase64 = (img) => {
   return tempCanvas.toDataURL('image/png')
 }
 
-export const shareImageWithBase64 = async(base64, bgWhite = false) => {
-  const img = await getImageFromUrl(base64)
-  tempCanvas.width = img.naturalWidth * DRAWING_SCALE_RATIO_ON_SHARE
-  tempCanvas.height = img.naturalHeight * DRAWING_SCALE_RATIO_ON_SHARE
+export const shareImageWithBase64 = async(img, bgWhite = false) => {
+  tempCanvas.width = (img.naturalWidth || img.width) * DRAWING_SCALE_RATIO_ON_SHARE
+  tempCanvas.height = (img.naturalHeight || img.height) * DRAWING_SCALE_RATIO_ON_SHARE
 
   // bg
   if (bgWhite) {

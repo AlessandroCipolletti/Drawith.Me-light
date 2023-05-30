@@ -214,23 +214,24 @@ const exportButtonClick = async() => {
     return
   }
   setSpinner(true)
-  let urls = await Promise.all(
+  let drawings = await Promise.all(
     getSelectedIds().map(LocalDB.getOneDrawing)
   )
-  urls = urls.map(d => d.localPathBig)
-  urls = await Promise.all(
-    urls.map(async(url) => ({
-      w: await shareImageWithBase64(url, true), // white bg
-      t: await shareImageWithBase64(url, false), // transparent bg
+
+  drawings = drawings.map(d => d.bitmap)
+  drawings = await Promise.all(
+    drawings.map(async(drawing) => ({
+      w: await shareImageWithBase64(drawing, true), // white bg
+      t: await shareImageWithBase64(drawing, false), // transparent bg
     }))
   )
   const popupContent = await loadTemplate(tplSharePopup, {
-    urls,
-    subtitleLabel: urls.length === 1 ? labels.tapAndHoldOneImage : labels.tapAndHoldImages,
+    drawings,
+    subtitleLabel: drawings.length === 1 ? labels.tapAndHoldOneImage : labels.tapAndHoldImages,
     withoutBackgroundLabel: labels.withoutBackground,
     withBackgroundLabel: labels.withWhiteBackground,
   })
-  urls = undefined
+  drawings = undefined
   popupContent.addEventListener('gesturestart', preventDefault)
 
   setSpinner(false)

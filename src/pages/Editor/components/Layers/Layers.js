@@ -440,7 +440,7 @@ export const getGlobalDrawingFullInfo = async() => {
 export const getCurrentGlobalImageData = async(returnCanvas = false) => {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   let tempCanvas = new OffscreenCanvas(state.canvases.width, state.canvases.height)
-  let tempContext = tempCanvas.getContext('2d')
+  let tempContext = tempCanvas.getContext('2d', { willReadFrequently: true })
 
   const layers = Object.values(state.layers).sort((l1, l2) => l1.order > l2.order ? 1 : -1)
   for (const layer of layers) {
@@ -455,24 +455,21 @@ export const getCurrentGlobalImageData = async(returnCanvas = false) => {
   }
   const width = round(maxX - minX, 0)
   const height = round(maxY - minY, 0)
-  let localPathBig, bitmap
+  let bitmap
 
   if (Number.isFinite(minX)) {
     if (returnCanvas) {
-      localPathBig = await getCanvasBase64Async(tempCanvas)
       bitmap = await createImageBitmap(tempCanvas)
     } else {
       const [drawing] = cropImageWithMargin(tempCanvas, minX, minY, maxX, maxY)
-      localPathBig = await getCanvasBase64Async(tempCanvas)
       bitmap = await createImageBitmap(drawing)
     }
   } else {
-    localPathBig = EMPTY_BASE64
     bitmap = emptyBitmap
   }
 
   const res = {
-    localPathBig, bitmap,
+    bitmap,
     minX, minY, maxX, maxY,
     width, height,
     canvasWidth: tempCanvas.width,
