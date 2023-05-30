@@ -15,7 +15,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getCanvasBase64Async, getImageFromUrl } from 'utils/imageUtils'
+import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getImageFromUrl } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -23,7 +23,10 @@ import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 import { deepCopy, delay } from 'utils/jsUtils'
 import { timing } from 'main/Theme'
 
-import { HISTORY_STEP_LAYER_CONTENT, HISTORY_STEP_LAYER_OPACITY, HISTORY_STEP_LAYER_SHOW, HISTORY_STEP_LAYER_HIDE, HISTORY_STEP_LAYER_ORDER, HISTORY_STEP_LAYER_DUPLICATE, HISTORY_STEP_LAYER_NEW, HISTORY_STEP_LAYER_DELETE, HISTORY_STEP_LAYERS_MERGE } from './constants'
+import {
+  HISTORY_STEP_LAYER_CONTENT, HISTORY_STEP_LAYER_OPACITY, HISTORY_STEP_LAYER_SHOW, HISTORY_STEP_LAYER_HIDE, HISTORY_STEP_LAYER_ORDER, HISTORY_STEP_LAYER_DUPLICATE, HISTORY_STEP_LAYER_NEW, HISTORY_STEP_LAYER_DELETE, HISTORY_STEP_LAYERS_MERGE,
+  CANVAS_ACTION_INIT,
+} from './constants'
 const MAX_LAYER_NAME_LENGTH = 12
 const PREVIEW_SIZE = 300
 const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
@@ -107,15 +110,24 @@ const cleanLayersHistoryOldActionIfNeeded = (action) => {
   } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
     if (state.deletedLayers[action.layerId]) {
       state.deletedLayers[action.layerId].history.clear()
+      state.deletedLayers[action.layerId].worker.terminate()
+      state.deletedLayers[action.layerId].canvas = null
+      state.deletedLayers[action.layerId].worker = null
       delete state.deletedLayers[action.layerId]
     }
   } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
     if (state.deletedLayers[action.layerOneId]) {
       state.deletedLayers[action.layerOneId].history.clear()
+      state.deletedLayers[action.layerOneId].worker.terminate()
+      state.deletedLayers[action.layerOneId].canvas = null
+      state.deletedLayers[action.layerOneId].worker = null
       delete state.deletedLayers[action.layerOneId]
     }
     if (state.deletedLayers[action.layerTwoId]) {
       state.deletedLayers[action.layerTwoId].history.clear()
+      state.deletedLayers[action.layerTwoId].worker.terminate()
+      state.deletedLayers[action.layerTwoId].canvas = null
+      state.deletedLayers[action.layerTwoId].worker = null
       delete state.deletedLayers[action.layerTwoId]
     }
   }
@@ -130,16 +142,25 @@ const cleanLayersHistoryOverwrittenActionIfNeeded = (action) => {
   } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
     if (state.deletedLayers[action.newLayerId]) {
       state.deletedLayers[action.newLayerId].history.clear()
+      state.deletedLayers[action.newLayerId].worker.terminate()
+      state.deletedLayers[action.newLayerId].canvas = null
+      state.deletedLayers[action.newLayerId].worker = null
       delete state.deletedLayers[action.newLayerId]
     }
   } else if (action.type === HISTORY_STEP_LAYER_NEW) {
     if (state.deletedLayers[action.layerId]) {
       state.deletedLayers[action.layerId].history.clear()
+      state.deletedLayers[action.layerId].worker.terminate()
+      state.deletedLayers[action.layerId].canvas = null
+      state.deletedLayers[action.layerId].worker = null
       delete state.deletedLayers[action.layerId]
     }
   } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
     if (state.deletedLayers[action.newLayerId]) {
       state.deletedLayers[action.newLayerId].history.clear()
+      state.deletedLayers[action.newLayerId].worker.terminate()
+      state.deletedLayers[action.newLayerId].canvas = null
+      state.deletedLayers[action.newLayerId].worker = null
       delete state.deletedLayers[action.newLayerId]
     }
   }
@@ -529,6 +550,7 @@ const createNewLayerObject = () => {
     selectedByCoworker: false,
     history: new History(config.stepHistoryMaxLength),
     canvas: null,
+    worker: null,
     previewRef: null,
     createTimestamp: now,
     updateTimestamp: now,
@@ -634,14 +656,35 @@ const createNewLayerListElementDom = (layerId, withAnimation = true) => {
   }
 }
 
+
+// const ciao = new Worker('../../../../workers/layerCanvasWorker.js')
+
+const ciao = new Worker(
+  new URL('../../../../workers/layerCanvasWorker.js', import.meta.url),
+  { type: 'module' }
+)
+console.log(ciao)
+
+
 const createNewLayerDom = async(layerId, withAnimation = false) => {
   createNewLayerListElementDom(layerId, withAnimation)
   const layer = state.layers[layerId]
   layer.canvas = document.createElement('canvas')
   layer.canvas.width = state.canvases.width
   layer.canvas.height = state.canvases.height
-  layer.canvas.context = getNewContextForCanvas(layer.canvas)
-  // const offscreenCanvas = canvas.transferControlToOffscreen()
+  // layer.canvas.context = getNewContextForCanvas(layer.canvas)
+  layer.worker = new Worker('../../../../workers/layerCanvasWorker.js')
+  // layer.worker = {
+  //   postMessage: () => {},
+  //   terminate: () => {},
+  // }
+  const offscreenCanvas = layer.canvas.transferControlToOffscreen()
+  layer.worker.postMessage({
+    action: CANVAS_ACTION_INIT,
+    canvas: offscreenCanvas,
+  }, [offscreenCanvas])
+  console.log(layer.worker)
+
 
   layer.canvas.style.zIndex = layer.order * 10
   layer.canvas.style.opacity = layer.opacity
@@ -829,7 +872,6 @@ const duplicateSelectedLayer = async(e) => {
   ) {
     return
   }
-
 
   await saveResizeModeIfNeeded()
   const newId = uuidv4()
@@ -1346,7 +1388,8 @@ export const remove = () => {
       layer.bitmap.close()
     }
     layer.history.clear()
-    layer.canvas = layer.history = layer.bitmap = undefined
+    layer.worker.terminate()
+    layer.canvas = layer.worker = layer.history = layer.bitmap = undefined
   })
   LayersHistory.clear()
   cleanRefs(refs)

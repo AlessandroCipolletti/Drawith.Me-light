@@ -20,8 +20,9 @@
 }
 
 .folder__drawing-preview-canvas {
-  max-width: 95%;
-  max-height: 95%;
+  max-width: 99%;
+  max-height: 99%;
+  border-radius: 3%;
 }
 
 .folder__drawing-select-icon {
