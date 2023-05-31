@@ -174,7 +174,10 @@ export const shiftArrayElement = (arr, oldIndex, newIndex) => {
   arr.splice(newIndex, 0, arr.splice(oldIndex, 1)[0])
 }
 
-const fileLoader = new Worker('./workers/fileLoader.js')
+const fileLoader = new Worker(
+  new URL('./workers/fileLoader.js', import.meta.url),
+  { type: 'module' }
+)
 export const fetchUrlFileOffThread = (url) => {
   return new Promise((resolve, reject) => {
     const id = uuidv4()

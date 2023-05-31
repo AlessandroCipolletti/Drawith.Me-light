@@ -46,6 +46,24 @@ const refs = {
   toolsVersions: {},
 }
 
+const toolsImgs = {
+  'brush-1': require('static/img/tools/brush-1.png'),
+  'brush-2': require('static/img/tools/brush-2.png'),
+  'brush-3': require('static/img/tools/brush-3.png'),
+  'brush-4': require('static/img/tools/brush-4.png'),
+  'brush-5': require('static/img/tools/brush-5.png'),
+  'brush-6': require('static/img/tools/brush-6.png'),
+  'brush-7': require('static/img/tools/brush-7.png'),
+  'brush-8': require('static/img/tools/brush-8.png'),
+  'brush-9': require('static/img/tools/brush-9.png'),
+  'brush-10': require('static/img/tools/brush-10.png'),
+  'brush-11': require('static/img/tools/brush-11.png'),
+  'highlighter-h': require('static/img/tools/highlighter-h.png'),
+  'highlighter-l': require('static/img/tools/highlighter-l.png'),
+  'highlighter-r': require('static/img/tools/highlighter-r.png'),
+  'highlighter-v': require('static/img/tools/highlighter-v.png'),
+}
+// const toolsImgsFileNames = ['brush-1', 'brush-2', 'brush-3', 'brush-4', 'brush-5', 'brush-6', 'brush-7', 'brush-8', 'brush-9', 'brush-10', 'brush-11', 'highlighter-h', 'highlighter-l', 'highlighter-r', 'highlighter-v']
 const toolsFrameFiles = {}
 
 const toolsFunctions = {
@@ -403,7 +421,6 @@ const onRotate = (e) => {
 }
 
 const initToolsImages = async() => {
-  const toolsImgs = require('static/img/tools/*.png')
   const promises = []
 
   for (const frameName of Object.keys(toolsImgs)) {
