@@ -21,7 +21,7 @@ import { addListScrollClickAndPressHandlers } from 'utils/uiUtils'
 import { goToPage } from 'modules/Router'
 import * as Coworking from 'modules/Coworking'
 
-const MAX_DRAWING_PREVIEW_SIZE = 300
+const MAX_DRAWING_PREVIEW_SIZE = 350
 
 
 let state = {}
