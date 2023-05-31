@@ -60,7 +60,7 @@ export const findImageContentCoords = async(dom, pxPrecision = 1, alphaTolleranc
   alphaTollerance = round(255 * alphaTollerance, 0)
   pxPrecision = round(pxPrecision, 1)
 
-  if (dom.tagName.toLowerCase() !== 'canvas') {
+  if (dom.tagName?.toLowerCase() !== 'canvas' && !(dom instanceof OffscreenCanvas)) {
     dom = imgToCanvas(dom)
   }
 
