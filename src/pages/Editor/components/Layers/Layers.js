@@ -656,35 +656,24 @@ const createNewLayerListElementDom = (layerId, withAnimation = true) => {
   }
 }
 
-
-// const ciao = new Worker('../../../../workers/layerCanvasWorker.js')
-
-const ciao = new Worker(
-  new URL('../../../../workers/layerCanvasWorker.js', import.meta.url),
-  { type: 'module' }
-)
-console.log(ciao)
-
-
 const createNewLayerDom = async(layerId, withAnimation = false) => {
   createNewLayerListElementDom(layerId, withAnimation)
   const layer = state.layers[layerId]
   layer.canvas = document.createElement('canvas')
   layer.canvas.width = state.canvases.width
   layer.canvas.height = state.canvases.height
-  // layer.canvas.context = getNewContextForCanvas(layer.canvas)
-  layer.worker = new Worker('../../../../workers/layerCanvasWorker.js')
-  // layer.worker = {
-  //   postMessage: () => {},
-  //   terminate: () => {},
-  // }
-  const offscreenCanvas = layer.canvas.transferControlToOffscreen()
+  layer.canvas.context = getNewContextForCanvas(layer.canvas)
+  layer.worker = new Worker(
+    new URL('../../../../workers/layerCanvasWorker.js', import.meta.url),
+    { type: 'module' }
+  )
+  // const offscreenCanvas = layer.canvas.transferControlToOffscreen()
+  const offscreenCanvas = new OffscreenCanvas(layer.canvas.width, layer.canvas.height)
   layer.worker.postMessage({
     action: CANVAS_ACTION_INIT,
     canvas: offscreenCanvas,
   }, [offscreenCanvas])
   console.log(layer.worker)
-
 
   layer.canvas.style.zIndex = layer.order * 10
   layer.canvas.style.opacity = layer.opacity

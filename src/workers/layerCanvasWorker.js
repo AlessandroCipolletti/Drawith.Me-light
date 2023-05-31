@@ -1,4 +1,5 @@
-import { getNewContextForCanvas } from '../utils/testUtils.js'
+// import { getNewContextForCanvas, fillCanvasWithImage } from '../utils/canvasUtils'
+import { getNewContextForCanvas, fillCanvasWithImage } from '../utils/testUtils'
 import { CANVAS_ACTION_INIT } from '../pages/Editor/components/Layers/constants.js'
 
 
