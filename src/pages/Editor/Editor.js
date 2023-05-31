@@ -33,6 +33,10 @@ import { spacing } from 'main/Theme'
 
 /*
   ----- OFFSCREEN CANVAS -----
+  BUGS:
+  - Durante il drag layer non c'è la preview del layer
+
+
   FATTO:
   - Ottimizzata la preview del layer con un piccolo canvas.
   - Provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
@@ -40,6 +44,7 @@ import { spacing } from 'main/Theme'
   - Folder con piccoli canvas
 
   DA FARE:
+  - Add bitmap.close()
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
   - Test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
   - Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.

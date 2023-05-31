@@ -55,12 +55,15 @@ export const resizeImageAndGetBase64 = (image, maxSize = MAX_THUMBNAIL_SIZE) => 
   return canvas.toDataURL('image/png')
 }
 
-const coordsWorker = new Worker('./workers/canvasContentCoords.js')
+const coordsWorker = new Worker(
+  new URL('./workers/canvasContentCoords.js', import.meta.url),
+  { type: 'module' }
+)
 export const findImageContentCoords = async(dom, pxPrecision = 1, alphaTollerance = 0.01) => {
   alphaTollerance = round(255 * alphaTollerance, 0)
   pxPrecision = round(pxPrecision, 1)
 
-  if (dom.tagName.toLowerCase() !== 'canvas') {
+  if (dom.tagName?.toLowerCase() !== 'canvas' && !(dom instanceof OffscreenCanvas)) {
     dom = imgToCanvas(dom)
   }
 

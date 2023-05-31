@@ -1,9 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
-import { getRandomNumber, round, quadraticBezierValue, distanceBetweenTwoPointsGreaterThan, getPerc } from 'utils/mathUtils'
-import { colorStringToRgb, compareRgbColorsWithinTollerance } from 'utils/colorsUtils'
-import { deepCopy, waitWorkerMessage } from 'utils/jsUtils'
-import { getOneToolVersionCompleteProps } from 'pages/Editor/components/Tools'
-import { cleanRefs } from 'utils/moduleUtils'
+import { getRandomNumber, round, quadraticBezierValue, distanceBetweenTwoPointsGreaterThan, getPerc } from './mathUtils'
+import { colorStringToRgb, compareRgbColorsWithinTollerance } from './colorsUtils'
+import { deepCopy, waitWorkerMessage } from './jsUtils'
+import { getOneToolVersionCompleteProps } from '../pages/Editor/components/Tools'
+import { cleanRefs } from './moduleUtils'
 
 import {
   TOOL_FRAME_CIRCLE,
@@ -352,7 +352,10 @@ export const drawMultipleCoworkingSteps = async(destinationContext, steps, tool,
 // Atrimenti ritorna una promise che riempira il foglio in modo asincrono.
 // Questo permette a "useBucket" di sapere subito se il bucket è andato a buon fine o no,
 // e può allo stesso tempo attaccare qualcosa col .then() senza dover aspettare con un await.
-const bucketWorker = new Worker('./workers/bucket.js')
+const bucketWorker = new Worker(
+  new URL('./workers/bucket.js', import.meta.url),
+  { type: 'module' }
+)
 export const fillWithBucket = (destinationContext, x, y, fillColor, canvasWidth, canvasHeight) => {
   let image = destinationContext.getImageData(0, 0, canvasWidth, canvasHeight)
 
