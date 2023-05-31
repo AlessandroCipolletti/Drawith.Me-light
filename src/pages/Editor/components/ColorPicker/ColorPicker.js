@@ -1,5 +1,5 @@
 const tplColorPicker = require('./colorPicker.tpl')
-import './colorPicker.css'
+// import './colorPicker.css'
 
 import Params from 'main/Params'
 import * as Tools from 'pages/Editor/components/Tools'

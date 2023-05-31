@@ -1,5 +1,5 @@
 const tplPage = require('./notSupported.tpl')
-import './notSupported.css'
+// import './notSupported.css'
 import imageUrl from 'static/img/sadness.png'
 
 import { osVersion, isSmartTV, browserName, isWearable, isAndroid, browserVersion, isIOS, isIE, isConsole, isWinPhone, isOpera } from 'mobile-device-detect'

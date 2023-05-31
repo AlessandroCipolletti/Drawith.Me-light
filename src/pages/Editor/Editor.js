@@ -1,5 +1,5 @@
 const editorTemplate = require('./editor.tpl')
-import './editor.css'
+// import './editor.css'
 
 import { debounce } from 'debounce'
 import Params from 'main/Params'

@@ -1,5 +1,5 @@
 const tplHeader = require('./header.tpl')
-import './header.css'
+// import './header.css'
 
 import Params from 'main/Params'
 import { toggleMainMenu } from 'main/main'

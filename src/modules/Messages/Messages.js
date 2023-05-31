@@ -1,5 +1,5 @@
 const tpl = require('./messages.tpl')
-import './messages.css'
+// import './messages.css'
 import { debounce } from 'debounce'
 
 import Params from 'main/Params'

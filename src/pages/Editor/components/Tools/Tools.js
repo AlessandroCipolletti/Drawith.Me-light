@@ -1,5 +1,5 @@
 const tplTools = require('./tools.tpl')
-import './tools.css'
+// import './tools.css'
 
 import Params from 'main/Params'
 import * as Editor from 'pages/Editor'

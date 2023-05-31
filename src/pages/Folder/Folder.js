@@ -1,9 +1,9 @@
 const tplPage = require('./tpl/folder.tpl')
 const tplContent = require('./tpl/folderContent.tpl')
 const tplSharePopup = require('./tpl/folderSharePopup.tpl')
-import './tpl/folder.css'
-import './tpl/folderContent.css'
-import './tpl/folderSharePopup.css'
+// import './tpl/folder.css'
+// import './tpl/folderContent.css'
+// import './tpl/folderSharePopup.css'
 
 // import { v4 as uuidv4 } from 'uuid'
 import Params from 'main/Params'

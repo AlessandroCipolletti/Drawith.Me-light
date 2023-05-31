@@ -1,5 +1,5 @@
 const tplRuler = require ('./ruler.tpl')
-import './ruler.css'
+// import './ruler.css'
 
 import Params from 'main/Params'
 import * as Tools from 'pages/Editor/components/Tools'

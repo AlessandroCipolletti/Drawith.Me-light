@@ -1,5 +1,5 @@
 const tplApp = require('./main.tpl')
-import './main.css'
+// import './main.css'
 import { debounce } from 'debounce'
 
 import Params from 'main/Params'

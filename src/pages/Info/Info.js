@@ -1,5 +1,5 @@
 const tplPage = require('./info.tpl')
-import './info.css'
+// import './info.css'
 
 import Params from 'main/Params'
 import { cleanRefs } from 'utils/moduleUtils'

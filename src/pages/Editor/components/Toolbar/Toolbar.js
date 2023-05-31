@@ -1,5 +1,5 @@
 const tplToolbar = require ('./toolbar.tpl')
-import './toolbar.css'
+// import './toolbar.css'
 
 import Params from 'main/Params'
 import * as Editor from 'pages/Editor'
