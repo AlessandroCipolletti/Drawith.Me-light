@@ -248,6 +248,11 @@ export const getQuadraticFunctionVertex = (a, b, c) => {
   return [x, y]
 }
 
+export const getQuadraticFunctioRoots = (a, b, c) => {
+  // quadratic function standard form: F(y) = ax^2 + bx + c
+  const d = Math.sqrt(b * b - 4 * a * c)
+  return [(-b + d) / (2 * a), (-b - d) / (2 * a)]
+}
 
 
 // const logSlider = (position) => {
