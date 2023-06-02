@@ -302,10 +302,8 @@ export const setLayerCoordsAfterDragResize = (minX, minY, maxX, maxY) => {
 
 const updateLayerPreview = (layerId = state.currentSelectedLayerId) => {
   const layer = state.layers[layerId]
-  if (
-    Number.isFinite(layer.minX) && // layer isn't empty
-    (layerId !== state.currentSelectedLayerId || !state.resizeMode) // and it's not the current layer in resize mode
-  ) {
+
+  if (Number.isFinite(layer.minX)) {  // layer isn't empty
     let [preview] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY)
     preview = resizeImage(preview, PREVIEW_SIZE)
     layer.previewRef.width = preview.width
