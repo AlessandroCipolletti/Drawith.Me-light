@@ -107,7 +107,7 @@ const cleanLayersHistoryOldActionIfNeeded = (action) => {
   } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
     if (state.deletedLayers[action.layerId]) {
       state.deletedLayers[action.layerId].history.clear()
-      state.deletedLayers[action.layerOneId].bitmap.close()
+      state.deletedLayers[action.layerId].bitmap.close()
       delete state.deletedLayers[action.layerId]
     }
   } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
