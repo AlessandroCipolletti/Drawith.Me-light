@@ -44,7 +44,7 @@ import { spacing } from 'main/Theme'
   - Folder con piccoli canvas
 
   DA FARE:
-  - Add bitmap.close()
+  - Add bitmap.close(), ma forse solo quando elimino qualcosa dall'history di un layer. Fino ad allora ogni bitmap può comunque essere recuperato facendo undo/redo.
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
   - Test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
   - Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.
@@ -1317,6 +1317,13 @@ const initDom = async () => {
 
 const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
   await Toolbar.init(refs.container)
+  await Layers.init(
+    refs.container,
+    preloadedDrawing.layers || [],
+    state.canvas.width,
+    state.canvas.height,
+    withCoworking
+  )
   await Promise.all([
     Tools.init(
       refs.container,
@@ -1328,13 +1335,6 @@ const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
       refs.container,
       preloadedDrawing.colors || [],
       preloadedDrawing.selectedColorId || -1
-    ),
-    Layers.init(
-      refs.container,
-      preloadedDrawing.layers || [],
-      state.canvas.width,
-      state.canvas.height,
-      withCoworking
     ),
     Ruler.init(refs.container, {
       touchStart: makeTouchStartNearRuler,

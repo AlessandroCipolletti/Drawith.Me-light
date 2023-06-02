@@ -32,10 +32,10 @@ let emptyBitmap
 
 const config = {
   stepHistoryMaxLength: 20 + 1,
-  maxLayersNumber: 10, // 20
-  maxLayersNumberLowPerf: 10, // 15
-  maxLayersNumberMediumPerf: 10, // 20
-  maxLayersNumberHightPerf: 10, // 25
+  maxLayersNumber: 50, // 20
+  maxLayersNumberLowPerf: 50, // 15
+  maxLayersNumberMediumPerf: 50, // 20
+  maxLayersNumberHightPerf: 50, // 25
   paramsCloseDelay: 7 * 1000,
   coordsImgScale: 1,
 }
@@ -107,15 +107,18 @@ const cleanLayersHistoryOldActionIfNeeded = (action) => {
   } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
     if (state.deletedLayers[action.layerId]) {
       state.deletedLayers[action.layerId].history.clear()
+      state.deletedLayers[action.layerOneId].bitmap.close()
       delete state.deletedLayers[action.layerId]
     }
   } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
     if (state.deletedLayers[action.layerOneId]) {
       state.deletedLayers[action.layerOneId].history.clear()
+      state.deletedLayers[action.layerOneId].bitmap.close()
       delete state.deletedLayers[action.layerOneId]
     }
     if (state.deletedLayers[action.layerTwoId]) {
       state.deletedLayers[action.layerTwoId].history.clear()
+      state.deletedLayers[action.layerTwoId].bitmap.close()
       delete state.deletedLayers[action.layerTwoId]
     }
   }
@@ -130,16 +133,19 @@ const cleanLayersHistoryOverwrittenActionIfNeeded = (action) => {
   } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
     if (state.deletedLayers[action.newLayerId]) {
       state.deletedLayers[action.newLayerId].history.clear()
+      state.deletedLayers[action.newLayerId].bitmap.close()
       delete state.deletedLayers[action.newLayerId]
     }
   } else if (action.type === HISTORY_STEP_LAYER_NEW) {
     if (state.deletedLayers[action.layerId]) {
       state.deletedLayers[action.layerId].history.clear()
+      state.deletedLayers[action.layerId].bitmap.close()
       delete state.deletedLayers[action.layerId]
     }
   } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
     if (state.deletedLayers[action.newLayerId]) {
       state.deletedLayers[action.newLayerId].history.clear()
+      state.deletedLayers[action.newLayerId].bitmap.close()
       delete state.deletedLayers[action.newLayerId]
     }
   }
@@ -173,6 +179,7 @@ const getLayerCurrentData = async(layerId = state.currentSelectedLayerId) => {
 
 const restoreLayerContentStep = async(layerId, step) => {
   const layer = state.layers[layerId]
+  // layer.bitmap.close()
   layer.minX = step.minX
   layer.minY = step.minY
   layer.maxX = step.maxX
@@ -206,6 +213,9 @@ export const addLayerHistoryContentChangedStep = async() => {
   })
   layer.history.add(step)
   updateLayerPreview(state.currentSelectedLayerId)
+  // if (state.layers[state.currentSelectedLayerId].bitmap) {
+  //   state.layers[state.currentSelectedLayerId].bitmap.close()
+  // }
   state.layers[state.currentSelectedLayerId].bitmap = step.bitmap
   updateResizeMode(state.resizeMode && canBeResized, canBeResized)
   updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
@@ -418,6 +428,7 @@ const layerDeepCopy = async(layer) => ({
 export const getGlobalDrawingFullInfo = async() => {
   const currentDrawingInfo = await getCurrentGlobalImageData()
   if (state.resizeMode) {
+    // state.layers[state.currentSelectedLayerId].bitmap.close()
     state.layers[state.currentSelectedLayerId].bitmap = await createImageBitmap(state.layers[state.currentSelectedLayerId].canvas)
   }
 
@@ -501,6 +512,7 @@ export const clearCurrentLayer = () => {
   if (Number.isFinite(layer.maxX)) {
     layer.canvas.context.clearRect(0, 0, state.canvases.width, state.canvases.height)
     createImageBitmap(layer.canvas).then((bitmap) => {
+      // layer.bitmap.close()
       layer.bitmap = bitmap
     })
     layer.minX = Infinity
