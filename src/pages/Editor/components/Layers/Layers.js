@@ -36,8 +36,8 @@ const config = {
   maxLayersNumberLowPerf: 50, // 15
   maxLayersNumberMediumPerf: 50, // 20
   maxLayersNumberHightPerf: 50, // 25
-  paramsCloseDelay: 7 * 1000,
-  coordsImgScale: 1,
+  paramsCloseDelay: 7_000,
+  coordsImgScale: 1, // findImageContentCoords pxPrecision. 1 = check every px, 2 = check every 2px, etc...
 }
 let state
 const initialState = {
@@ -102,7 +102,8 @@ const cleanLayersHistoryOldActionIfNeeded = (action) => {
   if (action.type === HISTORY_STEP_LAYER_CONTENT) {
     const layer = state.layers[action.layerId] || state.deletedLayers[action.layerId]
     if (layer) {
-      layer.history.deleteFarest()
+      const deletedAction = layer.history.deleteFarest()
+      deletedAction?.bitmap?.close()
     }
   } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
     if (state.deletedLayers[action.layerId]) {
@@ -128,7 +129,8 @@ const cleanLayersHistoryOverwrittenActionIfNeeded = (action) => {
   if (action.type === HISTORY_STEP_LAYER_CONTENT) {
     const layer = state.layers[action.layerId] || state.deletedLayers[action.layerId]
     if (layer) {
-      layer.history.deleteNewest()
+      const deletedAction = layer.history.deleteNewest()
+      deletedAction?.bitmap?.close()
     }
   } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
     if (state.deletedLayers[action.newLayerId]) {
@@ -179,13 +181,12 @@ const getLayerCurrentData = async(layerId = state.currentSelectedLayerId) => {
 
 const restoreLayerContentStep = async(layerId, step) => {
   const layer = state.layers[layerId]
-  // layer.bitmap.close()
   layer.minX = step.minX
   layer.minY = step.minY
   layer.maxX = step.maxX
   layer.maxY = step.maxY
   layer.bitmap = step.bitmap
-  if (step.bitmap) {
+  if (step.bitmap?.width) {
     fillCanvasWithImage(layer.canvas.context, step.bitmap)
   } else {
     layer.canvas.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height)
@@ -211,11 +212,13 @@ export const addLayerHistoryContentChangedStep = async() => {
     layerId: state.currentSelectedLayerId,
     type: HISTORY_STEP_LAYER_CONTENT,
   })
-  layer.history.add(step)
+  const layerHistoryDeletedSteps = layer.history.add(step)
+  if (layerHistoryDeletedSteps.length) {
+    for (const deletedStep of layerHistoryDeletedSteps) {
+      deletedStep?.bitmap?.close()
+    }
+  }
   updateLayerPreview(state.currentSelectedLayerId)
-  // if (state.layers[state.currentSelectedLayerId].bitmap) {
-  //   state.layers[state.currentSelectedLayerId].bitmap.close()
-  // }
   state.layers[state.currentSelectedLayerId].bitmap = step.bitmap
   updateResizeMode(state.resizeMode && canBeResized, canBeResized)
   updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
@@ -426,7 +429,6 @@ const layerDeepCopy = async(layer) => ({
 export const getGlobalDrawingFullInfo = async() => {
   const currentDrawingInfo = await getCurrentGlobalImageData()
   if (state.resizeMode) {
-    // state.layers[state.currentSelectedLayerId].bitmap.close()
     state.layers[state.currentSelectedLayerId].bitmap = await createImageBitmap(state.layers[state.currentSelectedLayerId].canvas)
   }
 
@@ -503,16 +505,13 @@ export const currentLayerIsEmpty = (layerId = state.currentSelectedLayerId) => {
   state.layers[layerId].maxY === null
 }
 
-export const clearCurrentLayer = () => {
+export const clearCurrentLayer = async () => {
   const layer = state.layers[state.currentSelectedLayerId]
   closeParams()
   updateGcoMode(false, false)
   if (Number.isFinite(layer.maxX)) {
     layer.canvas.context.clearRect(0, 0, state.canvases.width, state.canvases.height)
-    createImageBitmap(layer.canvas).then((bitmap) => {
-      // layer.bitmap.close()
-      layer.bitmap = bitmap
-    })
+    layer.bitmap = await createImageBitmap(layer.canvas)
     layer.minX = Infinity
     layer.minY = Infinity
     layer.maxY = -Infinity
@@ -539,6 +538,7 @@ const createNewLayerObject = () => {
     selectedByCoworker: false,
     history: new History(config.stepHistoryMaxLength),
     canvas: null,
+    bitmap: emptyBitmap,
     previewRef: null,
     createTimestamp: now,
     updateTimestamp: now,
@@ -651,7 +651,6 @@ const createNewLayerDom = async(layerId, withAnimation = false) => {
   layer.canvas.width = state.canvases.width
   layer.canvas.height = state.canvases.height
   layer.canvas.context = getNewContextForCanvas(layer.canvas)
-  // const offscreenCanvas = canvas.transferControlToOffscreen()
 
   layer.canvas.style.zIndex = layer.order * 10
   layer.canvas.style.opacity = layer.opacity
@@ -662,7 +661,7 @@ const createNewLayerDom = async(layerId, withAnimation = false) => {
     disableLayer(layerId)
   }
 
-  if (layer.bitmap) {
+  if (layer.bitmap?.width > 0) {
     fillCanvasWithImage(layer.canvas.context, layer.bitmap)
     const { minX, minY, maxX, maxY } = await findImageContentCoords(layer.canvas, config.coordsImgScale)
     layer.minX = minX
@@ -1353,7 +1352,7 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
 export const remove = () => {
   Object.values(state.layers).forEach(layer => {
     layer.canvas.remove()
-    if (layer.bitmap) {
+    if (layer.bitmap?.width) {
       layer.bitmap.close()
     }
     layer.history.clear()

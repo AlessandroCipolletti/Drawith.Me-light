@@ -35,16 +35,16 @@ import { spacing } from 'main/Theme'
   ----- OFFSCREEN CANVAS -----
   BUGS:
   - BUG: resize mode + rotazione + duplica layer ==> il vecchio layer viene rimesso a rotazione 0 prima di essere salvato
-
+  - BUG: salvare il disegno non funzia sull'ipad, se ci sono più layer
 
   FATTO:
   - Ottimizzata la preview del layer con un piccolo canvas.
   - Provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
   - Bitmap salvata in indexDB e rimpiazzate tutte le locahPathSmall
   - Folder con piccoli canvas
+  - Add bitmap.close()
 
   DA FARE:
-  - Add bitmap.close(), ma forse solo quando elimino qualcosa dall'history di un layer. Fino ad allora ogni bitmap può comunque essere recuperato facendo undo/redo.
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
   - Test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
   - Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.
@@ -283,8 +283,8 @@ export const setDrawingModified = () => {
   }
 }
 
-export const clear = () => {
-  if (Layers.clearCurrentLayer()) {
+export const clear = async () => {
+  if (await Layers.clearCurrentLayer()) {
     saveStepHistory()
   }
   console.clear()
