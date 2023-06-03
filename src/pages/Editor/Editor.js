@@ -34,7 +34,6 @@ import { spacing } from 'main/Theme'
 /*
   ----- OFFSCREEN CANVAS -----
   BUGS:
-  - BUG: resize mode + duplicate layer ==> l'icona di active/desactive del vecchio layer resta semi-trasparente
   - BUG: resize mode + rotazione + duplica layer ==> il vecchio layer viene rimesso a rotazione 0 prima di essere salvato
 
 

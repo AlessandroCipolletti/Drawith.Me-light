@@ -716,6 +716,8 @@ const selectLayer = async(layerId, showParams = true) => {
     if (state.currentSelectedLayerId) {
       if (state.resizeMode) {
         await saveResizeModeIfNeeded()
+        const layerOptionButton = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"] .editor-layers__layer-options-button`)
+        layerOptionButton.classList.remove('disabled')
       }
     }
 
@@ -839,7 +841,6 @@ const duplicateSelectedLayer = async(e) => {
   ) {
     return
   }
-
 
   await saveResizeModeIfNeeded()
   const newId = uuidv4()
