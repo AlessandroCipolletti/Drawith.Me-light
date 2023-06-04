@@ -138,12 +138,15 @@ export const imgToCanvas = (img) => {
   return canvas
 }
 
-export const getCanvasBase64Async = async(dom) => {
+export const getImgBase64Async = async(dom) => {
   if (dom.tagName?.toLowerCase() !== 'canvas' && !(dom instanceof OffscreenCanvas)) {
     dom = imgToCanvas(dom)
   }
   return blobToBase64Async(await getCanvasBlobAsync(dom))
 }
+
+export const getCanvasBase64Async = async(canvas) => blobToBase64Async(await getCanvasBlobAsync(canvas))
+
 
 export const base64ToImageData = async(base64, x = 0, y = 0, width = 0, height = 0) => {
   const img = await getImageFromUrl(base64, true)
