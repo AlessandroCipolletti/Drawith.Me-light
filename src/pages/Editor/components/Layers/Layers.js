@@ -15,7 +15,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getCanvasBase64Async, getImageFromUrl } from 'utils/imageUtils'
+import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getImgBase64Async, getImageFromUrl } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -31,6 +31,7 @@ let emptyBitmap
 
 
 const config = {
+  saveLayersAsBase64: false,
   stepHistoryMaxLength: 20 + 1,
   maxLayersNumber: 50, // 20
   maxLayersNumberLowPerf: 50, // 15
@@ -409,22 +410,37 @@ export const redoLayers = async() => {
   }
 }
 
-const layerDeepCopy = async(layer) => ({
-  id: layer.id,
-  minX: layer.minX,
-  minY: layer.minY,
-  maxX: layer.maxX,
-  maxY: layer.maxY,
-  active: layer.active,
-  name: layer.name,
-  opacity: layer.opacity,
-  selected: layer.selected,
-  order: layer.order,
-  selectedByCoworker: layer.selectedByCoworker,
-  createTimestamp: layer.createTimestamp,
-  updateTimestamp: layer.updateTimestamp,
-  bitmap: await createImageBitmap(layer.bitmap),
-})
+const layerDeepCopy = async(layer, returnBase64 = false) => {
+  const copy = {
+    id: layer.id,
+    minX: layer.minX,
+    minY: layer.minY,
+    maxX: layer.maxX,
+    maxY: layer.maxY,
+    active: layer.active,
+    name: layer.name,
+    opacity: layer.opacity,
+    selected: layer.selected,
+    order: layer.order,
+    selectedByCoworker: layer.selectedByCoworker,
+    createTimestamp: layer.createTimestamp,
+    updateTimestamp: layer.updateTimestamp,
+  }
+  if (returnBase64) {
+    if (layer.bitmap) {
+      copy.base64 = await getImgBase64Async(layer.bitmap)
+    } else {
+      copy.base64 = layer.base64
+    }
+  } else {
+    if (layer.bitmap) {
+      copy.bitmap = await createImageBitmap(layer.bitmap)
+    } else {
+      copy.bitmap = await getImageFromUrl(layer.base64)
+    }
+  }
+  return copy
+}
 
 export const getGlobalDrawingFullInfo = async() => {
   const currentDrawingInfo = await getCurrentGlobalImageData()
@@ -437,13 +453,13 @@ export const getGlobalDrawingFullInfo = async() => {
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
 
-  for (let layer of layers) {
-    layer = await layerDeepCopy(layer)
+  currentDrawingInfo.layers = await Promise.all(layers.map(async(layer) => {
+    layer = await layerDeepCopy(layer, config.saveLayersAsBase64)
     delete layer.selectedByCoworker
     delete layer.resizeMode
     delete layer.gco
-    currentDrawingInfo.layers.push(layer)
-  }
+    return layer
+  }))
 
   return currentDrawingInfo
 }
@@ -546,33 +562,6 @@ const createNewLayerObject = () => {
 }
 
 const getMaxOrder = () => Math.max(...Object.values(state.layers).map(l => l.order))
-
-const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
-  state.canvases.width = canvasWidth
-  state.canvases.height = canvasHeight
-  if (initialLayers.length) {
-    initialLayers = await Promise.all(initialLayers.map(layerDeepCopy))
-    state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, {
-      ...l,
-      selectedByCoworker: false,
-      history: new History(config.stepHistoryMaxLength),
-    }])))
-  } else {
-    const newLayerData = createNewLayerObject()
-    state.layers[newLayerData.id] = newLayerData
-  }
-
-  const layersIds = Object.keys(state.layers)
-  await Promise.all(layersIds.map(createNewLayerDom))
-
-  await selectLayer(layersIds.find(layerId => state.layers[layerId].selected) || layersIds[0])
-  closeParams()
-  reorderLayersList()
-
-  LayersHistory.add({
-    type: 'init',
-  })
-}
 
 const toggleParams = () => {
   if (refs.paramsContainer.classList.contains('params-container-visible')) {
@@ -1271,6 +1260,41 @@ const onContainerTouchStart = (e) => {
   if (e.target === refs.layersContainer) {
     preventDefault(e)
   }
+}
+
+const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
+  state.canvases.width = canvasWidth
+  state.canvases.height = canvasHeight
+  if (initialLayers.length) {
+    if (initialLayers[0].base64) {
+      initialLayers = await Promise.all(initialLayers.map(async(layer) => {
+        layer.bitmap = await createImageBitmap(await getImageFromUrl(layer.base64))
+        delete layer.base64
+        return layer
+      }))
+    } else {
+      initialLayers = await Promise.all(initialLayers.map((l) => layerDeepCopy(l)))
+    }
+    state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, {
+      ...l,
+      selectedByCoworker: false,
+      history: new History(config.stepHistoryMaxLength),
+    }])))
+  } else {
+    const newLayerData = createNewLayerObject()
+    state.layers[newLayerData.id] = newLayerData
+  }
+
+  const layersIds = Object.keys(state.layers)
+  await Promise.all(layersIds.map(createNewLayerDom))
+
+  await selectLayer(layersIds.find(layerId => state.layers[layerId].selected) || layersIds[0])
+  closeParams()
+  reorderLayersList()
+
+  LayersHistory.add({
+    type: 'init',
+  })
 }
 
 const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking) => {

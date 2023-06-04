@@ -45,6 +45,8 @@ import { spacing } from 'main/Theme'
   - Add bitmap.close()
 
   DA FARE:
+  - non so se può aiutare, perché non so come misurare la memoria occupata da un bitmap,
+      ma potrei salvare nel db solo la bitmap ritagliata della parte del canvas che contiene qualcosa, e poi inizializzare i layer disegnando la bitmap alle coordinate minX e minY.
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
   - Test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
   - Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.
