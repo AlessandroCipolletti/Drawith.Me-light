@@ -67,7 +67,7 @@ import { spacing } from 'main/Theme'
 
 
 export const config = {
-  draftTimeInterval: 30 * 1000,
+  draftTimeInterval: 30_000,
   draftStepsInterval: 50,
   stepsRequiredToMakeACopy: 10,
   maxSpeedFactorLength: 150,
@@ -84,7 +84,7 @@ export const config = {
   minAltitudeFactorToHandleRotation: 0.3,
   resizeRotationStep: 2.5,
   resizeRotationInterval: 45,
-  draftInfoDuration: 3000,
+  draftInfoDuration: 3_000,
 }
 // let state
 let state = {}
