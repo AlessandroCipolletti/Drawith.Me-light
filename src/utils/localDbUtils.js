@@ -16,8 +16,6 @@ export const DRAWING_STATE_SAVED_LOCALLY = 2
 let LocalDatabase
 export const initLocalDb = securizeAsyncFn(async() => {
   // indexedDB.deleteDatabase(Params.localDbName); return
-  indexedDB.deleteDatabase('db')
-
   LocalDatabase = new Dexie(Params.localDbName)
 
   LocalDatabase.version(1).stores({
