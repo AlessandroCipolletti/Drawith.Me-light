@@ -210,9 +210,9 @@ export const getImageFromUrl = (url, useTemp = false) => {
 
 export const loadImageOffThread = async(img, url) => {
   const blobUrl = await fetchUrlFileOffThread(url)
-  URL.revokeObjectURL(img.getAttribute('data-blobUrl'))
-  img.setAttribute('data-blobUrl', blobUrl)
-  return setImageSrcSync(img, blobUrl)
+  return setImageSrcSync(img, blobUrl).then(() => {
+    URL.revokeObjectURL(blobUrl)
+  })
 }
 
 export const setImageSrcSync = (img, src) => {
