@@ -33,20 +33,23 @@ import { spacing } from 'main/Theme'
 
 /*
   ----- OFFSCREEN CANVAS -----
-  BUGS:
-  - BUG: resize mode + rotazione + duplica layer ==> il vecchio layer viene rimesso a rotazione 0 prima di essere salvato
-  - BUG: salvare il disegno non funzia sull'ipad, se ci sono più layer
-
   FATTO:
   - Ottimizzata la preview del layer con un piccolo canvas.
   - Provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
   - Bitmap salvata in indexDB e rimpiazzate tutte le locahPathSmall
   - Folder con piccoli canvas
-  - Add bitmap.close()
+  - Add bitmap.close() quando cancello uno step
+
+  BUGS:
+  - Merge layers è rotto
 
   DA FARE:
-  - non so se può aiutare, perché non so come misurare la memoria occupata da un bitmap,
-      ma potrei salvare nel db solo la bitmap ritagliata della parte del canvas che contiene qualcosa, e poi inizializzare i layer disegnando la bitmap alle coordinate minX e minY.
+  - pulizia codice folder con base64
+  - pulizia codice editor pipette
+  - to test performances on iPad con taaaanti layer belli peni
+  - su chiusura editor, fare bitmap.close di tutti gli step nelle varie history
+
+
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
   - Test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
   - Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.
@@ -352,15 +355,37 @@ const updatePipette = (canvasX, canvasY, domX, domY) => {
 }
 
 const initPipetteCursor = async () => {
-  const currentImageData = await Layers.getCurrentGlobalImageData(true)
-  state.pipette.bg = 'none'
-  getCanvasBase64Async(currentImageData.tempCanvas).then(base64 => {
-    state.pipette.bg = base64
-    refs.pipetteBackground.style.backgroundImage = `url(${base64})`
+  Layers.getCurrentGlobalImageData(true).then(currentImageData => {
+    state.pipette.bg = currentImageData.base64
+    refs.pipetteBackground.style.backgroundImage = `url(${currentImageData.base64})`
+    state.pipette.context = currentImageData.tempContext
+
+    updatePipette(
+      initialX,
+      initialY,
+      `calc(${(state.canvas.width / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.left}px)`,
+      `calc(${(state.canvas.height / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.top}px)`
+    )
   })
-  state.pipette.context = currentImageData.tempContext
-  refs.pipetteBackground.style.backgroundImage = 'none'
+
   state.pipette.isOnCanvas = true
+  state.pipette.bg = 'none'
+  state.pipette.currentColor = false
+  refs.pipetteCursor.style.backgroundColor = 'var(--palette-white)'
+  refs.pipetteBackground.style.backgroundImage = 'none'
+  state.pipette.context = null
+
+  // const currentImageData = await Layers.getCurrentGlobalImageData(true)
+  // state.pipette.bg = currentImageData.base64
+  // refs.pipetteBackground.style.backgroundImage = `url(${currentImageData.base64})`
+  // getCanvasBase64Async(currentImageData.tempCanvas).then(base64 => {
+  //   state.pipette.bg = base64
+  //   refs.pipetteBackground.style.backgroundImage = `url(${base64})`
+  // })
+  // state.pipette.context = currentImageData.tempContext
+
+  refs.pipetteCursor.style.left = `calc(${(state.canvas.width / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.left}px)`
+  refs.pipetteCursor.style.top = `calc(${(state.canvas.height / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.top}px)`
 
   fadeInElements(refs.pipetteCursor)
   state.pipette.isVisible = true
@@ -369,13 +394,6 @@ const initPipetteCursor = async () => {
   if (currentCanvasHasZoom()) {
     [initialX, initialY] = getOriginalCoordsFromScaleRotation(initialX, initialY, state.canvas.originCoordX, state.canvas.originCoordY, state.canvas.scale, state.canvas.rotation)
   }
-
-  updatePipette(
-    initialX,
-    initialY,
-    `calc(${(state.canvas.width / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.left}px)`,
-    `calc(${(state.canvas.height / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.top}px)`
-  )
 }
 
 export const hidePipetteCursor = async () => {

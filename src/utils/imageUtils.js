@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid'
 const logo = new Image()
 logo.src = require('static/img/logoExport.png')
 
-import { fetchUrlFileOffThread, waitWorkerMessage } from 'utils/jsUtils'
+import { waitWorkerMessage } from 'utils/jsUtils'
 import { getNumberInBetween, round, valuesAreSimilar } from 'utils/mathUtils'
 
 const DRAWING_SCALE_RATIO_ON_SHARE = 1
@@ -171,20 +171,30 @@ export const mergeBase64ImagesAsync = async(bases64) => {
   return await getCanvasBase64Async(tempCanvas)
 }
 
-export const mergeImagesAndGetBitmapAsync = (images) => {
-  tempCanvas.width = tempCanvas.height = 0
+export const duplicateCanvas = (sourceCanvas) => {
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  canvas.width = sourceCanvas.width
+  canvas.height = sourceCanvas.height
+  context.drawImage(sourceCanvas, 0, 0)
+  return canvas
+}
+
+export const mergeImages = (images) => {
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
   for (const [img, opacity = 1] of images) {
     if ((img.naturalWidth || img.width) > 1) {
-      if (!tempCanvas.width) {
-        tempCanvas.width = img.naturalWidth || img.width
-        tempCanvas.height = img.naturalHeight || img.height
+      if (!canvas.width) {
+        canvas.width = img.naturalWidth || img.width
+        canvas.height = img.naturalHeight || img.height
       }
-      tempContext.globalAlpha = opacity
-      tempContext.drawImage(img, 0, 0)
+      context.globalAlpha = opacity
+      context.drawImage(img, 0, 0)
     }
   }
-  tempContext.globalAlpha = 1
-  return createImageBitmap(tempCanvas)
+  context.globalAlpha = 1
+  return canvas
 }
 
 export const blobToBase64Async = (blob) => {
@@ -198,22 +208,40 @@ export const blobToBase64Async = (blob) => {
   })
 }
 
-export const getImageFromUrl = (url, useTemp = false) => {
-  if (useTemp) {
-    return loadImageOffThread(tempImage, url).then(() => tempImage)
-  } else {
-    const img = new Image()
-    img.crossOrigin = 'Anonymous'
-    return loadImageOffThread(img, url).then(() => img)
-  }
+export const getCanvasFromBase64 = async (base64) => {
+  const img = await getImageFromUrl(base64)
+  console.log('getCanvasFromBase64', 1)
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  canvas.width = img.naturalWidth || img.width
+  canvas.height = img.naturalHeight || img.height
+  context.drawImage(img, 0, 0)
+  return canvas
 }
 
-export const loadImageOffThread = async(img, url) => {
-  const blobUrl = await fetchUrlFileOffThread(url)
-  return setImageSrcSync(img, blobUrl).then(() => {
-    URL.revokeObjectURL(blobUrl)
-  })
+export const getImageFromUrl = async(url) => {
+  const img = new Image()
+  img.crossOrigin = 'Anonymous'
+  await setImageSrcSync(img, url)
+  return img
 }
+
+// export const getImageFromUrl = (url, useTemp = false) => {
+//   if (useTemp) {
+//     return loadImageOffThread(tempImage, url).then(() => tempImage)
+//   } else {
+//     const img = new Image()
+//     img.crossOrigin = 'Anonymous'
+//     return loadImageOffThread(img, url).then(() => img)
+//   }
+// }
+
+// export const loadImageOffThread = async(img, url) => {
+//   const blobUrl = await fetchUrlFileOffThread(url)
+//   return setImageSrcSync(img, blobUrl).then(() => {
+//     URL.revokeObjectURL(blobUrl)
+//   })
+// }
 
 export const setImageSrcSync = (img, src) => {
   return new Promise((resolve, reject) => {

@@ -279,10 +279,12 @@ export const refreshContent = async() => {
   await loadTemplate(tplContent, { drawings }, refs.drawingsContainer)
   refs.drawingsContainer.scrollTop = scroll
   for (const drawing of drawings) {
-    const drawingCanvas = refs.drawingsContainer.querySelector(`[data-local-id='${drawing.localDbId}'] canvas`)
-    drawingCanvas.width = MAX_DRAWING_PREVIEW_SIZE
-    drawingCanvas.height = MAX_DRAWING_PREVIEW_SIZE * (drawing.bitmap.height / drawing.bitmap.width)
-    fillCanvasWithImage(drawingCanvas.getContext('2d'), drawing.bitmap, 0, 0, drawingCanvas.width, drawingCanvas.height)
+    const drawingPreview = refs.drawingsContainer.querySelector(`[data-local-id='${drawing.localDbId}'] img`)
+    drawingPreview.src = drawing.base64
+    // const drawingCanvas = refs.drawingsContainer.querySelector(`[data-local-id='${drawing.localDbId}'] canvas`)
+    // drawingCanvas.width = MAX_DRAWING_PREVIEW_SIZE
+    // drawingCanvas.height = MAX_DRAWING_PREVIEW_SIZE * (drawing.bitmap.height / drawing.bitmap.width)
+    // fillCanvasWithImage(drawingCanvas.getContext('2d'), drawing.bitmap, 0, 0, drawingCanvas.width, drawingCanvas.height)
   }
   refs.topnav.classList.toggle('displayNone', !drawings.length)
   drawings = undefined

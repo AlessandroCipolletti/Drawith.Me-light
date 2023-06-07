@@ -15,7 +15,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImagesAndGetBitmapAsync, getImgBase64Async, getImageFromUrl } from 'utils/imageUtils'
+import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImages, getImgBase64Async, duplicateCanvas, getCanvasFromBase64 } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -27,11 +27,9 @@ import { HISTORY_STEP_LAYER_CONTENT, HISTORY_STEP_LAYER_OPACITY, HISTORY_STEP_LA
 const MAX_LAYER_NAME_LENGTH = 12
 const PREVIEW_SIZE = 300
 const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
-let emptyBitmap
 
 
 const config = {
-  saveLayersAsBase64: false,
   stepHistoryMaxLength: 20 + 1,
   maxLayersNumber: 50, // 20
   maxLayersNumberLowPerf: 50, // 15
@@ -186,7 +184,6 @@ const restoreLayerContentStep = async(layerId, step) => {
   layer.minY = step.minY
   layer.maxX = step.maxX
   layer.maxY = step.maxY
-  layer.bitmap = step.bitmap
   if (step.bitmap?.width) {
     fillCanvasWithImage(layer.canvas.context, step.bitmap)
   } else {
@@ -220,7 +217,6 @@ export const addLayerHistoryContentChangedStep = async() => {
     }
   }
   updateLayerPreview(state.currentSelectedLayerId)
-  state.layers[state.currentSelectedLayerId].bitmap = step.bitmap
   updateResizeMode(state.resizeMode && canBeResized, canBeResized)
   updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
 }
@@ -410,51 +406,36 @@ export const redoLayers = async() => {
   }
 }
 
-const layerDeepCopy = async(layer, returnBase64 = false) => {
-  const copy = {
-    id: layer.id,
-    minX: layer.minX,
-    minY: layer.minY,
-    maxX: layer.maxX,
-    maxY: layer.maxY,
-    active: layer.active,
-    name: layer.name,
-    opacity: layer.opacity,
-    selected: layer.selected,
-    order: layer.order,
-    selectedByCoworker: layer.selectedByCoworker,
-    createTimestamp: layer.createTimestamp,
-    updateTimestamp: layer.updateTimestamp,
-  }
-  if (returnBase64) {
-    if (layer.bitmap) {
-      copy.base64 = await getImgBase64Async(layer.bitmap)
-    } else {
-      copy.base64 = layer.base64
-    }
-  } else {
-    if (layer.bitmap) {
-      copy.bitmap = await createImageBitmap(layer.bitmap)
-    } else {
-      copy.bitmap = await getImageFromUrl(layer.base64)
-    }
-  }
-  return copy
-}
+const layerDeepCopy = (layer, returnCanvas = true) => ({
+  id: layer.id,
+  minX: layer.minX,
+  minY: layer.minY,
+  maxX: layer.maxX,
+  maxY: layer.maxY,
+  active: layer.active,
+  name: layer.name,
+  opacity: layer.opacity,
+  selected: layer.selected,
+  order: layer.order,
+  selectedByCoworker: layer.selectedByCoworker,
+  createTimestamp: layer.createTimestamp,
+  updateTimestamp: layer.updateTimestamp,
+  canvas: returnCanvas ? duplicateCanvas(layer.canvas) : null,
+})
 
+// chiamata da editor quando si salva il disegno
 export const getGlobalDrawingFullInfo = async() => {
   const currentDrawingInfo = await getCurrentGlobalImageData()
-  if (state.resizeMode) {
-    state.layers[state.currentSelectedLayerId].bitmap = await createImageBitmap(state.layers[state.currentSelectedLayerId].canvas)
-  }
 
   currentDrawingInfo.layers = []
   const layers = Object.values(state.layers)
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
 
-  currentDrawingInfo.layers = await Promise.all(layers.map(async(layer) => {
-    layer = await layerDeepCopy(layer, config.saveLayersAsBase64)
+  currentDrawingInfo.layers = await Promise.all(layers.map(async(l) => {
+    const layer = layerDeepCopy(l, false)
+    delete layer.canvas
+    layer.base64 = await getImgBase64Async(l.canvas)
     delete layer.selectedByCoworker
     delete layer.resizeMode
     delete layer.gco
@@ -464,7 +445,8 @@ export const getGlobalDrawingFullInfo = async() => {
   return currentDrawingInfo
 }
 
-export const getCurrentGlobalImageData = async(returnCanvas = false) => {
+// per salvataggio e pipettegetGlobalDrawingFullInfo
+export const getCurrentGlobalImageData = async(returnWholeCanvas = false) => {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   let tempCanvas = new OffscreenCanvas(state.canvases.width, state.canvases.height)
   let tempContext = tempCanvas.getContext('2d', { willReadFrequently: true })
@@ -482,29 +464,28 @@ export const getCurrentGlobalImageData = async(returnCanvas = false) => {
   }
   const width = round(maxX - minX, 0)
   const height = round(maxY - minY, 0)
-  let bitmap
+  let base64
 
   if (Number.isFinite(minX)) {
-    if (returnCanvas) {
-      bitmap = await createImageBitmap(tempCanvas)
+    if (returnWholeCanvas) {
+      base64 = await getImgBase64Async(tempCanvas)
     } else {
       const [drawing] = cropImageWithMargin(tempCanvas, minX, minY, maxX, maxY)
-      bitmap = await createImageBitmap(drawing)
+      base64 = await getImgBase64Async(drawing)
     }
   } else {
-    bitmap = emptyBitmap
+    base64 = EMPTY_BASE64
   }
 
   const res = {
-    bitmap,
+    base64,
     minX, minY, maxX, maxY,
     width, height,
     canvasWidth: tempCanvas.width,
     canvasHeight: tempCanvas.height,
   }
 
-  if (returnCanvas) {
-    res.tempCanvas = tempCanvas
+  if (returnWholeCanvas) {
     res.tempContext = tempContext
   } else {
     tempCanvas.width = tempCanvas.height = 0
@@ -527,7 +508,6 @@ export const clearCurrentLayer = async () => {
   updateGcoMode(false, false)
   if (Number.isFinite(layer.maxX)) {
     layer.canvas.context.clearRect(0, 0, state.canvases.width, state.canvases.height)
-    layer.bitmap = await createImageBitmap(layer.canvas)
     layer.minX = Infinity
     layer.minY = Infinity
     layer.maxY = -Infinity
@@ -538,7 +518,7 @@ export const clearCurrentLayer = async () => {
   }
 }
 
-const createNewLayerObject = () => {
+const createNewLayerData = () => {
   const now = Date.now()
   return {
     id: uuidv4(),
@@ -554,7 +534,6 @@ const createNewLayerObject = () => {
     selectedByCoworker: false,
     history: new History(config.stepHistoryMaxLength),
     canvas: null,
-    bitmap: emptyBitmap,
     previewRef: null,
     createTimestamp: now,
     updateTimestamp: now,
@@ -636,10 +615,6 @@ const createNewLayerListElementDom = (layerId, withAnimation = true) => {
 const createNewLayerDom = async(layerId, withAnimation = false) => {
   createNewLayerListElementDom(layerId, withAnimation)
   const layer = state.layers[layerId]
-  layer.canvas = document.createElement('canvas')
-  layer.canvas.width = state.canvases.width
-  layer.canvas.height = state.canvases.height
-  layer.canvas.context = getNewContextForCanvas(layer.canvas)
 
   layer.canvas.style.zIndex = layer.order * 10
   layer.canvas.style.opacity = layer.opacity
@@ -650,19 +625,10 @@ const createNewLayerDom = async(layerId, withAnimation = false) => {
     disableLayer(layerId)
   }
 
-  if (layer.bitmap?.width > 0) {
-    fillCanvasWithImage(layer.canvas.context, layer.bitmap)
-    const { minX, minY, maxX, maxY } = await findImageContentCoords(layer.canvas, config.coordsImgScale)
-    layer.minX = minX
-    layer.minY = minY
-    layer.maxX = maxX
-    layer.maxY = maxY
-    updateLayerPreview(layerId)
-  } else {
-    layer.canvas.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height)
-  }
+  updateLayerPreview(layerId)
+
   layer.history.add({
-    bitmap: layer.bitmap,
+    bitmap: await createImageBitmap(layer.canvas),
     minX: layer.minX,
     minY: layer.minY,
     maxX: layer.maxX,
@@ -671,13 +637,23 @@ const createNewLayerDom = async(layerId, withAnimation = false) => {
   Editor.appendLayer(layer.canvas)
 }
 
+const createNewLayerCanvas = () => {
+  const canvas = document.createElement('canvas')
+  canvas.width = state.canvases.width
+  canvas.height = state.canvases.height
+  canvas.context = getNewContextForCanvas(canvas)
+  return canvas
+}
+
 const addNewLayer = (e) => {
   preventDefault(e)
   if (Object.keys(state.layers).length >= config.maxLayersNumber) {
     return
   }
 
-  const newLayerData = createNewLayerObject()
+  const newLayerData = createNewLayerData()
+  newLayerData.canvas = createNewLayerCanvas()
+
   state.layers[newLayerData.id] = newLayerData
   createNewLayerDom(newLayerData.id, true)
   reorderLayersList()
@@ -832,7 +808,8 @@ const duplicateSelectedLayer = async(e) => {
 
   await saveResizeModeIfNeeded()
   const newId = uuidv4()
-  const newLayer = await layerDeepCopy(state.layers[state.currentSelectedLayerId])
+  const newLayer = layerDeepCopy(state.layers[state.currentSelectedLayerId])
+  newLayer.canvas.context = getNewContextForCanvas(newLayer.canvas)
   const now = Date.now()
   newLayer.id = newId
   newLayer.selected = false
@@ -876,15 +853,17 @@ const mergeDownSelectedLayer = async(e) => {
 
   if (lowerLayer) {
     // create a new layer
-    const newLayerData = createNewLayerObject()
+    const newLayerData = createNewLayerData()
     newLayerData.order = lowerLayer.order
     state.layers[newLayerData.id] = newLayerData
 
     // merge the two source layers
-    state.layers[newLayerData.id].bitmap = await mergeImagesAndGetBitmapAsync([
-      [lowerLayer.bitmap, lowerLayer.opacity],
-      [selectedLayer.bitmap, selectedLayer.opacity],
+    state.layers[newLayerData.id].canvas = mergeImages([
+      [lowerLayer.canvas, lowerLayer.opacity],
+      [selectedLayer.canvas, selectedLayer.opacity],
     ])
+    state.layers[newLayerData.id].canvas.context = getNewContextForCanvas(state.layers[newLayerData.id].canvas)
+    await updateLayerRealCoords(newLayerData.id)
 
     // animate in and out new and old list dom
     closeParams()
@@ -1266,22 +1245,21 @@ const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
   state.canvases.width = canvasWidth
   state.canvases.height = canvasHeight
   if (initialLayers.length) {
-    if (initialLayers[0].base64) {
-      initialLayers = await Promise.all(initialLayers.map(async(layer) => {
-        layer.bitmap = await createImageBitmap(await getImageFromUrl(layer.base64))
-        delete layer.base64
-        return layer
-      }))
-    } else {
-      initialLayers = await Promise.all(initialLayers.map((l) => layerDeepCopy(l)))
-    }
+    initialLayers = await Promise.all(initialLayers.map(async(l) => {
+      const layer = layerDeepCopy(l, false)
+      layer.canvas = await getCanvasFromBase64(l.base64)
+      layer.canvas.context = getNewContextForCanvas(layer.canvas)
+      delete l.base64
+      return layer
+    }))
     state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, {
       ...l,
       selectedByCoworker: false,
       history: new History(config.stepHistoryMaxLength),
     }])))
   } else {
-    const newLayerData = createNewLayerObject()
+    const newLayerData = createNewLayerData()
+    newLayerData.canvas = createNewLayerCanvas()
     state.layers[newLayerData.id] = newLayerData
   }
 
@@ -1347,9 +1325,6 @@ const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking)
 }
 
 export const init = async(moduleContainer, initialLayers = [], canvasWidth, canvasHeight, withCoworking = false) => {
-  const emptyImage = await getImageFromUrl(EMPTY_BASE64)
-  emptyBitmap = await createImageBitmap(emptyImage)
-
   config.maxLayersNumber = config.maxLayersNumberHightPerf
   if (Params.isTablet && Params.ios) {
     const screenMaxSize = getRealScreenMaxSize()
@@ -1376,11 +1351,8 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
 export const remove = () => {
   Object.values(state.layers).forEach(layer => {
     layer.canvas.remove()
-    if (layer.bitmap?.width) {
-      layer.bitmap.close()
-    }
     layer.history.clear()
-    layer.canvas = layer.history = layer.bitmap = undefined
+    layer.canvas = layer.history = undefined
   })
   LayersHistory.clear()
   cleanRefs(refs)
