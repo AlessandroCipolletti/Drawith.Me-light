@@ -64,12 +64,12 @@ export const findImageContentCoords = async(dom, pxPrecision = 1, alphaTolleranc
   pxPrecision = round(pxPrecision, 1)
 
   if (dom.tagName?.toLowerCase() !== 'canvas' && !(dom instanceof OffscreenCanvas)) {
-    dom = imgToCanvas(dom)
+    dom = imgToCanvas(dom, true)
   }
 
   const width = dom.width
   const height = dom.height
-  const data = dom.getContext('2d').getImageData(0, 0, width, height).data
+  const data = dom.context.getImageData(0, 0, width, height).data
 
   const id = uuidv4()
   coordsWorker.postMessage({ id, data, width, height, pxPrecision, alphaTollerance })
@@ -130,17 +130,20 @@ export const getCanvasBlobAsync = (canvas) => {
   })
 }
 
-export const imgToCanvas = (img) => {
+export const imgToCanvas = (img, prepareContext = false) => {
   const canvas = document.createElement('canvas')
   canvas.width = img.naturalWidth || img.width
   canvas.height = img.naturalHeight || img.height
   canvas.getContext('2d').drawImage(img, 0, 0)
+  if (prepareContext) {
+    canvas.context = canvas.getContext('2d', { willReadFrequently: true })
+  }
   return canvas
 }
 
 export const getImgBase64Async = async(dom) => {
   if (dom.tagName?.toLowerCase() !== 'canvas' && !(dom instanceof OffscreenCanvas)) {
-    dom = imgToCanvas(dom)
+    dom = imgToCanvas(dom, true)
   }
   return blobToBase64Async(await getCanvasBlobAsync(dom))
 }
