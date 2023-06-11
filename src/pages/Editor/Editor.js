@@ -44,10 +44,10 @@ import { spacing } from 'main/Theme'
   - Merge layers è rotto
 
   DA FARE:
+  - salvataggio disegno asynctono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
   - pulizia codice folder con base64
   - pulizia codice editor pipette
   - to test performances on iPad con taaaanti layer belli peni
-  - su chiusura editor, fare bitmap.close di tutti gli step nelle varie history
 
 
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()

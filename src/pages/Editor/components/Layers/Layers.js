@@ -105,22 +105,10 @@ const cleanLayersHistoryOldActionIfNeeded = (action) => {
       deletedAction?.bitmap?.close()
     }
   } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
-    if (state.deletedLayers[action.layerId]) {
-      state.deletedLayers[action.layerId].history.clear()
-      state.deletedLayers[action.layerId].bitmap.close()
-      delete state.deletedLayers[action.layerId]
-    }
+    hardDeleteLayer(action.layerId)
   } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
-    if (state.deletedLayers[action.layerOneId]) {
-      state.deletedLayers[action.layerOneId].history.clear()
-      state.deletedLayers[action.layerOneId].bitmap.close()
-      delete state.deletedLayers[action.layerOneId]
-    }
-    if (state.deletedLayers[action.layerTwoId]) {
-      state.deletedLayers[action.layerTwoId].history.clear()
-      state.deletedLayers[action.layerTwoId].bitmap.close()
-      delete state.deletedLayers[action.layerTwoId]
-    }
+    hardDeleteLayer(action.layerOneId)
+    hardDeleteLayer(action.layerTwoId)
   }
 }
 
@@ -132,23 +120,11 @@ const cleanLayersHistoryOverwrittenActionIfNeeded = (action) => {
       deletedAction?.bitmap?.close()
     }
   } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
-    if (state.deletedLayers[action.newLayerId]) {
-      state.deletedLayers[action.newLayerId].history.clear()
-      state.deletedLayers[action.newLayerId].bitmap.close()
-      delete state.deletedLayers[action.newLayerId]
-    }
+    hardDeleteLayer(action.newLayerId)
   } else if (action.type === HISTORY_STEP_LAYER_NEW) {
-    if (state.deletedLayers[action.layerId]) {
-      state.deletedLayers[action.layerId].history.clear()
-      state.deletedLayers[action.layerId].bitmap.close()
-      delete state.deletedLayers[action.layerId]
-    }
+    hardDeleteLayer(action.layerId)
   } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
-    if (state.deletedLayers[action.newLayerId]) {
-      state.deletedLayers[action.newLayerId].history.clear()
-      state.deletedLayers[action.newLayerId].bitmap.close()
-      delete state.deletedLayers[action.newLayerId]
-    }
+    hardDeleteLayer(action.newLayerId)
   }
 }
 
@@ -532,7 +508,7 @@ const createNewLayerData = () => {
     selected: false,
     order: getMaxOrder() + 1,
     selectedByCoworker: false,
-    history: new History(config.stepHistoryMaxLength),
+    history: new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap),
     canvas: null,
     previewRef: null,
     createTimestamp: now,
@@ -816,7 +792,7 @@ const duplicateSelectedLayer = async(e) => {
   newLayer.createTimestamp = now
   newLayer.updateTimestamp = now
   newLayer.name = `Layer ${++state.maxLayerCount}`
-  newLayer.history = new History(config.stepHistoryMaxLength)
+  newLayer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
   newLayer.active = true
   Object.keys(state.layers).forEach(id => {
     if (state.layers[id].order >= newLayer.order) {
@@ -1255,7 +1231,7 @@ const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
     state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, {
       ...l,
       selectedByCoworker: false,
-      history: new History(config.stepHistoryMaxLength),
+      history: new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap),
     }])))
   } else {
     const newLayerData = createNewLayerData()
@@ -1348,12 +1324,33 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
   state.maxLayerCount = Object.keys(state.layers).length
 }
 
+// chiamata da history.onDelete
+const clearLayerHistoryStepBitmap = (step) => {
+  if (step.bitmap) {
+    step.bitmap.close()
+    delete step.bitmap
+  }
+}
+
+// chiamata su chiusura editor, e pulizia deleteLayers
+const hardDeleteLayer = (layerId) => {
+  if (state.deletedLayers[layerId]) {
+    state.deletedLayers[layerId].history.clear()
+    state.deletedLayers[layerId].canvas.remove()
+    state.deletedLayers[layerId].canvas.width = state.deletedLayers[layerId].canvas.height = 0
+    state.deletedLayers[layerId].canvas = state.deletedLayers[layerId].history = undefined
+    delete state.deletedLayers[layerId]
+  }
+}
+
 export const remove = () => {
   Object.values(state.layers).forEach(layer => {
-    layer.canvas.remove()
     layer.history.clear()
+    layer.canvas.remove()
+    layer.canvas.width = layer.canvas.height = 0
     layer.canvas = layer.history = undefined
   })
+  Object.values(state.deletedLayers).forEach(layer => hardDeleteLayer(layer.id))
   LayersHistory.clear()
   cleanRefs(refs)
   state = {}
