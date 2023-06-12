@@ -37,6 +37,7 @@ const initialState = {
   versionsTimeout: false,
   lastUsedTool: '',
   selectedVersions: { ...config.initialSelectedVersions },
+  actionsPromises: [],
 }
 const refs = {
   toolsContainer: null,
@@ -45,7 +46,25 @@ const refs = {
   toolsVersions: {},
 }
 
-
+const toolsImgs = {
+  'brush-1': require('static/img/tools/brush-1.png'),
+  'brush-2': require('static/img/tools/brush-2.png'),
+  'brush-3': require('static/img/tools/brush-3.png'),
+  'brush-4': require('static/img/tools/brush-4.png'),
+  'brush-5': require('static/img/tools/brush-5.png'),
+  'brush-6': require('static/img/tools/brush-6.png'),
+  'brush-7': require('static/img/tools/brush-7.png'),
+  'brush-8': require('static/img/tools/brush-8.png'),
+  'brush-9': require('static/img/tools/brush-9.png'),
+  'brush-10': require('static/img/tools/brush-10.png'),
+  'brush-11': require('static/img/tools/brush-11.png'),
+  'highlighter-h': require('static/img/tools/highlighter-h.png'),
+  'highlighter-l': require('static/img/tools/highlighter-l.png'),
+  'highlighter-r': require('static/img/tools/highlighter-r.png'),
+  'highlighter-v': require('static/img/tools/highlighter-v.png'),
+}
+// const toolsImgsFileNames = ['brush-1', 'brush-2', 'brush-3', 'brush-4', 'brush-5', 'brush-6', 'brush-7', 'brush-8', 'brush-9', 'brush-10', 'brush-11', 'highlighter-h', 'highlighter-l', 'highlighter-r', 'highlighter-v']
+// const toolsImgs = Object.fromEntries(toolsImgsFileNames.map(imgName => ([imgName, require(`static/img/tools/${imgName}.png`)])))
 const toolsFrameFiles = {}
 
 const toolsFunctions = {
@@ -113,12 +132,26 @@ const toolsFunctions = {
     refs.toolsButtons.paper.classList.add(`paper-${config.papers[(config.papers.indexOf(state.currentPaper) + 1) % config.papers.length]}`)
     Editor.changePaper(state.currentPaper)
   },
-  undo: () => Layers.undoLayers(true),
-  redo: () => Layers.redoLayers(true),
+  undo: () => PushNewActionPromise(Layers.undoLayers),
+  redo: () => PushNewActionPromise(Layers.redoLayers),
   // save: () => Editor.save(),
   clear: () => {
     Editor.clear()
   },
+}
+
+const PushNewActionPromise = async(promise) => {
+  state.actionsPromises.push(promise)
+  if (state.actionsPromises.length === 1) {
+    await executeOlderActionPromise()
+  }
+}
+const executeOlderActionPromise = async() => {
+  if (state.actionsPromises.length > 0) {
+    await state.actionsPromises[0]()
+    state.actionsPromises.shift()
+    await executeOlderActionPromise()
+  }
 }
 
 export const toggleButton = (tool, enabled) => {
@@ -159,9 +192,9 @@ const selectInitialTools = (selectedTool = false, hideToolsForCoworking = false)
   }
 
   if (selectedTool && config.tools.includes(selectedTool.name)) {
-    selectTool(selectedTool.name, selectedTool.version, false, false)
+    selectTool(selectedTool.name, selectedTool.version, false)
   } else {
-    selectTool(state.selectedTool, false, false, false)
+    selectTool(state.selectedTool, false, false)
   }
 
   refs.toolsContainer.scrollTop = 0
@@ -194,7 +227,7 @@ const toggleVersions = (tool) => {
   }
 }
 
-export const selectTool = (tool, versionIndex = false, track = true, showToolChange = true) => {
+export const selectTool = (tool, versionIndex = false, showToolChange = true) => {
   Layers.closeResizeModeIfNeeded()
   Layers.updateCurrentTool(tool === 'eraser')
   if (state.lastUsedTool !== state.selectedTool && config.writingTools.includes(state.selectedTool)) {
@@ -236,7 +269,7 @@ const setEditorToolByVersion = (tool, versionIndex) => {
 
 export const selectLastUsedTool = (showToolChange = true) => {
   if (state.lastUsedTool) {
-    selectTool(state.lastUsedTool, false, false, showToolChange)
+    selectTool(state.lastUsedTool, false, showToolChange)
   }
 }
 
@@ -369,7 +402,7 @@ const onToolsScrollTouchStart = (e) => {
   }
 }
 
-const onToolsScrollTouchEnd = (e) => {
+const onToolsScrollTouchEnd = async(e) => {
   preventDefault(e)
   document.removeEventListener(Params.eventEnd, onToolsScrollTouchEnd)
   if (state.toolsMaxScroll > 0 && Math.abs(state.currentScroll - refs.toolsContainer.scrollTop) > 10) {
@@ -379,7 +412,7 @@ const onToolsScrollTouchEnd = (e) => {
   const tool = e.target.getAttribute('data-tool')
   if (e.target.classList.contains('editor-tools__tool') && !e.target.classList.contains('disabled')) {
     if (Object.prototype.hasOwnProperty.call(toolsFunctions, tool)) {
-      (toolsFunctions[tool])(e.target.classList.contains('editor-tools__tool-selected'))
+      await toolsFunctions[tool](e.target.classList.contains('editor-tools__tool-selected'))
     }
   }
 }
@@ -389,7 +422,6 @@ const onRotate = (e) => {
 }
 
 const initToolsImages = async() => {
-  const toolsImgs = require('static/img/tools/*.png')
   const promises = []
 
   for (const frameName of Object.keys(toolsImgs)) {

@@ -32,20 +32,21 @@ import { spacing } from 'main/Theme'
 
 /*
   ----- OFFSCREEN CANVAS -----
-  - fatto: ottimizzata la preview del layer con un piccolo canvas.
-  - da fare: provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
-             ma devo testare bene quanta memoria si occupa con tanti canvas VS tante immagini, e se c'è un limite di canvas nel browser.
-             oppure direttamente un offscreenCanvas per ogni layer, ma in un branch a parte.
+  FATTO:
+  - Ottimizzata la preview del layer con un piccolo canvas.
+  - Provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
+  - Bitmap salvata in indexDB e rimpiazzate tutte le locahPathSmall
+  - Folder con piccoli canvas
+  - Add bitmap.close() quando cancello uno step, e su tutta la history di un layer quando lo cancello definitivamente
 
-  FASE 1
-    Rimpiazzare tutti i base64 con le immagini bitmap degli offscreen canvas.
-    - offscreenCanvas.transferToImageBitmap()
-    e salvare queste img bitmap nell indexedDB.
-    Sia al salvataggio dei disegni interi, che alla loro apertura, che al caricamento/salvataggio/switch dei singoli layer.
-    Per fare questa cosa devo scoprire come poter usare sempre e solo delle immagini bitmap al posto di tutti i base64.
-    Per il DrawImage è easy, ma tante volte usavo i base64 anche per riempire delle variabili di tipo immagine.
-  FASE 2
-    Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.
+  DA FARE:
+  - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
+  - to test performances on iPad con taaaanti layer belli peni
+
+
+  - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
+  - Test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
+  - Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.
     - const offscreenCanvas = canvas2.transferControlToOffscreen()
     - const worker = new Worker(
     -   new URL('worker.js', import.meta.url),
@@ -55,14 +56,15 @@ import { spacing } from 'main/Theme'
     - await waitWorkerMessage(worker, id)
     Da dentro al worker posso accedere alle stesse funzioni che oggi uso dal CanvasUtils,
     ed il codice principale deve solo occuparsi di inviare un messaggio al worker con i dati dello step/tool da disegnare.
-  FASE N
+
+  IN FUTURO:
     In teoria quando sto disegnando molti step in un colpo solo per il corowking,
     potremmo anche spezzettare il lavoro su più worker, uno per ogni step, e poi disegnarli sul canvas finale in ordine.
 */
 
 
 export const config = {
-  draftTimeInterval: 45 * 1000,
+  draftTimeInterval: 30_000,
   draftStepsInterval: 50,
   stepsRequiredToMakeACopy: 10,
   maxSpeedFactorLength: 150,
@@ -79,7 +81,7 @@ export const config = {
   minAltitudeFactorToHandleRotation: 0.3,
   resizeRotationStep: 2.5,
   resizeRotationInterval: 45,
-  draftInfoDuration: 3000,
+  draftInfoDuration: 3_000,
 }
 // let state
 let state = {}
@@ -176,7 +178,6 @@ const initialState = {
   currentDeviceHasStylus: false,
   changedSinceDraft: false,
   drawnStepsSinceDraft: 0,
-  drawnStepsSinceCopy: 0,
   draftInterval: false,
   canMakeACopy: false,
   currentSavingDraw: false,
@@ -265,27 +266,30 @@ export const drawCoworkingMultipleStepsData = (data) => {
 const getResizeState = () => deepCopy(state.resizeMode)
 const saveStepHistory = () => {
   Layers.addLayerHistoryContentChangedStep()
+}
+const debounceSaveStep = debounce(saveStepHistory, 50)
+
+export const setDrawingModified = () => {
   state.modified = true
+  state.changedSinceDraft = true
   state.drawnStepsSinceDraft += 1
   if (state.drawnStepsSinceDraft >= config.draftStepsInterval) {
     saveDraftIfNeeded()
   }
-  state.drawnStepsSinceCopy += 1
-  if (!state.canMakeACopy && state.drawnStepsSinceCopy >= config.stepsRequiredToMakeACopy) {
+  if (!state.canMakeACopy) {
     state.canMakeACopy = true
     Toolbar.enableSaveCopy()
   }
 }
-const debounceSaveStep = debounce(saveStepHistory, 50)
 
-export const clear = () => {
-  if (Layers.clearCurrentLayer()) {
+export const clear = async () => {
+  if (await Layers.clearCurrentLayer()) {
     saveStepHistory()
   }
   console.clear()
 }
 
-const useBucket = async(context, x, y, color, canvasWidth, canvasHeight, sendForCoworking = true) => {
+const useBucket = async (context, x, y, color, canvasWidth, canvasHeight, sendForCoworking = true) => {
   if (coordsAreInsideLayer(x, y)) {
     if (Layers.currentLayerIsEmpty()) {
       // this layer is empty, we can fill it all
@@ -344,30 +348,41 @@ const updatePipette = (canvasX, canvasY, domX, domY) => {
   }
 }
 
-const initPipetteCursor = async() => {
-  const currentImageData = await Layers.getCurrentGlobalImageData(true)
-  state.pipette.bg = currentImageData.localPathBig
-  state.pipette.context = currentImageData.tempContext
+const initPipetteCursor = async () => {
+  state.pipette.isOnCanvas = true
+  state.pipette.bg = 'none'
+  state.pipette.currentColor = false
+  refs.pipetteCursor.style.backgroundColor = 'var(--palette-white)'
   refs.pipetteBackground.style.backgroundImage = 'none'
-  state.pipette.isOnCanvas = false
+  state.pipette.context = null
+
+  refs.pipetteCursor.style.left = `calc(${(state.canvas.width / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.left}px)`
+  refs.pipetteCursor.style.top = `calc(${(state.canvas.height / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.top}px)`
 
   fadeInElements(refs.pipetteCursor)
   state.pipette.isVisible = true
   let initialX = state.canvas.width / 2 * state.canvas.initialScale
   let initialY = state.canvas.height / 2 * state.canvas.initialScale
+
   if (currentCanvasHasZoom()) {
     [initialX, initialY] = getOriginalCoordsFromScaleRotation(initialX, initialY, state.canvas.originCoordX, state.canvas.originCoordY, state.canvas.scale, state.canvas.rotation)
   }
 
-  updatePipette(
-    initialX,
-    initialY,
-    `calc(${(state.canvas.width / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.left}px)`,
-    `calc(${(state.canvas.height / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.top}px)`
-  )
+  Layers.getCurrentGlobalImageData(true).then(currentImageData => {
+    state.pipette.bg = currentImageData.base64
+    refs.pipetteBackground.style.backgroundImage = `url(${currentImageData.base64})`
+    state.pipette.context = currentImageData.tempContext
+
+    updatePipette(
+      initialX,
+      initialY,
+      `calc(${(state.canvas.width / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.left}px)`,
+      `calc(${(state.canvas.height / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.top}px)`
+    )
+  })
 }
 
-export const hidePipetteCursor = async() => {
+export const hidePipetteCursor = async () => {
   state.pipette.currentColor = false
   await fadeOutElements(refs.pipetteCursor)
   state.pipette.isVisible = false
@@ -376,7 +391,7 @@ export const hidePipetteCursor = async() => {
   state.pipette.context = null
 }
 
-const closePipetteCursor = async() => {
+const closePipetteCursor = async () => {
   if (state.pipette.currentColor) {
     ColorPicker.addPaletteColor(state.pipette.currentColor, false)
     ColorPicker.confirmLastAddedColorIfNeeded()
@@ -384,8 +399,8 @@ const closePipetteCursor = async() => {
   ColorPicker.deselectPipette(true, true, !state.pipette.currentColor)
 }
 
-const saveDraftIfNeeded = async() => {
-  if (!state.currentTouch.isDown && state.changedSinceDraft && state.drawnStepsSinceCopy) {
+const saveDraftIfNeeded = async () => {
+  if (!state.currentTouch.isDown && state.changedSinceDraft) {
     state.changedSinceDraft = false
     state.drawnStepsSinceDraft = 0
     if (state.modified) {
@@ -406,7 +421,7 @@ const saveDraftIfNeeded = async() => {
   }
 }
 
-export const saveAndGoToFolder = async() => {
+export const saveAndGoToFolder = async () => {
   if (!Coworking.isOpen() || await Messages.confirm(labels.areYouSureToCloseCoworking)) {
     setSpinner(true)
     await delay(20)
@@ -428,7 +443,7 @@ export const saveDrawingsPalette = (colors = []) => {
   }
 }
 
-export const saveCopy = async() => {
+export const saveCopy = async () => {
   if (state.canMakeACopy) {
     state.canMakeACopy = false
     const currentDraw = await getCurrentDrawInfo()
@@ -438,7 +453,6 @@ export const saveCopy = async() => {
       const savedId = await saveDrawToDB(currentDraw, false, Coworking.isOpen(), false)
       if (savedId) {
         Messages.info(labels.copySaved, config.draftInfoDuration)
-        state.drawnStepsSinceCopy = 0
         Toolbar.disableSaveCopy()
       } else {
         Messages.error(labels.draftError)
@@ -466,16 +480,18 @@ export const changePaper = (paper) => {
 }
 
 export const appendLayer = (layerCanvas) => {
-  layerCanvas.classList.add('editor__layer-img')
+  layerCanvas.classList.add('editor__layer-canvas')
   refs.canvasContainer.appendChild(layerCanvas)
 }
 
 export const setLayerContext = (layerContext) => {
   refs.layerContext = layerContext
+  if (state.currentToolProps.frameImageFile) {
+    setImageShapeIfNeeded(refs.layerContext, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, state.currentToolProps.color)
+  }
 }
 
 export const updateEditorLayer = (layerZIndex, opacity, globalCompositeOperation, active) => {
-  state.modified = true
   refs.canvasForLine.style.zIndex = layerZIndex + 1
   refs.canvasForLine.style.opacity = opacity
   state.currentLayerGCO = globalCompositeOperation
@@ -493,7 +509,7 @@ export const showDragBox = (x, y, w, h, useMagnetism) => {
     refs.dragBulletT, refs.dragBulletL, refs.dragBulletR, refs.dragBulletB,
     refs.dragBulletRT,
   ])
-  updateDragBox(x, y, w, h)
+  updateDragBox(false, x, y, w, h)
 }
 
 const updateLayerContentCoordsAfterDragResize = () => {
@@ -501,11 +517,11 @@ const updateLayerContentCoordsAfterDragResize = () => {
     Math.max(0, round(state.resizeMode.x - state.resizeMode.w / 2)),
     Math.max(0, round(state.resizeMode.y - state.resizeMode.h / 2)),
     Math.min(state.canvas.width, round(state.resizeMode.x + state.resizeMode.w / 2)),
-    Math.min(state.canvas.height, round(state.resizeMode.y + state.resizeMode.h/2))
+    Math.min(state.canvas.height, round(state.resizeMode.y + state.resizeMode.h / 2))
   )
 }
 
-const updateDragBox = (x, y, w, h, r = 0) => {
+const updateDragBox = (madeChanges, x, y, w, h, r = 0) => {
   refs.dragBox.style.cssText = `
     left: ${round(x / Params.pxScale, 1)}px;
     top: ${round(y / Params.pxScale, 1)}px;
@@ -517,8 +533,8 @@ const updateDragBox = (x, y, w, h, r = 0) => {
     ...state.resizeMode,
     x, y, w, h, r,
   }
-  Layers.updateCanvasContent(round(x - w / 2, 1), round(y - h / 2, 1), w, h, r)
   updateDragBoxHandlersPosition()
+  Layers.updateCanvasContent(madeChanges, round(x - w / 2, 1), round(y - h / 2, 1), w, h, r)
 }
 
 const updateDragBoxHandlersPosition = () => {
@@ -539,7 +555,7 @@ const updateDragBoxHandlersPosition = () => {
   refs.dragBulletL.style = `left: ${getAverage([tlRect.left, blRect.left])}px; top: ${getAverage([tlRect.top, blRect.top])}px`
 }
 
-const animateDragBoxHandlersPositionToOrigin = async(duration = 250) => {
+const animateDragBoxHandlersPositionToOrigin = async (duration = 250) => {
   const frameDuration = 1000 / 30 // 30 fps
   let totTime = 0
   updateDragBoxHandlersPosition()
@@ -561,7 +577,7 @@ export const hideDragBox = () => {
   ])
 }
 
-const getCurrentDrawInfo = async() => {
+const getCurrentDrawInfo = async () => {
   const currentDraw = await Layers.getGlobalDrawingFullInfo()
   currentDraw.localDbId = state.localDbDrawId // db id or false
   currentDraw.colors = ColorPicker.getCurrentColorsPalette()
@@ -637,8 +653,8 @@ export const setToolColor = (color, randomColor) => {
   state.currentToolProps.randomColor = randomColor
 
   if (state.currentToolProps.frameImageName && state.currentToolProps.color) {
-    setImageShapeIfNeeded(refs.layerContext, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, color)
-    setImageShapeIfNeeded(refs.contextForLine, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, color)
+    setImageShapeIfNeeded(refs.layerContext, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, state.currentToolProps.color)
+    setImageShapeIfNeeded(refs.contextForLine, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, state.currentToolProps.color)
   }
 
   if (state.currentToolProps.globalCompositeOperation === 'destination-out') {
@@ -840,7 +856,7 @@ const handleTouchEndStep = (context = refs.layerContext) => {
   }
 }
 
-const updateCurrentTouchType = (touchEvent) =>  {
+const updateCurrentTouchType = (touchEvent) => {
   state.currentTouch.type = (touchEvent.touchType === TOUCH_TYPE_STYLUS) ? TOUCH_TYPE_STYLUS : TOUCH_TYPE_FINGER
   if (!state.currentDeviceHasStylus && state.currentTouch.type === TOUCH_TYPE_STYLUS) { // first touch event with pencil
     state.currentDeviceHasStylus = true
@@ -937,7 +953,7 @@ const onResizeLayerContentTouchMove = (newResizeState, left, top, right, bottom,
     }
   }
 
-  updateDragBox(newResizeState.x, newResizeState.y, newResizeState.w, newResizeState.h, newResizeState.r)
+  updateDragBox(true, newResizeState.x, newResizeState.y, newResizeState.w, newResizeState.h, newResizeState.r)
 }
 
 const onDragLayerContentTouchMove = (touchEvent) => {
@@ -957,7 +973,7 @@ const onDragLayerContentTouchMove = (touchEvent) => {
   refs.magnetisedLineX.classList.toggle('displayNone', !magnetismLineX)
   refs.magnetisedLineY.classList.toggle('displayNone', !magnetismLineY)
 
-  updateDragBox(round(newX, 1), round(newY, 1), state.resizeMode.w, state.resizeMode.h, state.resizeMode.r)
+  updateDragBox(true, round(newX, 1), round(newY, 1), state.resizeMode.w, state.resizeMode.h, state.resizeMode.r)
 }
 
 const onStepTouchMove = (touchEvent) => {
@@ -1077,8 +1093,8 @@ const onGestureStart = (x, y, scale, rotation) => {
   state.currentTouch.isZooming = true
   const [X, Y] = getOriginalCoordsFromScaleRotation(x, y, state.canvas.originCoordX, state.canvas.originCoordY, state.canvas.scale, state.canvas.rotation)
   refs.canvasContainer.style.transition = 'none'
-  state.canvas.translateX = round((x - X) , 1)
-  state.canvas.translateY = round((y - Y) , 1)
+  state.canvas.translateX = round((x - X), 1)
+  state.canvas.translateY = round((y - Y), 1)
   state.canvas.translateStartX = state.canvas.translateX
   state.canvas.translateStartY = state.canvas.translateY
   state.canvas.dragStartX = x
@@ -1225,8 +1241,8 @@ const initCanvasDimension = (canvasWidth, canvasHeight, withCoworking = false) =
   refs.canvasContainer.style.cssText = `
     top: ${state.canvas.offset.top}px;
     left: ${state.canvas.offset.left}px;
-    width: ${canvasWidth  / Params.pxScale}px;
-    height: ${canvasHeight  / Params.pxScale}px;
+    width: ${canvasWidth / Params.pxScale}px;
+    height: ${canvasHeight / Params.pxScale}px;
   `
   updateZoomCss()
 }
@@ -1258,7 +1274,7 @@ const getEditorChildCenterCoords = (el) => {
   ]
 }
 
-const initDom = async() => {
+const initDom = async () => {
   refs.container = await loadTemplate(editorTemplate, {}, Params.pagesContainer)
   refs.canvasContainer = refs.container.querySelector('.editor__canvas-container')
   refs.canvasOrigin = refs.container.querySelector('.editor__canvas-origin')
@@ -1308,8 +1324,15 @@ const initDom = async() => {
   })
 }
 
-const initSubModules = async(preloadedDrawing = {}, withCoworking = false) => {
+const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
   await Toolbar.init(refs.container)
+  await Layers.init(
+    refs.container,
+    preloadedDrawing.layers || [],
+    state.canvas.width,
+    state.canvas.height,
+    withCoworking
+  )
   await Promise.all([
     Tools.init(
       refs.container,
@@ -1322,13 +1345,6 @@ const initSubModules = async(preloadedDrawing = {}, withCoworking = false) => {
       preloadedDrawing.colors || [],
       preloadedDrawing.selectedColorId || -1
     ),
-    Layers.init(
-      refs.container,
-      preloadedDrawing.layers || [],
-      state.canvas.width,
-      state.canvas.height,
-      withCoworking
-    ),
     Ruler.init(refs.container, {
       touchStart: makeTouchStartNearRuler,
       touchMove: makeTouchMoveNearRuler,
@@ -1337,7 +1353,7 @@ const initSubModules = async(preloadedDrawing = {}, withCoworking = false) => {
   ])
 }
 
-export const open = async(preloadedDrawindId, withCoworking = false, coworkingCanvasWidth, coworkingCanvasHeight) => {
+export const open = async (preloadedDrawindId, withCoworking = false, coworkingCanvasWidth, coworkingCanvasHeight) => {
   console.log('editor show', preloadedDrawindId, withCoworking, coworkingCanvasWidth, coworkingCanvasHeight)
   coworking = Coworking.requestSession // just to have an alias for app.drawith.me?editor/coworking
   state = initState(initialState)
@@ -1376,7 +1392,7 @@ export const open = async(preloadedDrawindId, withCoworking = false, coworkingCa
   setSpinner(false)
 }
 
-export const close = async() => {
+export const close = async () => {
   removeGlobalStatus('drawith__EDITOR-OPEN')
   removeGlobalStatus('drawith__EDITOR-COWORKING')
   setDraftInterval(false)

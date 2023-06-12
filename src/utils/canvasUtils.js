@@ -1,9 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
-import { getRandomNumber, round, quadraticBezierValue, distanceBetweenTwoPointsGreaterThan, getPerc } from 'utils/mathUtils'
-import { colorStringToRgb, compareRgbColorsWithinTollerance } from 'utils/colorsUtils'
-import { deepCopy, waitWorkerMessage } from 'utils/jsUtils'
-import { getOneToolVersionCompleteProps } from 'pages/Editor/components/Tools'
-import { cleanRefs } from 'utils/moduleUtils'
+import { getRandomNumber, round, quadraticBezierValue, distanceBetweenTwoPointsGreaterThan, getPerc } from './mathUtils'
+import { colorStringToRgb, compareRgbColorsWithinTollerance } from './colorsUtils'
+import { deepCopy, waitWorkerMessage } from './jsUtils'
+import { getOneToolVersionCompleteProps } from '../pages/Editor/components/Tools'
+import { cleanRefs } from './moduleUtils'
 
 import {
   TOOL_FRAME_CIRCLE,
@@ -221,6 +221,23 @@ export const fillCanvasWithImage = (destinationContext, image, x = 0, y = 0, w, 
   }
 }
 
+export const fillCanvasBackground = (destinationContext, tileImg) => {
+  const pattern = destinationContext.createPattern(tileImg, 'repeat')
+  destinationContext.clearRect(0, 0, destinationContext.canvas.width, destinationContext.canvas.height)
+  destinationContext.globalAlpha = 1
+  destinationContext.globalCompositeOperation = 'source-over'
+  destinationContext.fillStyle = pattern
+  destinationContext.fillRect(0, 0, destinationContext.canvas.width, destinationContext.canvas.height)
+}
+
+export const drawCanvasImageContain = (destinationContext, image, alpha = 1) => {
+  destinationContext.clearRect(0, 0, destinationContext.canvas.width, destinationContext.canvas.height)
+  destinationContext.globalAlpha = alpha
+  destinationContext.globalCompositeOperation = 'source-over'
+  const ratio = Math.min(destinationContext.canvas.width / image.width, destinationContext.canvas.height / image.height)
+  destinationContext.drawImage(image, 0, 0, image.width * ratio, image.height * ratio)
+}
+
 const drawCanvasImage = (destinationContext, x, y, alpha, size, rotation) => {
   const image = destinationContext.toolImageShape.canvas
   destinationContext.lastDrawCoordX = x
@@ -286,7 +303,6 @@ export const drawMultipleSteps = (destinationContext, steps, tool) => {
   steps.forEach(step => multipleStepsFns[step.type](destinationContext, step, tool))
 }
 
-
 export const drawMultipleCoworkingSteps = async(destinationContext, steps, tool, fns) => {
   // Recupero lo strumento usato da questi step, se è diverso dal precedente
   if (state.currentCoworkingToolName !== tool.name || state.currentCoworkingToolVersion !== tool.version) {
@@ -336,7 +352,10 @@ export const drawMultipleCoworkingSteps = async(destinationContext, steps, tool,
 // Atrimenti ritorna una promise che riempira il foglio in modo asincrono.
 // Questo permette a "useBucket" di sapere subito se il bucket è andato a buon fine o no,
 // e può allo stesso tempo attaccare qualcosa col .then() senza dover aspettare con un await.
-const bucketWorker = new Worker('./workers/bucket.js')
+const bucketWorker = new Worker(
+  new URL('./workers/bucket.js', import.meta.url),
+  { type: 'module' }
+)
 export const fillWithBucket = (destinationContext, x, y, fillColor, canvasWidth, canvasHeight) => {
   let image = destinationContext.getImageData(0, 0, canvasWidth, canvasHeight)
 

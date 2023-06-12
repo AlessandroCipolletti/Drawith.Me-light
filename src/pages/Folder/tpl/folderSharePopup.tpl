@@ -11,11 +11,11 @@
     </div>
   </div>
   <div class="folder__share-popup-content">
-    {{#each urls}}
-      <div class="folder__share-popup-line">
-        <img class="folder__share-popup-image" src="{{this.t}}" />
-        <img class="folder__share-popup-image" src="{{this.w}}" />
-      </div>
+    {{#each drawings}}
+    <div class="folder__share-popup-line">
+      <img class="folder__share-popup-image" src="{{this.t}}" />
+      <img class="folder__share-popup-image" src="{{this.w}}" />
+    </div>
     {{/each}}
   </div>
 </div>

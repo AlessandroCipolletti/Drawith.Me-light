@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid'
 const logo = new Image()
 logo.src = require('static/img/logoExport.png')
 
-import { fetchUrlFileOffThread, waitWorkerMessage } from 'utils/jsUtils'
+import { waitWorkerMessage } from 'utils/jsUtils'
 import { getNumberInBetween, round, valuesAreSimilar } from 'utils/mathUtils'
 
 const DRAWING_SCALE_RATIO_ON_SHARE = 1
@@ -55,18 +55,21 @@ export const resizeImageAndGetBase64 = (image, maxSize = MAX_THUMBNAIL_SIZE) => 
   return canvas.toDataURL('image/png')
 }
 
-const coordsWorker = new Worker('./workers/canvasContentCoords.js')
+const coordsWorker = new Worker(
+  new URL('./workers/canvasContentCoords.js', import.meta.url),
+  { type: 'module' }
+)
 export const findImageContentCoords = async(dom, pxPrecision = 1, alphaTollerance = 0.01) => {
   alphaTollerance = round(255 * alphaTollerance, 0)
   pxPrecision = round(pxPrecision, 1)
 
-  if (dom.tagName.toLowerCase() !== 'canvas') {
-    dom = imgToCanvas(dom)
+  if (dom.tagName?.toLowerCase() !== 'canvas' && !(dom instanceof OffscreenCanvas)) {
+    dom = imgToCanvas(dom, true)
   }
 
   const width = dom.width
   const height = dom.height
-  const data = dom.getContext('2d').getImageData(0, 0, width, height).data
+  const data = dom.context.getImageData(0, 0, width, height).data
 
   const id = uuidv4()
   coordsWorker.postMessage({ id, data, width, height, pxPrecision, alphaTollerance })
@@ -127,20 +130,26 @@ export const getCanvasBlobAsync = (canvas) => {
   })
 }
 
-export const imgToCanvas = (img) => {
+export const imgToCanvas = (img, prepareContext = false) => {
   const canvas = document.createElement('canvas')
   canvas.width = img.naturalWidth || img.width
   canvas.height = img.naturalHeight || img.height
   canvas.getContext('2d').drawImage(img, 0, 0)
+  if (prepareContext) {
+    canvas.context = canvas.getContext('2d', { willReadFrequently: true })
+  }
   return canvas
 }
 
-export const getCanvasBase64Async = async(dom) => {
+export const getImgBase64Async = async(dom) => {
   if (dom.tagName?.toLowerCase() !== 'canvas' && !(dom instanceof OffscreenCanvas)) {
-    dom = imgToCanvas(dom)
+    dom = imgToCanvas(dom, true)
   }
   return blobToBase64Async(await getCanvasBlobAsync(dom))
 }
+
+export const getCanvasBase64Async = async(canvas) => blobToBase64Async(await getCanvasBlobAsync(canvas))
+
 
 export const base64ToImageData = async(base64, x = 0, y = 0, width = 0, height = 0) => {
   const img = await getImageFromUrl(base64, true)
@@ -150,7 +159,7 @@ export const base64ToImageData = async(base64, x = 0, y = 0, width = 0, height =
   return tempContext.getImageData(x, y, tempCanvas.width, tempCanvas.height).data
 }
 
-export const mergeBase64Images = async(bases64) => {
+export const mergeBase64ImagesAsync = async(bases64) => {
   tempCanvas.width = tempCanvas.height = 0
   const imgs = await Promise.all(bases64.map(getImageFromUrl))
   for (const img of imgs) {
@@ -162,22 +171,34 @@ export const mergeBase64Images = async(bases64) => {
       tempContext.drawImage(img, 0, 0)
     }
   }
-  // return tempCanvas.toDataURL('image/png')
   return await getCanvasBase64Async(tempCanvas)
 }
 
-export const mergeImagesAndGetBase64Async = (images) => {
-  tempCanvas.width = tempCanvas.height = 0
-  for (const img of images) {
+export const duplicateCanvas = (sourceCanvas) => {
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  canvas.width = sourceCanvas.width
+  canvas.height = sourceCanvas.height
+  context.drawImage(sourceCanvas, 0, 0)
+  return canvas
+}
+
+export const mergeImages = (images) => {
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  canvas.width = canvas.height = 0
+  for (const [img, opacity = 1] of images) {
     if ((img.naturalWidth || img.width) > 1) {
-      if (!tempCanvas.width) {
-        tempCanvas.width = img.naturalWidth || img.width
-        tempCanvas.height = img.naturalHeight || img.height
+      if (!canvas.width) {
+        canvas.width = img.naturalWidth || img.width
+        canvas.height = img.naturalHeight || img.height
       }
-      tempContext.drawImage(img, 0, 0)
+      context.globalAlpha = opacity
+      context.drawImage(img, 0, 0)
     }
   }
-  return getCanvasBase64Async(tempCanvas)
+  context.globalAlpha = 1
+  return canvas
 }
 
 export const blobToBase64Async = (blob) => {
@@ -191,22 +212,40 @@ export const blobToBase64Async = (blob) => {
   })
 }
 
-export const getImageFromUrl = (url, useTemp = false) => {
-  if (useTemp) {
-    return loadImageOffThread(tempImage, url).then(() => tempImage)
-  } else {
-    const img = new Image()
-    img.crossOrigin = 'Anonymous'
-    return loadImageOffThread(img, url).then(() => img)
-  }
+export const getCanvasFromBase64 = async (base64) => {
+  const img = await getImageFromUrl(base64)
+  console.log('getCanvasFromBase64', 1)
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  canvas.width = img.naturalWidth || img.width
+  canvas.height = img.naturalHeight || img.height
+  context.drawImage(img, 0, 0)
+  return canvas
 }
 
-export const loadImageOffThread = async(img, url) => {
-  const blobUrl = await fetchUrlFileOffThread(url)
-  URL.revokeObjectURL(img.getAttribute('data-blobUrl'))
-  img.setAttribute('data-blobUrl', blobUrl)
-  return setImageSrcSync(img, blobUrl)
+export const getImageFromUrl = async(url) => {
+  const img = new Image()
+  img.crossOrigin = 'Anonymous'
+  await setImageSrcSync(img, url)
+  return img
 }
+
+// export const getImageFromUrl = (url, useTemp = false) => {
+//   if (useTemp) {
+//     return loadImageOffThread(tempImage, url).then(() => tempImage)
+//   } else {
+//     const img = new Image()
+//     img.crossOrigin = 'Anonymous'
+//     return loadImageOffThread(img, url).then(() => img)
+//   }
+// }
+
+// export const loadImageOffThread = async(img, url) => {
+//   const blobUrl = await fetchUrlFileOffThread(url)
+//   return setImageSrcSync(img, blobUrl).then(() => {
+//     URL.revokeObjectURL(blobUrl)
+//   })
+// }
 
 export const setImageSrcSync = (img, src) => {
   return new Promise((resolve, reject) => {
@@ -244,10 +283,9 @@ export const addImageWhiteBgAndGetBase64 = (img) => {
   return tempCanvas.toDataURL('image/png')
 }
 
-export const shareImageWithBase64 = async(base64, bgWhite = false) => {
-  const img = await getImageFromUrl(base64)
-  tempCanvas.width = img.naturalWidth * DRAWING_SCALE_RATIO_ON_SHARE
-  tempCanvas.height = img.naturalHeight * DRAWING_SCALE_RATIO_ON_SHARE
+export const shareImageWithBase64 = async(img, bgWhite = false) => {
+  tempCanvas.width = (img.naturalWidth || img.width) * DRAWING_SCALE_RATIO_ON_SHARE
+  tempCanvas.height = (img.naturalHeight || img.height) * DRAWING_SCALE_RATIO_ON_SHARE
 
   // bg
   if (bgWhite) {
