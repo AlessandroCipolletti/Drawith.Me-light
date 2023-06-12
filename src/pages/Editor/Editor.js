@@ -40,13 +40,9 @@ import { spacing } from 'main/Theme'
   - Folder con piccoli canvas
   - Add bitmap.close() quando cancello uno step, e su tutta la history di un layer quando lo cancello definitivamente
 
-  BUGS:
-  - Merge layers è rotto
-
   DA FARE:
   - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
   - pulizia codice folder con base64
-  - pulizia codice editor pipette
   - to test performances on iPad con taaaanti layer belli peni
 
 
@@ -355,6 +351,25 @@ const updatePipette = (canvasX, canvasY, domX, domY) => {
 }
 
 const initPipetteCursor = async () => {
+  state.pipette.isOnCanvas = true
+  state.pipette.bg = 'none'
+  state.pipette.currentColor = false
+  refs.pipetteCursor.style.backgroundColor = 'var(--palette-white)'
+  refs.pipetteBackground.style.backgroundImage = 'none'
+  state.pipette.context = null
+
+  refs.pipetteCursor.style.left = `calc(${(state.canvas.width / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.left}px)`
+  refs.pipetteCursor.style.top = `calc(${(state.canvas.height / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.top}px)`
+
+  fadeInElements(refs.pipetteCursor)
+  state.pipette.isVisible = true
+  let initialX = state.canvas.width / 2 * state.canvas.initialScale
+  let initialY = state.canvas.height / 2 * state.canvas.initialScale
+
+  if (currentCanvasHasZoom()) {
+    [initialX, initialY] = getOriginalCoordsFromScaleRotation(initialX, initialY, state.canvas.originCoordX, state.canvas.originCoordY, state.canvas.scale, state.canvas.rotation)
+  }
+
   Layers.getCurrentGlobalImageData(true).then(currentImageData => {
     state.pipette.bg = currentImageData.base64
     refs.pipetteBackground.style.backgroundImage = `url(${currentImageData.base64})`
@@ -367,33 +382,6 @@ const initPipetteCursor = async () => {
       `calc(${(state.canvas.height / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.top}px)`
     )
   })
-
-  state.pipette.isOnCanvas = true
-  state.pipette.bg = 'none'
-  state.pipette.currentColor = false
-  refs.pipetteCursor.style.backgroundColor = 'var(--palette-white)'
-  refs.pipetteBackground.style.backgroundImage = 'none'
-  state.pipette.context = null
-
-  // const currentImageData = await Layers.getCurrentGlobalImageData(true)
-  // state.pipette.bg = currentImageData.base64
-  // refs.pipetteBackground.style.backgroundImage = `url(${currentImageData.base64})`
-  // getCanvasBase64Async(currentImageData.tempCanvas).then(base64 => {
-  //   state.pipette.bg = base64
-  //   refs.pipetteBackground.style.backgroundImage = `url(${base64})`
-  // })
-  // state.pipette.context = currentImageData.tempContext
-
-  refs.pipetteCursor.style.left = `calc(${(state.canvas.width / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.left}px)`
-  refs.pipetteCursor.style.top = `calc(${(state.canvas.height / 2 / Params.pxScale * state.canvas.initialScale) + state.canvas.offset.top}px)`
-
-  fadeInElements(refs.pipetteCursor)
-  state.pipette.isVisible = true
-  let initialX = state.canvas.width / 2 * state.canvas.initialScale
-  let initialY = state.canvas.height / 2 * state.canvas.initialScale
-  if (currentCanvasHasZoom()) {
-    [initialX, initialY] = getOriginalCoordsFromScaleRotation(initialX, initialY, state.canvas.originCoordX, state.canvas.originCoordY, state.canvas.scale, state.canvas.rotation)
-  }
 }
 
 export const hidePipetteCursor = async () => {

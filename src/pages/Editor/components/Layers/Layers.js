@@ -421,7 +421,7 @@ export const getGlobalDrawingFullInfo = async() => {
   return currentDrawingInfo
 }
 
-// per salvataggio e pipettegetGlobalDrawingFullInfo
+// per salvataggio e pipette getGlobalDrawingFullInfo
 export const getCurrentGlobalImageData = async(returnWholeCanvas = false) => {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   let tempCanvas = new OffscreenCanvas(state.canvases.width, state.canvases.height)
