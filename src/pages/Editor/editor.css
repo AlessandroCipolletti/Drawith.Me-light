@@ -28,10 +28,16 @@
 .editor__touch-layer {
   position: absolute;
   z-index: 500;
-  top: 0px;
+  top: var(--header-height);
+  left: var(--editor-tools-width);
+  width: calc(100% - var(--editor-tools-width));
+  height: calc(100% - var(--header-height) - var(--colorpicker-height) - var(--app-margin-bottom));
+}
+.drawith__EDITOR-FULLSCREEN .editor__touch-layer {
   left: 0px;
+  top: var(--header-height);
   width: 100%;
-  height: 100%;
+  height: calc(100% - var(--header-height));
 }
 .editor__canvas-container {
   position: relative;
@@ -62,7 +68,7 @@
   background-image: url("../../static/img/paper/points.png");
 }
 
-.editor__layer-img,
+.editor__layer-canvas,
 .editor__canvas-for-line {
   position: absolute;
   top: 0rem;
@@ -70,10 +76,6 @@
   width: 100%;
   height: 100%;
   border-radius: 1rem;
-}
-.editor__layer-img-selected {
-  visibility: hidden;
-  /* display: none; */
 }
 .editor__canvas-for-line {
   z-index: 500;

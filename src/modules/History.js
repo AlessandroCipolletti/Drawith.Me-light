@@ -1,11 +1,14 @@
+import { noop } from 'utils/jsUtils'
 const DEFAULT_MAX_HISTORY_LENGHT = 10
 
 class History {
   data = []
   pointer = -1
+  onDeleteHandler = noop
 
-  constructor(maxLength = DEFAULT_MAX_HISTORY_LENGHT) {
+  constructor(maxLength = DEFAULT_MAX_HISTORY_LENGHT, deleteHandler = noop) {
     this.maxLength = maxLength
+    this.onDeleteHandler = deleteHandler
   }
 
   add(value) {
@@ -17,6 +20,7 @@ class History {
       deletedItems.push(...this.data.splice(0, this.data.length - this.maxLength))
       this.pointer = this.data.length - 1
     }
+    deletedItems.forEach(this.onDeleteHandler)
     return deletedItems
   }
 
@@ -42,7 +46,9 @@ class History {
   deleteFarest() {
     if (this.data.length >= 1) {
       this.pointer = Math.max(0, this.pointer - 1)
-      return this.data.splice(0, 1)[0]
+      const deletedItem = this.data.splice(0, 1)[0]
+      this.onDeleteHandler(deletedItem)
+      return deletedItem
     }
     return false
   }
@@ -50,7 +56,9 @@ class History {
   deleteNewest() {
     if (this.data.length >= 1) {
       this.pointer = Math.min(this.pointer, this.data.length - 2)
-      return this.data.pop()
+      const deletedItem = this.data.pop()
+      this.onDeleteHandler(deletedItem)
+      return deletedItem
     }
     return false
   }
@@ -67,12 +75,19 @@ class History {
   }
 
   clear() {
+    this.data.forEach(this.onDeleteHandler)
     this.data = []
     this.pointer = -1
   }
 
   getAllData() {
     return this.data
+  }
+
+  onDelete(handler) {
+    if (typeof(handler) === 'function') {
+      this.onDeleteHandler = handler
+    }
   }
 
   log() {

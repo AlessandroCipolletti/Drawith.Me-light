@@ -10,6 +10,7 @@ export const getRandomNumber = (n, float = false) => float ? MATH.random() * n :
 export const getInverseNumber = (num) => MATH.pow(num, -1)
 export const getAngleDegBetweenTwoPoints = (x1, y1, x2, y2) => convertAngleRadToDeg(getAngleRadBetweenTwoPoints(x1, y1, x2, y2))
 export const getPerc = (value, total, decimals = 4) => round(!total ? value : value * 100 / total, decimals)
+export const getFactorial = (n)=> n <= 1 ? 1 : n * getFactorial(n - 1)
 export const percToValue = (perc, total, decimals = 4) => round(!total ? perc : perc * total / 100, decimals)
 export const getDistanceBetweenTwoPoints = (x1, y1, x2, y2, decimals = 0) => round(MATH.sqrt(MATH.pow(x2 - x1, 2) + MATH.pow(y2 - y1, 2)), decimals)
 export const distanceBetweenTwoPointsGreaterThan = (x1, y1, x2, y2, distance) => (MATH.pow(x2 - x1, 2) + MATH.pow(y2 - y1, 2) >= MATH.pow(distance, 2))
@@ -213,6 +214,44 @@ export const roundAngleForSteps = (deg, step = 3, interval = 45) => {
     }
   }
   return deg
+}
+
+
+export const getTranslatedFunction = (fn, dx = 0, dy = 0) => (x) => fn(x - dx) + dy
+
+export const getScaledFunction = (fn, horizontalScale, verticalScale) => (x) => verticalScale * fn(horizontalScale * x)
+
+export const getScaledAndTranslatedFunction = (fn, horizontalScale, verticalScale, dx, dy) => (x) => verticalScale * fn(horizontalScale * (x - dx)) + dy
+
+export const functionIsEven = (fn, tests = 10) => {
+  const randomXValues = (new Array(tests)).fill().map(() => getRandomNumber(1000))
+  return randomXValues.every((x) => fn(x) === fn(-x))
+}
+
+export const functionIsOdd = (fn, tests = 10) => {
+  const randomXValues = (new Array(tests)).fill().map(() => getRandomNumber(1000))
+  return randomXValues.every((x) => fn(x) === -fn(-x))
+}
+
+export const functionIsPeriodic = (fn, period, tests = 10) => {
+  const randomXValues = (new Array(tests)).fill().map(() => getRandomNumber(1000))
+  return randomXValues.every((x) => fn(x) === fn(x + period))
+}
+
+export const getQuadraticFunctionVertex = (a, b, c) => {
+  // quadratic function standard form: F(y) = ax^2 + bx + c
+  // if a === 0 ==> it's a line
+  // if a > 0 ==> it's a parabola with vertex at the bottom
+  // if a < 0 ==> it's a parabola with vertex at the top
+  const x = -b / (2 * a)
+  const y = a * x * x + b * x + c
+  return [x, y]
+}
+
+export const getQuadraticFunctioRoots = (a, b, c) => {
+  // quadratic function standard form: F(y) = ax^2 + bx + c
+  const d = Math.sqrt(b * b - 4 * a * c)
+  return [(-b + d) / (2 * a), (-b - d) / (2 * a)]
 }
 
 

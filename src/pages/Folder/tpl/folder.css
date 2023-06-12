@@ -128,11 +128,11 @@
 }
 .folder__new-container .folder__drawing-new-drawing {
   background: url("../../../static/img/new.png") no-repeat center, url("../../../static/img/paper/white.png");
-  background-size: auto 50%, auto;
+  background-size: auto 50%, 43px;
 }
 .folder__new-container .folder__drawing-new-coworking {
   background: url("../../../static/img/new-coworking.png") no-repeat center, url("../../../static/img/paper/white.png");
-  background-size: auto 50%, auto;
+  background-size: auto 50%, 43px;
 }
 
 body:not(.drawith__SOCKET_CONNECTED) .folder__drawing-new-coworking .drawith__overlay-spinner {

@@ -406,6 +406,13 @@ export const handleElementsListDragAndDrop = (() => {
   const initDragAndDropDom = (selectedElement, startEventX, startEventY) => {
     animationScale = Params.isPhone ? 1.7 : 1.2
     const draggedElement = selectedElement.cloneNode(true)
+    if (draggedElement.querySelector('canvas')) {
+      const newCanvas = draggedElement.querySelector('canvas')
+      const oldCanvas = selectedElement.querySelector('canvas')
+      newCanvas.width = oldCanvas.width
+      newCanvas.height = oldCanvas.height
+      newCanvas.getContext('2d').drawImage(oldCanvas, 0, 0)
+    }
     draggedElement.classList.add('displayNone', 'drawith__dragNdrop-element-dragging')
     moveEventX = startEventX
     moveEventY = startEventY
@@ -468,6 +475,9 @@ export const handleElementsListDragAndDrop = (() => {
     })
     cancelElementAnimationIfExists(draggedElement, 'drop')
     draggedElement.remove()
+    if (draggedElement.querySelector('canvas')) {
+      draggedElement.querySelector('canvas').width = 0
+    }
     draggedElement = null
   }
 

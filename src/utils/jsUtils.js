@@ -1,5 +1,4 @@
 // import Dexie from 'dexie'
-import { v4 as uuidv4 } from 'uuid'
 const isEqual = require('lodash.isequal')
 
 import * as Messages from 'modules/Messages'
@@ -174,21 +173,26 @@ export const shiftArrayElement = (arr, oldIndex, newIndex) => {
   arr.splice(newIndex, 0, arr.splice(oldIndex, 1)[0])
 }
 
-const fileLoader = new Worker('./workers/fileLoader.js')
-export const fetchUrlFileOffThread = (url) => {
-  return new Promise((resolve, reject) => {
-    const id = uuidv4()
-    const onLoaded = (event) => {
-      const { id: idMsg, blob } = event.data
-      if (id === idMsg) {
-        fileLoader.removeEventListener('message', onLoaded)
-        resolve(URL.createObjectURL(blob))
-      }
-    }
-    fileLoader.addEventListener('message', onLoaded)
-    fileLoader.postMessage({ id, url })
-  })
-}
+export const noop = () => {}
+
+// const fileLoader = new Worker(
+//   new URL('./workers/fileLoader.js', import.meta.url),
+//   { type: 'module' }
+// )
+// export const fetchUrlFileOffThread = (url) => {
+//   return new Promise((resolve, reject) => {
+//     const id = uuidv4()
+//     const onLoaded = (event) => {
+//       const { id: idMsg, blob } = event.data
+//       if (id === idMsg) {
+//         fileLoader.removeEventListener('message', onLoaded)
+//         resolve(URL.createObjectURL(blob))
+//       }
+//     }
+//     fileLoader.addEventListener('message', onLoaded)
+//     fileLoader.postMessage({ id, url })
+//   })
+// }
 
 export const waitWorkerMessage = (worker, id) => {
   return new Promise((resolve, reject) => {

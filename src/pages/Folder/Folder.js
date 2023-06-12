@@ -5,7 +5,6 @@ import './tpl/folder.css'
 import './tpl/folderContent.css'
 import './tpl/folderSharePopup.css'
 
-// import { v4 as uuidv4 } from 'uuid'
 import Params from 'main/Params'
 import * as Messages from 'modules/Messages'
 import * as LocalDB from 'utils/localDbUtils'
@@ -142,14 +141,18 @@ const onCoworkingSpinnerClick = (() => {
 })()
 
 const onDrawingClick = (e) => {
-  if (e.target.classList.contains('folder__drawing')) {
+  if (e.target.classList.contains('folder__drawing') || e.target.classList.contains('folder__drawing-preview')) {
+    let touchedDrawing = e.target
+    if (e.target.classList.contains('folder__drawing-preview')) {
+      touchedDrawing = e.target.parentNode
+    }
     if (state.selectionMode) {
-      if (!e.target.classList.contains('folder__drawing-new-drawing')) {
-        e.target.classList.toggle('folder__drawing-selected')
+      if (!touchedDrawing.classList.contains('folder__drawing-new-drawing')) {
+        touchedDrawing.classList.toggle('folder__drawing-selected')
         updateTopnavButtons()
       }
     } else {
-      openDrawing(parseInt(e.target.getAttribute('data-local-id')))
+      openDrawing(touchedDrawing.getAttribute('data-local-id'))
     }
   }
 }
@@ -207,23 +210,24 @@ const exportButtonClick = async() => {
     return
   }
   setSpinner(true)
-  let urls = await Promise.all(
+  let drawings = await Promise.all(
     getSelectedIds().map(LocalDB.getOneDrawing)
   )
-  urls = urls.map(d => d.localPathBig)
-  urls = await Promise.all(
-    urls.map(async(url) => ({
-      w: await shareImageWithBase64(url, true), // white bg
-      t: await shareImageWithBase64(url, false), // transparent bg
+
+  drawings = drawings.map(d => d.bitmap)
+  drawings = await Promise.all(
+    drawings.map(async(drawing) => ({
+      w: await shareImageWithBase64(drawing, true), // white bg
+      t: await shareImageWithBase64(drawing, false), // transparent bg
     }))
   )
   const popupContent = await loadTemplate(tplSharePopup, {
-    urls,
-    subtitleLabel: urls.length === 1 ? labels.tapAndHoldOneImage : labels.tapAndHoldImages,
+    drawings,
+    subtitleLabel: drawings.length === 1 ? labels.tapAndHoldOneImage : labels.tapAndHoldImages,
     withoutBackgroundLabel: labels.withoutBackground,
     withBackgroundLabel: labels.withWhiteBackground,
   })
-  urls = undefined
+  drawings = undefined
   popupContent.addEventListener('gesturestart', preventDefault)
 
   setSpinner(false)
