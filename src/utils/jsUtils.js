@@ -1,5 +1,4 @@
 // import Dexie from 'dexie'
-import { v4 as uuidv4 } from 'uuid'
 const isEqual = require('lodash.isequal')
 
 import * as Messages from 'modules/Messages'

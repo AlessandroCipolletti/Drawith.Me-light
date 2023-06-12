@@ -17,7 +17,6 @@ import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 import { round, getNumberInBetween, getOriginalCoordsFromScaleRotation, getAverage, roundAngleForSteps } from 'utils/mathUtils'
 import { rgbToHex } from 'utils/colorsUtils'
-import { getCanvasBase64Async } from 'utils/imageUtils'
 import { saveDrawToDB, getOneDrawing, saveDrawingPaletteColors } from 'utils/localDbUtils'
 import { addRotationHandler, removeRotationHandler, cleanRefs } from 'utils/moduleUtils'
 import { handlePointerEvents } from 'utils/pointerEventsUtils'
@@ -42,7 +41,6 @@ import { spacing } from 'main/Theme'
 
   DA FARE:
   - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
-  - pulizia codice folder con base64
   - to test performances on iPad con taaaanti layer belli peni
 
 

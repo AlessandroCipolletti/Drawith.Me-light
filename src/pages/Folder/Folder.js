@@ -5,14 +5,12 @@ import './tpl/folder.css'
 import './tpl/folderContent.css'
 import './tpl/folderSharePopup.css'
 
-// import { v4 as uuidv4 } from 'uuid'
 import Params from 'main/Params'
 import * as Messages from 'modules/Messages'
 import * as LocalDB from 'utils/localDbUtils'
 import { addSpinnerOverlayTo, setSpinner, loadTemplate, preventDefault, enableElements, disableElements } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
-import { fillCanvasWithImage } from 'utils/canvasUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { shareImageWithBase64 } from 'utils/imageUtils'
 import { deepCopy, copyTextToClipboard } from 'utils/jsUtils'
@@ -20,8 +18,6 @@ import { addListScrollClickAndPressHandlers } from 'utils/uiUtils'
 
 import { goToPage } from 'modules/Router'
 import * as Coworking from 'modules/Coworking'
-
-const MAX_DRAWING_PREVIEW_SIZE = 350
 
 
 let state = {}
@@ -145,9 +141,9 @@ const onCoworkingSpinnerClick = (() => {
 })()
 
 const onDrawingClick = (e) => {
-  if (e.target.classList.contains('folder__drawing') || e.target.classList.contains('folder__drawing-preview-canvas')) {
+  if (e.target.classList.contains('folder__drawing') || e.target.classList.contains('folder__drawing-preview')) {
     let touchedDrawing = e.target
-    if (e.target.classList.contains('folder__drawing-preview-canvas')) {
+    if (e.target.classList.contains('folder__drawing-preview')) {
       touchedDrawing = e.target.parentNode
     }
     if (state.selectionMode) {
@@ -278,14 +274,6 @@ export const refreshContent = async() => {
   refs.drawingsContainer.innerHTML = ''
   await loadTemplate(tplContent, { drawings }, refs.drawingsContainer)
   refs.drawingsContainer.scrollTop = scroll
-  for (const drawing of drawings) {
-    const drawingPreview = refs.drawingsContainer.querySelector(`[data-local-id='${drawing.localDbId}'] img`)
-    drawingPreview.src = drawing.base64
-    // const drawingCanvas = refs.drawingsContainer.querySelector(`[data-local-id='${drawing.localDbId}'] canvas`)
-    // drawingCanvas.width = MAX_DRAWING_PREVIEW_SIZE
-    // drawingCanvas.height = MAX_DRAWING_PREVIEW_SIZE * (drawing.bitmap.height / drawing.bitmap.width)
-    // fillCanvasWithImage(drawingCanvas.getContext('2d'), drawing.bitmap, 0, 0, drawingCanvas.width, drawingCanvas.height)
-  }
   refs.topnav.classList.toggle('displayNone', !drawings.length)
   drawings = undefined
 }

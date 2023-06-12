@@ -11,6 +11,7 @@
   background-size: 43px;
   background-repeat: repeat;
   position: relative;
+  overflow: hidden;
 }
 
 .folder__drawings-container .folder__drawing {
@@ -19,9 +20,9 @@
   align-items: center;
 }
 
-.folder__drawing-preview-canvas {
-  max-width: 95%;
-  max-height: 95%;
+.folder__drawing-preview {
+  max-width: 110%;
+  max-height: 110%;
 }
 
 .folder__drawing-select-icon {
