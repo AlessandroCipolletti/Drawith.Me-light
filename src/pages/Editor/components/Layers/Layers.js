@@ -839,7 +839,6 @@ const mergeDownSelectedLayer = async(e) => {
       [selectedLayer.canvas, selectedLayer.opacity],
     ])
     state.layers[newLayerData.id].canvas.context = getNewContextForCanvas(state.layers[newLayerData.id].canvas)
-    await updateLayerRealCoords(newLayerData.id)
 
     // animate in and out new and old list dom
     closeParams()

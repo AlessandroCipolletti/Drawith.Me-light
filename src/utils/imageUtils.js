@@ -186,6 +186,7 @@ export const duplicateCanvas = (sourceCanvas) => {
 export const mergeImages = (images) => {
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
+  canvas.width = canvas.height = 0
   for (const [img, opacity = 1] of images) {
     if ((img.naturalWidth || img.width) > 1) {
       if (!canvas.width) {

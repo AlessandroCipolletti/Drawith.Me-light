@@ -38,13 +38,13 @@ import { spacing } from 'main/Theme'
   - Provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
   - Bitmap salvata in indexDB e rimpiazzate tutte le locahPathSmall
   - Folder con piccoli canvas
-  - Add bitmap.close() quando cancello uno step
+  - Add bitmap.close() quando cancello uno step, e su tutta la history di un layer quando lo cancello definitivamente
 
   BUGS:
   - Merge layers è rotto
 
   DA FARE:
-  - salvataggio disegno asynctono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
+  - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
   - pulizia codice folder con base64
   - pulizia codice editor pipette
   - to test performances on iPad con taaaanti layer belli peni
