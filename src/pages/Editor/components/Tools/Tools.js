@@ -64,6 +64,7 @@ const toolsImgs = {
   'highlighter-v': require('static/img/tools/highlighter-v.png'),
 }
 // const toolsImgsFileNames = ['brush-1', 'brush-2', 'brush-3', 'brush-4', 'brush-5', 'brush-6', 'brush-7', 'brush-8', 'brush-9', 'brush-10', 'brush-11', 'highlighter-h', 'highlighter-l', 'highlighter-r', 'highlighter-v']
+// const toolsImgs = Object.fromEntries(toolsImgsFileNames.map(imgName => ([imgName, require(`static/img/tools/${imgName}.png`)])))
 const toolsFrameFiles = {}
 
 const toolsFunctions = {

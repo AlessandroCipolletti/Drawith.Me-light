@@ -488,6 +488,9 @@ export const appendLayer = (layerCanvas) => {
 
 export const setLayerContext = (layerContext) => {
   refs.layerContext = layerContext
+  if (state.currentToolProps.frameImageFile) {
+    setImageShapeIfNeeded(refs.layerContext, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, state.currentToolProps.color)
+  }
 }
 
 export const updateEditorLayer = (layerZIndex, opacity, globalCompositeOperation, active) => {
@@ -652,8 +655,8 @@ export const setToolColor = (color, randomColor) => {
   state.currentToolProps.randomColor = randomColor
 
   if (state.currentToolProps.frameImageName && state.currentToolProps.color) {
-    setImageShapeIfNeeded(refs.layerContext, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, color)
-    setImageShapeIfNeeded(refs.contextForLine, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, color)
+    setImageShapeIfNeeded(refs.layerContext, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, state.currentToolProps.color)
+    setImageShapeIfNeeded(refs.contextForLine, state.currentToolProps.frameImageFile, state.currentToolProps.frameImageName, state.currentToolProps.color)
   }
 
   if (state.currentToolProps.globalCompositeOperation === 'destination-out') {
