@@ -214,7 +214,6 @@ export const blobToBase64Async = (blob) => {
 
 export const getCanvasFromBase64 = async (base64) => {
   const img = await getImageFromUrl(base64)
-  console.log('getCanvasFromBase64', 1)
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
   canvas.width = img.naturalWidth || img.width
