@@ -174,11 +174,16 @@ export const mergeBase64ImagesAsync = async(bases64) => {
   return await getCanvasBase64Async(tempCanvas)
 }
 
-export const duplicateCanvas = (sourceCanvas) => {
-  const canvas = document.createElement('canvas')
+export const duplicateCanvas = (sourceCanvas, offscreen = false) => {
+  let canvas
+  if (offscreen) {
+    canvas = new OffscreenCanvas(sourceCanvas.width, sourceCanvas.height)
+  } else {
+    canvas = document.createElement('canvas')
+    canvas.width = sourceCanvas.width
+    canvas.height = sourceCanvas.height
+  }
   const context = canvas.getContext('2d')
-  canvas.width = sourceCanvas.width
-  canvas.height = sourceCanvas.height
   context.drawImage(sourceCanvas, 0, 0)
   return canvas
 }

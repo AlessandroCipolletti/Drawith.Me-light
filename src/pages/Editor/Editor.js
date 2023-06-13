@@ -12,6 +12,7 @@ import * as Toolbar from './components/Toolbar'
 import * as Layers from './components/Layers'
 import * as Tools from './components/Tools'
 import * as Ruler from './components/Ruler'
+import { addPreventPageRefresh, removePreventPageRefresh } from 'main/main'
 import { setSpinner, getEventCoordX, getEventCoordY, loadTemplate, preventDefault, getDomRect } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -40,7 +41,8 @@ import { spacing } from 'main/Theme'
   - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
 
   DA FARE:
-  - to test performances on iPad con taaaanti layer belli peni
+  - to test performances on iPad con taaaanti layer belli peni.
+  - Salvare solo i layer che sono cambiati dall'ultima apertura.
 
 
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
@@ -402,6 +404,7 @@ const saveDraftIfNeeded = async () => {
   if (!state.currentTouch.isDown && state.changedSinceDraft) {
     state.changedSinceDraft = false
     state.drawnStepsSinceDraft = 0
+    setDraftInterval(true)
     if (state.modified) {
       const currentDrawing = await getCurrentDrawingInfo()
       if (currentDrawing.maxX >= 0) {
@@ -435,10 +438,11 @@ export const saveAndGoToFolder = async () => {
         currentDrawing.layers = []
         currentDrawing.madeByCorowking = madeByCorowking
         await saveDrawingToDB(currentDrawing)
-        Layers.exportLayers().then(async layers => {
+        addPreventPageRefresh()
+        Layers.exportLayers().then(layers => {
           currentDrawing.layers = layers
           saveDrawingToDB(currentDrawing)
-          // TODO add prevent page refresh before saving
+          removePreventPageRefresh()
         })
       }
     }
@@ -475,13 +479,11 @@ export const saveCopy = async () => {
 }
 
 const setDraftInterval = (start) => {
+  clearInterval(state.draftInterval)
+  state.draftInterval = false
+
   if (start) {
-    if (state.draftInterval === false) {
-      state.draftInterval = setInterval(saveDraftIfNeeded, config.draftTimeInterval)
-    }
-  } else {
-    clearInterval(state.draftInterval)
-    state.draftInterval = false
+    state.draftInterval = setInterval(saveDraftIfNeeded, config.draftTimeInterval)
   }
 }
 

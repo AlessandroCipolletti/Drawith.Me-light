@@ -28,6 +28,8 @@ export const initLocalDb = securizeAsyncFn(async() => {
     Drawings: '++localDbId, folderId, title, state, wasSavedAsDraft, gpsCoordinates, createTimestamp, updateTimestamp, createdAt, updatedAt, base64, bitmap, minX, minY, maxX, maxY, width, height, canvasWidth, canvasHeight, mainColor, dashboardCoordinates, selectedTool, selectedColorId, colors, layers, appVersions, toolsCustomProps',
   })
 
+  await deleteUnsavedDrawings()
+
   return true
 }, DEFAULT_LOCAL_DB_ERROR_MSG, 'initLocalDb')
 
@@ -46,6 +48,8 @@ export const cleanCoworkerWaitingId = securizeAsyncFn(async() => await LocalData
 export const emptyDrawingsData = securizeAsyncFn(async() => await LocalDatabase.Drawings.clear(), DEFAULT_LOCAL_DB_ERROR_MSG, 'emptyDrawingsData')
 
 export const deleteLocalDrawings = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('localDbId').anyOf(ids).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteLocalDrawings')
+
+export const deleteUnsavedDrawings = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('layers').equals([]).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteUnsavedDrawings')
 
 export const getAllLocalDrawings = securizeAsyncFn(async() => (await LocalDatabase.Drawings.orderBy('updateTimestamp').reverse().toArray()), DEFAULT_LOCAL_DB_ERROR_MSG, 'getAllLocalDrawings')
 

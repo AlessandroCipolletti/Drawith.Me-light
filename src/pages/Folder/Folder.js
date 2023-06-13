@@ -283,7 +283,6 @@ const updateDrawingsLoading = async() => {
 }
 
 export const refreshContent = async() => {
-  // TODO se alla prima apertura della pagina trovo dei disegni in isSaving ==> sono in errore
   let drawings = await LocalDB.getAllLocalDrawings()
   const currentScroll = refs.drawingsContainer.scrollTop
   refs.drawingsContainer.innerHTML = ''

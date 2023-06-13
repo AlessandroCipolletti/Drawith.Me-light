@@ -36,8 +36,18 @@ const labels = {
   folderPageLabel: 'My drawings',
   aboutUs: 'About Drawith.Me',
   genericError: 'Generic Error',
+  preventRefresh: 'Changes may not be saved',
 }
 
+export const addPreventPageRefresh = () => {
+  window.onbeforeunload = () => {
+    return labels.preventRefresh
+  }
+}
+
+export const removePreventPageRefresh = () => {
+  window.onbeforeunload = undefined
+}
 
 const attachRotationHandler = () => {
   // To give support to multitask on iPad we need to handle both resize and rotation events.

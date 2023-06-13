@@ -382,7 +382,7 @@ export const redoLayers = async() => {
   }
 }
 
-const layerDeepCopy = (layer, returnCanvas = true) => ({
+const layerDeepCopy = (layer, deepCopyCanvas = true, usingOffscreen = false) => ({
   id: layer.id,
   minX: layer.minX,
   minY: layer.minY,
@@ -396,19 +396,19 @@ const layerDeepCopy = (layer, returnCanvas = true) => ({
   selectedByCoworker: layer.selectedByCoworker,
   createTimestamp: layer.createTimestamp,
   updateTimestamp: layer.updateTimestamp,
-  canvas: returnCanvas ? duplicateCanvas(layer.canvas) : null,
+  canvas: deepCopyCanvas ? duplicateCanvas(layer.canvas, usingOffscreen) : null,
 })
 
-export const exportLayers = async(processLayersInParallel) => {
+export const exportLayers = async(processLayersInParallel = false) => {
   const layers = Object.values(state.layers)
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
+    .map(l => layerDeepCopy(l, true, true))
 
   if (processLayersInParallel) {
-    return Promise.all(layers.map(async(l) => {
-      const layer = layerDeepCopy(l, false)
+    return Promise.all(layers.map(async(layer) => {
+      layer.base64 = await getImgBase64Async(layer.canvas)
       delete layer.canvas
-      layer.base64 = await getImgBase64Async(l.canvas)
       delete layer.selectedByCoworker
       delete layer.resizeMode
       delete layer.gco
@@ -416,10 +416,9 @@ export const exportLayers = async(processLayersInParallel) => {
     }))
   } else {
     const layerData = []
-    for (const l of layers) {
-      const layer = layerDeepCopy(l, false)
+    for (const layer of layers) {
+      layer.base64 = await getImgBase64Async(layer.canvas)
       delete layer.canvas
-      layer.base64 = await getImgBase64Async(l.canvas)
       delete layer.selectedByCoworker
       delete layer.resizeMode
       delete layer.gco
@@ -430,7 +429,7 @@ export const exportLayers = async(processLayersInParallel) => {
 }
 
 // chiamata da editor quando si salva il disegno, e pipette init.
-export const exportWholeCanvasData = async(returnCanvasContext) => {
+export const exportWholeCanvasData = async(returnCanvasContext = false) => {
   let tempCanvas = new OffscreenCanvas(state.canvases.width, state.canvases.height)
   let tempContext = tempCanvas.getContext('2d', { willReadFrequently: true })
   const data = {
