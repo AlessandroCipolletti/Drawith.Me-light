@@ -101,8 +101,7 @@ const cleanLayersHistoryOldActionIfNeeded = (action) => {
   if (action.type === HISTORY_STEP_LAYER_CONTENT) {
     const layer = state.layers[action.layerId] || state.deletedLayers[action.layerId]
     if (layer) {
-      const deletedAction = layer.history.deleteFarest()
-      deletedAction?.bitmap?.close()
+      layer.history.deleteFarest()
     }
   } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
     hardDeleteLayer(action.layerId)
@@ -116,8 +115,7 @@ const cleanLayersHistoryOverwrittenActionIfNeeded = (action) => {
   if (action.type === HISTORY_STEP_LAYER_CONTENT) {
     const layer = state.layers[action.layerId] || state.deletedLayers[action.layerId]
     if (layer) {
-      const deletedAction = layer.history.deleteNewest()
-      deletedAction?.bitmap?.close()
+      layer.history.deleteNewest()
     }
   } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
     hardDeleteLayer(action.newLayerId)
@@ -129,7 +127,7 @@ const cleanLayersHistoryOverwrittenActionIfNeeded = (action) => {
 }
 
 const addGlobalLayersHistoryAction = (action) => {
-  // Adding a new action may result in deleting some others actions from the history.
+  // Adding a new action may result in deleting some others actions from the history
   // We need to clean memory for those actions, if they kept in memory a deleted layer or a layer drawing step
   if (LayersHistory.isFull) {
     const deletedAction = LayersHistory.deleteFarest()
@@ -181,17 +179,13 @@ export const addLayerHistoryContentChangedStep = async() => {
   const layer = state.layers[state.currentSelectedLayerId]
   const canBeResized = layerCanBeResized(state.currentSelectedLayerId)
   layer.updateTimestamp = Date.now()
+  layer.modified = true
   const step = await getLayerCurrentData()
   addGlobalLayersHistoryAction({
     layerId: state.currentSelectedLayerId,
     type: HISTORY_STEP_LAYER_CONTENT,
   })
-  const layerHistoryDeletedSteps = layer.history.add(step)
-  if (layerHistoryDeletedSteps.length) {
-    for (const deletedStep of layerHistoryDeletedSteps) {
-      deletedStep?.bitmap?.close()
-    }
-  }
+  layer.history.add(step)
   updateLayerPreview(state.currentSelectedLayerId)
   updateResizeMode(state.resizeMode && canBeResized, canBeResized)
   updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
@@ -347,7 +341,6 @@ export const redoLayers = async() => {
       updateUndoRedoButtons()
 
       if (action.layerId || action.newLayerId) {
-
         let selectedLayerId = action.layerId
         if (action.type === HISTORY_STEP_LAYER_CONTENT) {
           const step = state.layers[action.layerId].history.forward()
@@ -388,41 +381,51 @@ const layerDeepCopy = (layer, deepCopyCanvas = true, usingOffscreen = false) => 
   minY: layer.minY,
   maxX: layer.maxX,
   maxY: layer.maxY,
-  active: layer.active,
   name: layer.name,
-  opacity: layer.opacity,
-  selected: layer.selected,
   order: layer.order,
-  selectedByCoworker: layer.selectedByCoworker,
+  active: layer.active,
+  opacity: layer.opacity,
+  modified: layer.modified,
+  selected: layer.selected,
   createTimestamp: layer.createTimestamp,
   updateTimestamp: layer.updateTimestamp,
+  selectedByCoworker: layer.selectedByCoworker,
   canvas: deepCopyCanvas ? duplicateCanvas(layer.canvas, usingOffscreen) : null,
 })
 
-export const exportLayers = async(processLayersInParallel = false) => {
+const prepareLayerDataToExport = async(layer) => {
+  if (layer.canvas) {
+    layer.base64 = await getImgBase64Async(layer.canvas)
+  }
+  delete layer.selectedByCoworker
+  delete layer.resizeMode
+  delete layer.modified
+  delete layer.canvas
+  delete layer.gco
+  return layer
+}
+
+export const mergeUnchangedLayers = (exportedLayers, previousLayers) => {
+  return exportedLayers.map(layer => {
+    if (!layer.base64) {
+      layer.base64 = previousLayers.find(pl => pl.id === layer.id).base64
+    }
+    return layer
+  })
+}
+
+export const exportLayers = async(processLayersInParallel = false, exportJustModiedLayers = true) => {
   const layers = Object.values(state.layers)
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
-    .map(l => layerDeepCopy(l, true, true))
+    .map(l => layerDeepCopy(l, !exportJustModiedLayers || l.modified, true)) // duplicate canvas just for modified layers
 
   if (processLayersInParallel) {
-    return Promise.all(layers.map(async(layer) => {
-      layer.base64 = await getImgBase64Async(layer.canvas)
-      delete layer.canvas
-      delete layer.selectedByCoworker
-      delete layer.resizeMode
-      delete layer.gco
-      return layer
-    }))
+    return Promise.all(layers.map(prepareLayerDataToExport))
   } else {
     const layerData = []
     for (const layer of layers) {
-      layer.base64 = await getImgBase64Async(layer.canvas)
-      delete layer.canvas
-      delete layer.selectedByCoworker
-      delete layer.resizeMode
-      delete layer.gco
-      layerData.push(layer)
+      layerData.push(await prepareLayerDataToExport(layer))
     }
     return layerData
   }
@@ -514,27 +517,25 @@ export const clearCurrentLayer = async () => {
   }
 }
 
-const createNewLayerData = () => {
-  const now = Date.now()
-  return {
-    id: uuidv4(),
-    minX: Infinity,
-    minY: Infinity,
-    maxX: -Infinity,
-    maxY: -Infinity,
-    active: true,
-    name: `Layer ${++state.maxLayerCount}`,
-    opacity: 1,
-    selected: false,
-    order: getMaxOrder() + 1,
-    selectedByCoworker: false,
-    history: new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap),
-    canvas: null,
-    previewRef: null,
-    createTimestamp: now,
-    updateTimestamp: now,
-  }
-}
+const createNewLayerData = () => ({
+  id: uuidv4(),
+  minX: Infinity,
+  minY: Infinity,
+  maxX: -Infinity,
+  maxY: -Infinity,
+  name: `Layer ${++state.maxLayerCount}`,
+  order: getMaxOrder() + 1,
+  active: true,
+  canvas: null,
+  opacity: 1,
+  history: new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap),
+  selected: false,
+  modified: false,
+  previewRef: null,
+  createTimestamp: Date.now(),
+  updateTimestamp: Date.now(),
+  selectedByCoworker: false,
+})
 
 const getMaxOrder = () => Math.max(...Object.values(state.layers).map(l => l.order))
 
@@ -809,6 +810,7 @@ const duplicateSelectedLayer = async(e) => {
   const now = Date.now()
   newLayer.id = newId
   newLayer.selected = false
+  newLayer.modified = true
   newLayer.createTimestamp = now
   newLayer.updateTimestamp = now
   newLayer.name = `Layer ${++state.maxLayerCount}`
@@ -851,18 +853,16 @@ const mergeDownSelectedLayer = async(e) => {
     // create a new layer
     const newLayerData = createNewLayerData()
     newLayerData.order = lowerLayer.order
-    state.layers[newLayerData.id] = newLayerData
-
-    // merge the two source layers
-    state.layers[newLayerData.id].canvas = mergeImages([
+    newLayerData.modified = true
+    newLayerData.canvas = mergeImages([ // merge the two source layers
       [lowerLayer.canvas, lowerLayer.opacity],
       [selectedLayer.canvas, selectedLayer.opacity],
     ])
-    state.layers[newLayerData.id].canvas.context = getNewContextForCanvas(state.layers[newLayerData.id].canvas)
+    newLayerData.canvas.context = getNewContextForCanvas(newLayerData.canvas)
+    state.layers[newLayerData.id] = newLayerData
 
-    // animate in and out new and old list dom
     closeParams()
-    await Promise.all([
+    await Promise.all([ // animate in and out new and old list dom
       fadeOutElements([state.layers[selectedLayer.id].canvas, state.layers[lowerLayer.id].canvas]),
       removeOutElement(refs.layersList.querySelector(`div[data-id="${selectedLayer.id}"]`)),
       removeOutElement(refs.layersList.querySelector(`div[data-id="${lowerLayer.id}"]`)),
@@ -1242,16 +1242,15 @@ const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
   if (initialLayers.length) {
     initialLayers = await Promise.all(initialLayers.map(async(l) => {
       const layer = layerDeepCopy(l, false)
+      layer.modified = false
+      layer.selectedByCoworker = false
       layer.canvas = await getCanvasFromBase64(l.base64)
       layer.canvas.context = getNewContextForCanvas(layer.canvas)
+      layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
       delete l.base64
       return layer
     }))
-    state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, {
-      ...l,
-      selectedByCoworker: false,
-      history: new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap),
-    }])))
+    state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, l])))
   } else {
     const newLayerData = createNewLayerData()
     newLayerData.canvas = createNewLayerCanvas()

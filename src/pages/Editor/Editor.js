@@ -39,10 +39,10 @@ import { spacing } from 'main/Theme'
   - Bitmap salvata in indexDB e rimpiazzate tutte le locahPathSmall
   - Add bitmap.close() quando cancello uno step, e su tutta la history di un layer quando lo cancello definitivamente
   - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
+  - Salvare solo i layer che sono cambiati dall'ultima apertura.
 
   DA FARE:
   - to test performances on iPad con taaaanti layer belli peni.
-  - Salvare solo i layer che sono cambiati dall'ultima apertura.
 
 
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
@@ -400,6 +400,16 @@ const closePipetteCursor = async () => {
   ColorPicker.deselectPipette(true, true, !state.pipette.currentColor)
 }
 
+const getCurrentDrawingInfo = async () => {
+  const currentDrawing = await Layers.exportWholeCanvasData()
+  currentDrawing.localDbId = state.localDbDrawId // db id or false
+  currentDrawing.colors = ColorPicker.getCurrentColorsPalette()
+  currentDrawing.selectedColorId = ColorPicker.getCurrentSelectedColorId()
+  currentDrawing.toolsCustomProps = Tools.getToolsCustomProps()
+  currentDrawing.selectedTool = Tools.getCurrentSelectedTool()
+  return currentDrawing
+}
+
 const saveDraftIfNeeded = async () => {
   if (!state.currentTouch.isDown && state.changedSinceDraft) {
     state.changedSinceDraft = false
@@ -429,9 +439,9 @@ export const saveAndGoToFolder = async () => {
   if (!Coworking.isOpen() || await Messages.confirm(labels.areYouSureToCloseCoworking)) {
     const madeByCorowking = Coworking.isOpen()
     setSpinner(true)
-    await delay(20)
-    Coworking.stop()
     setDraftInterval(false)
+    Coworking.stop()
+    await delay(20)
     if (state.modified) {
       const currentDrawing = await getCurrentDrawingInfo()
       if (currentDrawing.maxX >= 0) {
@@ -447,12 +457,6 @@ export const saveAndGoToFolder = async () => {
       }
     }
     openPageFolder()
-  }
-}
-
-export const saveDrawingsPalette = (colors = []) => {
-  if (state.localDbDrawId && colors.length) {
-    saveDrawingPaletteColors(state.localDbDrawId, colors)
   }
 }
 
@@ -475,6 +479,12 @@ export const saveCopy = async () => {
         Toolbar.enableSaveCopy()
       }
     }
+  }
+}
+
+export const saveDrawingsPalette = (colors = []) => {
+  if (state.localDbDrawId && colors.length) {
+    saveDrawingPaletteColors(state.localDbDrawId, colors)
   }
 }
 
@@ -588,16 +598,6 @@ export const hideDragBox = () => {
     refs.dragBulletT, refs.dragBulletL, refs.dragBulletR, refs.dragBulletB,
     refs.dragBulletRT,
   ])
-}
-
-const getCurrentDrawingInfo = async () => {
-  const currentDrawing = await Layers.exportWholeCanvasData()
-  currentDrawing.localDbId = state.localDbDrawId // db id or false
-  currentDrawing.colors = ColorPicker.getCurrentColorsPalette()
-  currentDrawing.selectedColorId = ColorPicker.getCurrentSelectedColorId()
-  currentDrawing.toolsCustomProps = Tools.getToolsCustomProps()
-  currentDrawing.selectedTool = Tools.getCurrentSelectedTool()
-  return currentDrawing
 }
 
 export const toggleFullscreen = () => {
