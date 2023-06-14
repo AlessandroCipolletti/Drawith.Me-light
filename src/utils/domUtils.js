@@ -2,7 +2,7 @@ const Handlebars = require('handlebars')
 
 import Params from 'main/Params'
 import { round } from 'utils/mathUtils'
-import { iterateFn, delay } from 'utils/jsUtils'
+import { iterateFn, delay, noop } from 'utils/jsUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 
 
@@ -23,18 +23,26 @@ const initDomUtils = () => {
   refs.popupContainer = createDom('drawith__popup-container', 'popup')
 }
 
-export const addSpinnerOverlayTo = (element, onSpinnerClick) => {
+export const addSpinnerOverlayTo = (element, displayNone = true, onSpinnerClick = noop) => {
   if (!(element instanceof HTMLElement)) {return false}
 
   onSpinnerClick = onSpinnerClick || preventDefault
-  const overlay = createDom('drawith__overlay-spinner', 'displayNone')
+  const overlay = createDom('drawith__overlay-spinner')
+  if (displayNone) {
+    overlay.classList.add('displayNone')
+  }
   const spinner = document.createElement('img')
   spinner.classList.add('drawith__overlay-spinner-image')
   spinner.src = spinnerImgUrl
   overlay.appendChild(spinner)
   overlay.addEventListener(Params.eventStart, onSpinnerClick)
   element.appendChild(overlay)
+
   return overlay
+}
+
+export const removeSpinnerOverlayFrom = (element) => {
+  element.querySelector('.drawith__overlay-spinner')?.remove()
 }
 
 export const preventDefaultTouchOnEls = function() {

@@ -273,9 +273,11 @@ iframe {
   left: 0rem;
   z-index: 500;
   position: absolute;
+  cursor: auto;
 }
 .drawith__overlay-spinner-image {
   position: absolute;
+  cursor: auto;
   width: 6rem;
   height: 6rem;
   left: 50%;

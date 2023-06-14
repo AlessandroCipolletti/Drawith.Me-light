@@ -24,6 +24,12 @@
   max-width: 110%;
   max-height: 110%;
 }
+.folder__drawing .spinner {
+  display: inline-block;
+  margin: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+}
 
 .folder__drawing-select-icon {
   position: absolute;

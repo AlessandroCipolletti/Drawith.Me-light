@@ -382,7 +382,7 @@ export const redoLayers = async() => {
   }
 }
 
-const layerDeepCopy = (layer, returnCanvas = true) => ({
+const layerDeepCopy = (layer, deepCopyCanvas = true, usingOffscreen = false) => ({
   id: layer.id,
   minX: layer.minX,
   minY: layer.minY,
@@ -396,78 +396,98 @@ const layerDeepCopy = (layer, returnCanvas = true) => ({
   selectedByCoworker: layer.selectedByCoworker,
   createTimestamp: layer.createTimestamp,
   updateTimestamp: layer.updateTimestamp,
-  canvas: returnCanvas ? duplicateCanvas(layer.canvas) : null,
+  canvas: deepCopyCanvas ? duplicateCanvas(layer.canvas, usingOffscreen) : null,
 })
 
-// chiamata da editor quando si salva il disegno
-export const getGlobalDrawingFullInfo = async() => {
-  const currentDrawingInfo = await getCurrentGlobalImageData()
-
-  currentDrawingInfo.layers = []
+export const exportLayers = async(processLayersInParallel = false) => {
   const layers = Object.values(state.layers)
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
+    .map(l => layerDeepCopy(l, true, true))
 
-  currentDrawingInfo.layers = await Promise.all(layers.map(async(l) => {
-    const layer = layerDeepCopy(l, false)
-    delete layer.canvas
-    layer.base64 = await getImgBase64Async(l.canvas)
-    delete layer.selectedByCoworker
-    delete layer.resizeMode
-    delete layer.gco
-    return layer
-  }))
-
-  return currentDrawingInfo
+  if (processLayersInParallel) {
+    return Promise.all(layers.map(async(layer) => {
+      layer.base64 = await getImgBase64Async(layer.canvas)
+      delete layer.canvas
+      delete layer.selectedByCoworker
+      delete layer.resizeMode
+      delete layer.gco
+      return layer
+    }))
+  } else {
+    const layerData = []
+    for (const layer of layers) {
+      layer.base64 = await getImgBase64Async(layer.canvas)
+      delete layer.canvas
+      delete layer.selectedByCoworker
+      delete layer.resizeMode
+      delete layer.gco
+      layerData.push(layer)
+    }
+    return layerData
+  }
 }
 
-// per salvataggio e pipette getGlobalDrawingFullInfo
-export const getCurrentGlobalImageData = async(returnWholeCanvas = false) => {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+// chiamata da editor quando si salva il disegno, e pipette init.
+export const exportWholeCanvasData = async(returnCanvasContext = false) => {
   let tempCanvas = new OffscreenCanvas(state.canvases.width, state.canvases.height)
   let tempContext = tempCanvas.getContext('2d', { willReadFrequently: true })
+  const data = {
+    minX: Infinity,
+    minY: Infinity,
+    maxX: -Infinity,
+    maxY: -Infinity,
+    width: 0,
+    height: 0,
+    canvasWidth: state.canvases.width,
+    canvasHeight: state.canvases.height,
+    base64: EMPTY_BASE64,
+  }
 
   const layers = Object.values(state.layers).sort((l1, l2) => l1.order > l2.order ? 1 : -1)
   for (const layer of layers) {
     if (layer.active) {
       tempContext.globalAlpha = layer.opacity
       tempContext.drawImage(layer.canvas, 0, 0)
-      minX = Math.min(minX, layer.minX)
-      minY = Math.min(minY, layer.minY)
-      maxX = Math.max(maxX, layer.maxX)
-      maxY = Math.max(maxY, layer.maxY)
+      data.minX = Math.min(data.minX, layer.minX)
+      data.minY = Math.min(data.minY, layer.minY)
+      data.maxX = Math.max(data.maxX, layer.maxX)
+      data.maxY = Math.max(data.maxY, layer.maxY)
     }
   }
-  const width = round(maxX - minX, 0)
-  const height = round(maxY - minY, 0)
-  let base64
+  data.width = round(data.maxX - data.minX, 0)
+  data.height = round(data.maxY - data.minY, 0)
 
-  if (Number.isFinite(minX)) {
-    if (returnWholeCanvas) {
-      base64 = await getImgBase64Async(tempCanvas)
-    } else {
-      const [drawing] = cropImageWithMargin(tempCanvas, minX, minY, maxX, maxY)
-      base64 = await getImgBase64Async(drawing)
+  if (returnCanvasContext) {
+    if (Number.isFinite(data.minX)) {
+      data.base64 = await getImgBase64Async(tempCanvas)
     }
+    data.context = tempContext
   } else {
-    base64 = EMPTY_BASE64
-  }
-
-  const res = {
-    base64,
-    minX, minY, maxX, maxY,
-    width, height,
-    canvasWidth: tempCanvas.width,
-    canvasHeight: tempCanvas.height,
-  }
-
-  if (returnWholeCanvas) {
-    res.tempContext = tempContext
-  } else {
+    if (Number.isFinite(data.minX)) {
+      const [drawing] = cropImageWithMargin(tempCanvas, data.minX, data.minY, data.maxX, data.maxY)
+      data.base64 = await getImgBase64Async(drawing)
+    }
     tempCanvas.width = tempCanvas.height = 0
     tempCanvas = tempContext = null
   }
-  return res
+
+  return data
+}
+
+// ritorna l'immagine totale mergiata insieme, + coordinate e dimensioni, + layers
+export const exportDrawing = async({
+  returnCanvasContext = false,
+  returnLayers = false,
+  processLayersInParallel = false,
+} = {}) => {
+  const currentDrawingData = await exportWholeCanvasData(returnCanvasContext)
+
+  if (returnLayers) {
+    currentDrawingData.layers = await exportLayers(processLayersInParallel)
+  }
+
+  return currentDrawingData
 }
 
 export const currentLayerIsEmpty = (layerId = state.currentSelectedLayerId) => {

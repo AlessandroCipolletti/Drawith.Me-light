@@ -4,8 +4,14 @@ import Params from 'main/Params'
 import { securizeAsyncFn } from 'utils/jsUtils'
 
 export const DEFAULT_LOCAL_DB_ERROR_MSG = 'Db Error: refresh the page.'
-export const DRAWING_STATE_DRAFT_SAVED_LOCALLY = 1
-export const DRAWING_STATE_SAVED_LOCALLY = 2
+export const DRAWING_STATE_SAVING_DRAFT_LOCALLY = 1
+export const DRAWING_STATE_DRAFT_SAVED_LOCALLY = 2
+export const DRAWING_STATE_SAVING_LOCALLY = 3
+export const DRAWING_STATE_SAVED_LOCALLY = 4
+
+export const drawingIsSaving = (drawing) => {
+  return drawing.state === DRAWING_STATE_SAVING_DRAFT_LOCALLY || drawing.state === DRAWING_STATE_SAVING_LOCALLY
+}
 
 /*
   DB VERSION HISTORY:
@@ -21,6 +27,8 @@ export const initLocalDb = securizeAsyncFn(async() => {
   LocalDatabase.version(1).stores({
     Drawings: '++localDbId, folderId, title, state, wasSavedAsDraft, gpsCoordinates, createTimestamp, updateTimestamp, createdAt, updatedAt, base64, bitmap, minX, minY, maxX, maxY, width, height, canvasWidth, canvasHeight, mainColor, dashboardCoordinates, selectedTool, selectedColorId, colors, layers, appVersions, toolsCustomProps',
   })
+
+  await deleteUnsavedDrawings()
 
   return true
 }, DEFAULT_LOCAL_DB_ERROR_MSG, 'initLocalDb')
@@ -41,6 +49,8 @@ export const emptyDrawingsData = securizeAsyncFn(async() => await LocalDatabase.
 
 export const deleteLocalDrawings = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('localDbId').anyOf(ids).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteLocalDrawings')
 
+export const deleteUnsavedDrawings = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('layers').equals([]).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteUnsavedDrawings')
+
 export const getAllLocalDrawings = securizeAsyncFn(async() => (await LocalDatabase.Drawings.orderBy('updateTimestamp').reverse().toArray()), DEFAULT_LOCAL_DB_ERROR_MSG, 'getAllLocalDrawings')
 
 export const getDrawingsCount = securizeAsyncFn(async() => await LocalDatabase.Drawings.count(), DEFAULT_LOCAL_DB_ERROR_MSG, 'getDrawingsCount')
@@ -53,7 +63,7 @@ export const updateLocalDrawing = securizeAsyncFn(async(localDbId, drawing) => a
 
 const addLocalDrawing = securizeAsyncFn(async(drawing) => await LocalDatabase.Drawings.add(drawing), DEFAULT_LOCAL_DB_ERROR_MSG, 'addLocalDrawing')
 
-const updateDrawing = securizeAsyncFn(async(drawing, wasSavedAsDraft, madeByCorowking) => {
+const updateDrawing = securizeAsyncFn(async(drawing) => {
   const oldDrawing = await getOneDrawing(drawing.localDbId)
   const appVersions = oldDrawing.appVersions
   if (!appVersions.includes(Params.appVersion)) {
@@ -61,55 +71,55 @@ const updateDrawing = securizeAsyncFn(async(drawing, wasSavedAsDraft, madeByCoro
   }
   drawing.createTimestamp = oldDrawing.createTimestamp
   drawing.appVersions = appVersions
-  drawing.state = (wasSavedAsDraft ? DRAWING_STATE_DRAFT_SAVED_LOCALLY : DRAWING_STATE_SAVED_LOCALLY)
-  drawing.wasSavedAsDraft = wasSavedAsDraft
   drawing.updateTimestamp = Date.now()
-  drawing.madeByCorowking = madeByCorowking
-
-  if (wasSavedAsDraft) {
-    console.log('Updated drawing draft')
-  } else {
-    console.log('Updated drawing')
-  }
-
   await updateLocalDrawing(drawing.localDbId, drawing)
 }, DEFAULT_LOCAL_DB_ERROR_MSG, 'updateDrawing')
 
-const addDrawing = securizeAsyncFn(async(drawing, wasSavedAsDraft, madeByCorowking) => {
+const addDrawing = securizeAsyncFn(async(drawing) => {
   const now = Date.now()
-  drawing.state = (wasSavedAsDraft ? DRAWING_STATE_DRAFT_SAVED_LOCALLY : DRAWING_STATE_SAVED_LOCALLY)
   drawing.createTimestamp = now
   drawing.updateTimestamp = now
-  drawing.wasSavedAsDraft = wasSavedAsDraft
   drawing.appVersions = [Params.appVersion]
-  drawing.madeByCorowking = madeByCorowking
-
   drawing.localDbId = await addLocalDrawing(drawing)
-
-  if (wasSavedAsDraft) {
-    console.log('Saved new drawing draft')
-  } else {
-    console.log('Saved new drawing')
-  }
   return drawing.localDbId
 }, DEFAULT_LOCAL_DB_ERROR_MSG, 'addDrawing')
 
-export const saveDrawToDB = securizeAsyncFn(async(drawing, isDraft, madeByCorowking) => {
+export const saveDrawingToDB = securizeAsyncFn(async(drawing, isDraft = false) => {
   let id = drawing.localDbId
-  if (id && await getOneDrawing(id)) {
-    await updateDrawing(drawing, isDraft, madeByCorowking)
+  const alreadyExists = id && await getOneDrawing(id)
+  drawing.wasSavedAsDraft = isDraft
+
+  if (isDraft) {
+    if (drawing.layers.length) {
+      drawing.state = DRAWING_STATE_DRAFT_SAVED_LOCALLY
+    } else {
+      drawing.state = DRAWING_STATE_SAVING_DRAFT_LOCALLY
+    }
+  } else {
+    if (drawing.layers.length) {
+      drawing.state = DRAWING_STATE_SAVED_LOCALLY
+    } else {
+      drawing.state = DRAWING_STATE_SAVING_LOCALLY
+    }
+  }
+
+  console.log(`${alreadyExists ? 'Updated' : 'Saved new'} drawing ${isDraft ? 'draft' : ''}${drawing.layers.length === 0 ? 'temporarly': ''} --> state:${drawing.state}`)
+
+  if (alreadyExists) {
+    await updateDrawing(drawing, isDraft)
   } else {
     delete drawing.localDbId
-    id = await addDrawing(drawing, isDraft, madeByCorowking)
+    id = await addDrawing(drawing, isDraft)
   }
+
   return id
-}, DEFAULT_LOCAL_DB_ERROR_MSG)
+}, DEFAULT_LOCAL_DB_ERROR_MSG, 'saveDrawingToDB')
 
 export const saveDrawingPaletteColors = securizeAsyncFn(async(localDbId, colors = []) => {
   await updateLocalDrawing(localDbId, {
     colors,
   })
-}, DEFAULT_LOCAL_DB_ERROR_MSG, 'saveDrawToDB')
+}, DEFAULT_LOCAL_DB_ERROR_MSG, 'saveDrawingPaletteColors')
 
 
 export default LocalDatabase

@@ -5,6 +5,7 @@
     </div>
     <div class="folder__drawing folder__drawing-new-coworking">
       <span>{{labels.drawWithAFriend}}</span>
+      <div class="folder__drawing-new-coworking-offline">{{labels.offline}}</div>
     </div>
   </div>
 

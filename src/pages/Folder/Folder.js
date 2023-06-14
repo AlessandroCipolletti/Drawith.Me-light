@@ -8,7 +8,7 @@ import './tpl/folderSharePopup.css'
 import Params from 'main/Params'
 import * as Messages from 'modules/Messages'
 import * as LocalDB from 'utils/localDbUtils'
-import { addSpinnerOverlayTo, setSpinner, loadTemplate, preventDefault, enableElements, disableElements } from 'utils/domUtils'
+import { removeSpinnerOverlayFrom, addSpinnerOverlayTo, setSpinner, loadTemplate, preventDefault, enableElements, disableElements } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 import { cleanRefs } from 'utils/moduleUtils'
@@ -20,8 +20,13 @@ import { goToPage } from 'modules/Router'
 import * as Coworking from 'modules/Coworking'
 
 
+const config = {
+  updateDrawingsLoadingDelay: 1000, // ms
+}
 let state = {}
 const initialState = {
+  checkDrawingsInterval: false,
+  loadingDrawingsIds: [],
   selectionMode: false,
   coworkingPopupOpened: false,
   sendCheckboxChecked: false,
@@ -46,6 +51,7 @@ const refs = {
 const labels = {
   select: 'Select',
   done: 'Done',
+  offline: 'OFFLINE',
   areYouSure: 'Are you sure?',
   tapAndHoldOneImage: 'Tap and hold the image to share it',
   tapAndHoldImages: 'Tap and hold an image to share it',
@@ -125,20 +131,6 @@ const openCoworkingPopup = (e) => {
     refs.copiedCoworkingLabel.classList.add('displayNone')
   }
 }
-
-const onCoworkingSpinnerClick = (() => {
-  let lastMessageTimestamp = 0
-  const messagesDelay = 5 * 1000
-
-  return (e) => {
-    preventDefault(e)
-    const now = Date.now()
-    if (now > lastMessageTimestamp + messagesDelay) {
-      Messages.info(labels.waitingToReconnect)
-      lastMessageTimestamp = now
-    }
-  }
-})()
 
 const onDrawingClick = (e) => {
   if (e.target.classList.contains('folder__drawing') || e.target.classList.contains('folder__drawing-preview')) {
@@ -268,13 +260,43 @@ const getSelectedIds = () => {
     .map(el => parseInt(el.getAttribute('data-local-id')))
 }
 
+const updateDrawingsLoading = async() => {
+  const drawings = await LocalDB.getSomeDrawings(state.loadingDrawingsIds)
+  for (const drawing of drawings) {
+    const drawingDom = document.querySelector(`.folder__drawing[data-local-id="${drawing.localDbId}"]`)
+    if (LocalDB.drawingIsSaving(drawing)) {
+      if (!drawingDom.classList.contains('folder__drawing-saving')) {
+        drawingDom.classList.add('folder__drawing-saving')
+        addSpinnerOverlayTo(drawingDom, false)
+      }
+    } else if (drawingDom.classList.contains('folder__drawing-saving')) {
+      drawingDom.classList.remove('folder__drawing-saving')
+      removeSpinnerOverlayFrom(drawingDom)
+    }
+    drawingDom.classList.toggle('folder__drawing-saving', LocalDB.drawingIsSaving(drawing))
+  }
+
+  state.loadingDrawingsIds = drawings.filter(LocalDB.drawingIsSaving).map(d => d.localDbId)
+  if (state.loadingDrawingsIds.length === 0) {
+    clearInterval(state.checkDrawingsInterval)
+  }
+}
+
 export const refreshContent = async() => {
   let drawings = await LocalDB.getAllLocalDrawings()
-  const scroll = refs.drawingsContainer.scrollTop
+  const currentScroll = refs.drawingsContainer.scrollTop
   refs.drawingsContainer.innerHTML = ''
   await loadTemplate(tplContent, { drawings }, refs.drawingsContainer)
-  refs.drawingsContainer.scrollTop = scroll
+  refs.drawingsContainer.scrollTop = currentScroll
   refs.topnav.classList.toggle('displayNone', !drawings.length)
+
+  state.loadingDrawingsIds = drawings.filter(LocalDB.drawingIsSaving).map(d => d.localDbId)
+  if (state.loadingDrawingsIds.length > 0) {
+    updateDrawingsLoading()
+    clearInterval(state.checkDrawingsInterval)
+    state.checkDrawingsInterval = setInterval(updateDrawingsLoading, config.updateDrawingsLoadingDelay)
+  }
+
   drawings = undefined
 }
 
@@ -302,7 +324,6 @@ const initDom = async() => {
   refs.container.querySelector('.folder__new-container').addEventListener(Params.eventStart, preventDefault)
   refs.coworkingPopup.remove()
   addListScrollClickAndPressHandlers(refs.drawingsContainer, onDrawingClick, onDrawingLongPress)
-  addSpinnerOverlayTo(refs.container.querySelector('.folder__drawing-new-coworking'), onCoworkingSpinnerClick)
   toolsButtons.push(refs.exportButton, refs.deleteButton /*, refs.sendButton */)
 }
 
@@ -320,6 +341,7 @@ export const close = async() => {
   await fadeOutElements(refs.container)
   removeGlobalStatus('drawith__FOLDER-OPEN')
   closeCoworkingPopup()
+  clearInterval(state.checkDrawingsInterval)
   toolsButtons = []
   state = {}
   cleanRefs(refs)

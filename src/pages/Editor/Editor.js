@@ -12,12 +12,13 @@ import * as Toolbar from './components/Toolbar'
 import * as Layers from './components/Layers'
 import * as Tools from './components/Tools'
 import * as Ruler from './components/Ruler'
+import { addPreventPageRefresh, removePreventPageRefresh } from 'main/main'
 import { setSpinner, getEventCoordX, getEventCoordY, loadTemplate, preventDefault, getDomRect } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 import { round, getNumberInBetween, getOriginalCoordsFromScaleRotation, getAverage, roundAngleForSteps } from 'utils/mathUtils'
 import { rgbToHex } from 'utils/colorsUtils'
-import { saveDrawToDB, getOneDrawing, saveDrawingPaletteColors } from 'utils/localDbUtils'
+import { saveDrawingToDB, getOneDrawing, saveDrawingPaletteColors } from 'utils/localDbUtils'
 import { addRotationHandler, removeRotationHandler, cleanRefs } from 'utils/moduleUtils'
 import { handlePointerEvents } from 'utils/pointerEventsUtils'
 import { delay, deepCopy } from 'utils/jsUtils'
@@ -25,7 +26,7 @@ import { addResizeBulletsHandlers } from 'utils/uiUtils'
 import { init as initCanvasUtils, remove as removeCanvasUtils, fillWithBucket, setImageShapeIfNeeded, drawCurvedFunctionLine, drawMultipleCoworkingSteps, cleanBucketHistory, toolShapesDrawFns, getCanvasColorAtPx, fillCompletely, getNewContextForCanvas } from 'utils/canvasUtils'
 import { updateCurrentTouchData, getStepData, updateEditorZoomGlobalState, shouldThisStepMoveAdaptLine, initState, initCanvasOffset, findValueWithMagnetism, applyRationResizeMagnetism, getAltitudeFactorFromAngle } from './editorUtils'
 import { toolDefaultProps } from './config'
-import { goToPage } from 'modules/Router'
+import { openPageFolder } from 'modules/Router'
 import { TOUCH_TYPE_STYLUS, TOUCH_TYPE_FINGER } from 'main/constants'
 import { spacing } from 'main/Theme'
 
@@ -36,12 +37,12 @@ import { spacing } from 'main/Theme'
   - Ottimizzata la preview del layer con un piccolo canvas.
   - Provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
   - Bitmap salvata in indexDB e rimpiazzate tutte le locahPathSmall
-  - Folder con piccoli canvas
   - Add bitmap.close() quando cancello uno step, e su tutta la history di un layer quando lo cancello definitivamente
+  - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
 
   DA FARE:
-  - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
-  - to test performances on iPad con taaaanti layer belli peni
+  - to test performances on iPad con taaaanti layer belli peni.
+  - Salvare solo i layer che sono cambiati dall'ultima apertura.
 
 
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
@@ -368,10 +369,10 @@ const initPipetteCursor = async () => {
     [initialX, initialY] = getOriginalCoordsFromScaleRotation(initialX, initialY, state.canvas.originCoordX, state.canvas.originCoordY, state.canvas.scale, state.canvas.rotation)
   }
 
-  Layers.getCurrentGlobalImageData(true).then(currentImageData => {
+  Layers.exportWholeCanvasData(true).then(currentImageData => {
     state.pipette.bg = currentImageData.base64
     refs.pipetteBackground.style.backgroundImage = `url(${currentImageData.base64})`
-    state.pipette.context = currentImageData.tempContext
+    state.pipette.context = currentImageData.context
 
     updatePipette(
       initialX,
@@ -403,10 +404,13 @@ const saveDraftIfNeeded = async () => {
   if (!state.currentTouch.isDown && state.changedSinceDraft) {
     state.changedSinceDraft = false
     state.drawnStepsSinceDraft = 0
+    setDraftInterval(true)
     if (state.modified) {
-      const currentDraw = await getCurrentDrawInfo()
-      if (currentDraw.maxX >= 0) {
-        const savedId = await saveDrawToDB(currentDraw, true, false, state.withCoworking)
+      const currentDrawing = await getCurrentDrawingInfo()
+      if (currentDrawing.maxX >= 0) {
+        currentDrawing.madeByCorowking = Coworking.isOpen()
+        currentDrawing.layers = await Layers.exportLayers()
+        const savedId = await saveDrawingToDB(currentDrawing, true)
         if (savedId) {
           if (state.localDbDrawId === false) { // se è la prima bozza che salvo per questo nuovo disegno (mai salvato prima)
             Messages.info(labels.draftSaved, config.draftInfoDuration)
@@ -423,17 +427,26 @@ const saveDraftIfNeeded = async () => {
 
 export const saveAndGoToFolder = async () => {
   if (!Coworking.isOpen() || await Messages.confirm(labels.areYouSureToCloseCoworking)) {
+    const madeByCorowking = Coworking.isOpen()
     setSpinner(true)
     await delay(20)
     Coworking.stop()
     setDraftInterval(false)
     if (state.modified) {
-      const currentDraw = await getCurrentDrawInfo()
-      if (currentDraw.maxX >= 0) {
-        await saveDrawToDB(currentDraw, false, Coworking.isOpen(), state.withCoworking)
+      const currentDrawing = await getCurrentDrawingInfo()
+      if (currentDrawing.maxX >= 0) {
+        currentDrawing.layers = []
+        currentDrawing.madeByCorowking = madeByCorowking
+        await saveDrawingToDB(currentDrawing)
+        addPreventPageRefresh()
+        Layers.exportLayers().then(layers => {
+          currentDrawing.layers = layers
+          saveDrawingToDB(currentDrawing)
+          removePreventPageRefresh()
+        })
       }
     }
-    goToPage('folder/open/true')
+    openPageFolder()
   }
 }
 
@@ -446,11 +459,13 @@ export const saveDrawingsPalette = (colors = []) => {
 export const saveCopy = async () => {
   if (state.canMakeACopy) {
     state.canMakeACopy = false
-    const currentDraw = await getCurrentDrawInfo()
-    delete currentDraw.localDbId
+    const currentDrawing = await getCurrentDrawingInfo()
+    delete currentDrawing.localDbId
 
-    if (currentDraw.maxX >= 0) {
-      const savedId = await saveDrawToDB(currentDraw, false, Coworking.isOpen(), false)
+    if (currentDrawing.maxX >= 0) {
+      currentDrawing.madeByCorowking = Coworking.isOpen()
+      currentDrawing.layers = await Layers.exportLayers()
+      const savedId = await saveDrawingToDB(currentDrawing)
       if (savedId) {
         Messages.info(labels.copySaved, config.draftInfoDuration)
         Toolbar.disableSaveCopy()
@@ -464,13 +479,11 @@ export const saveCopy = async () => {
 }
 
 const setDraftInterval = (start) => {
+  clearInterval(state.draftInterval)
+  state.draftInterval = false
+
   if (start) {
-    if (state.draftInterval === false) {
-      state.draftInterval = setInterval(saveDraftIfNeeded, config.draftTimeInterval)
-    }
-  } else {
-    clearInterval(state.draftInterval)
-    state.draftInterval = false
+    state.draftInterval = setInterval(saveDraftIfNeeded, config.draftTimeInterval)
   }
 }
 
@@ -577,14 +590,14 @@ export const hideDragBox = () => {
   ])
 }
 
-const getCurrentDrawInfo = async () => {
-  const currentDraw = await Layers.getGlobalDrawingFullInfo()
-  currentDraw.localDbId = state.localDbDrawId // db id or false
-  currentDraw.colors = ColorPicker.getCurrentColorsPalette()
-  currentDraw.selectedColorId = ColorPicker.getCurrentSelectedColorId()
-  currentDraw.toolsCustomProps = Tools.getToolsCustomProps()
-  currentDraw.selectedTool = Tools.getCurrentSelectedTool()
-  return currentDraw
+const getCurrentDrawingInfo = async () => {
+  const currentDrawing = await Layers.exportWholeCanvasData()
+  currentDrawing.localDbId = state.localDbDrawId // db id or false
+  currentDrawing.colors = ColorPicker.getCurrentColorsPalette()
+  currentDrawing.selectedColorId = ColorPicker.getCurrentSelectedColorId()
+  currentDrawing.toolsCustomProps = Tools.getToolsCustomProps()
+  currentDrawing.selectedTool = Tools.getCurrentSelectedTool()
+  return currentDrawing
 }
 
 export const toggleFullscreen = () => {
