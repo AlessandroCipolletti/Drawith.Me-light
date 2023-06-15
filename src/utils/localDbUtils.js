@@ -87,7 +87,6 @@ const addDrawing = securizeAsyncFn(async(drawing) => {
 export const saveDrawingToDB = securizeAsyncFn(async(drawing, isDraft = false) => {
   let id = drawing.localDbId
   const existingDrawing = !!id && await getOneDrawing(id)
-  const alreadyExists = !!existingDrawing
   drawing.wasSavedAsDraft = isDraft
 
   if (isDraft) {
@@ -104,14 +103,14 @@ export const saveDrawingToDB = securizeAsyncFn(async(drawing, isDraft = false) =
     }
   }
 
-  console.log(`${alreadyExists ? 'Updated' : 'Saved new'} drawing ${isDraft ? 'draft' : ''}${drawing.layers.length === 0 ? 'temporarly': ''} --> state: ${drawing.state}`)
+  // console.log(`${existingDrawing ? 'Updated' : 'Saved new'} drawing ${isDraft ? 'draft' : ''}${drawing.layers.length === 0 ? 'temporarly': ''} --> state: ${drawing.state}`)
 
   // Ogni salvataggio fatto a mano passa di qui due volte:
   //   la prima salvo la preview del disegno completo, poi apro il folder per salvare in async, e infine ripasso da qui per salvare tutti i layer esportati in background.
   // Quindi anche durante il primo salvataggio (senza layer) ho bisogno di mantenere i layer precedenti nel database per poterli sfruttare durante il secondo salvataggio definitivo.
   // Questo perché per ottimizzare il secondo salvataggio, esporto solo i layers che sono stati modificati, e per gli altri copio il base64 del layer già nel db.
   // Quindi se all'init trovo un disegno bloccato in stato di "saving" devo eliminarlo perché contiene la preview del disegno finito ma con i layers precedenti.
-  if (alreadyExists) {
+  if (existingDrawing) {
     if (drawing.layers.length) {
       drawing.layers = mergeUnchangedLayers(drawing.layers, existingDrawing.layers)
     } else {

@@ -443,16 +443,29 @@ export const saveAndGoToFolder = async () => {
     Coworking.stop()
     await delay(20)
     if (state.modified) {
+      console.time('export disegno base')
       const currentDrawing = await getCurrentDrawingInfo()
+      console.timeEnd('export disegno base')
+      await delay(50)
       if (currentDrawing.maxX >= 0) {
         currentDrawing.layers = []
         currentDrawing.madeByCorowking = madeByCorowking
+        console.time('salvataggio 1')
         await saveDrawingToDB(currentDrawing)
+        console.timeEnd('salvataggio 1')
+        await delay(50)
         addPreventPageRefresh()
+        console.time('export layer')
         Layers.exportLayers().then(layers => {
+          console.timeEnd('export layer')
           currentDrawing.layers = layers
-          saveDrawingToDB(currentDrawing)
-          removePreventPageRefresh()
+          console.time('salvataggio 2')
+          delay(50).then(() => {
+            saveDrawingToDB(currentDrawing).then(() => {
+              console.timeEnd('salvataggio 2')
+            })
+            removePreventPageRefresh()
+          })
         })
       }
     }
