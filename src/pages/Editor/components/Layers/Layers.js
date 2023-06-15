@@ -15,7 +15,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImages, getImgBase64Async, duplicateCanvas, getCanvasFromBase64 } from 'utils/imageUtils'
+import { getImgBase64OffThread, cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImages, getImgBase64Async, duplicateCanvas, getCanvasFromBase64 } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -395,7 +395,10 @@ const layerDeepCopy = (layer, deepCopyCanvas = true, usingOffscreen = false) => 
 
 const prepareLayerDataToExport = async(layer) => {
   if (layer.canvas) {
-    layer.base64 = await getImgBase64Async(layer.canvas)
+    let bitmap = await createImageBitmap(layer.canvas)
+    layer.base64 = await getImgBase64OffThread(bitmap)
+    bitmap.close()
+    bitmap = undefined
   }
   delete layer.selectedByCoworker
   delete layer.resizeMode
@@ -415,10 +418,10 @@ export const mergeUnchangedLayers = (exportedLayers, previousLayers) => {
 }
 
 export const exportLayers = async(processLayersInParallel = false, exportJustModiedLayers = true) => {
-  const layers = Object.values(state.layers)
+  let layers = Object.values(state.layers)
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
-    .map(l => layerDeepCopy(l, !exportJustModiedLayers || l.modified, true)) // duplicate canvas just for modified layers
+    .map(l => layerDeepCopy(l, !exportJustModiedLayers || l.modified, true))
 
   if (processLayersInParallel) {
     return Promise.all(layers.map(prepareLayerDataToExport))

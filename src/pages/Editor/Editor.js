@@ -40,9 +40,11 @@ import { spacing } from 'main/Theme'
   - Add bitmap.close() quando cancello uno step, e su tutta la history di un layer quando lo cancello definitivamente
   - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
   - Salvare solo i layer che sono cambiati dall'ultima apertura.
+  - ovviamente il salvataggio sulla branch originale va più veloce perché tutti i layer hanno già il base64 bello pronto. devo provare qui a generare un base64 off thread.
 
   DA FARE:
   - to test performances on iPad con taaaanti layer belli peni.
+  - provare ad ottimizzare anche l'apertura di un grosso disegno caricando i base64 to bitmap in un worker.
 
 
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
