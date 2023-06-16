@@ -33,9 +33,9 @@ const config = {
   maxConcurrentThreads: 8,
   stepHistoryMaxLength: 20 + 1,
   maxLayersNumber: 30,
-  maxLayersNumberLowPerf: 30,
+  maxLayersNumberLowPerf: 20,
   maxLayersNumberMediumPerf: 30,
-  maxLayersNumberHightPerf: 40,
+  maxLayersNumberHighPerf: 40,
   paramsCloseDelay: 7_000,
   coordsImgScale: 1, // findImageContentCoords pxPrecision. 1 = check every px, 2 = check every 2px, etc...
 }
@@ -1359,7 +1359,7 @@ const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking)
 }
 
 export const init = async(moduleContainer, initialLayers = [], canvasWidth, canvasHeight, withCoworking = false) => {
-  config.maxLayersNumber = config.maxLayersNumberHightPerf
+  config.maxLayersNumber = config.maxLayersNumberHighPerf
   if (Params.isTablet && Params.ios) {
     const screenMaxSize = getRealScreenMaxSize()
     if (screenMaxSize < 2200) {
