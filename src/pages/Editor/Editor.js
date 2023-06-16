@@ -237,8 +237,6 @@ const labels = {
 }
 
 export let coworking
-export const getCurrentOpenedDrawingLocalId = () => state.localDbDrawId
-
 
 const stepDataKeys = ['type', 'x', 'y', 'midX', 'midY', 'size', 'alpha', 'rotation', 'oldSize', 'oldAlpha', 'oldRotation', 'oldMidX', 'oldMidY', 'oldX', 'oldY', 'stepLength']
 const addTouchStepDataKeys = (stepDataArray) => Object.fromEntries(stepDataArray.map((v, i) => [stepDataKeys[i], v]))
