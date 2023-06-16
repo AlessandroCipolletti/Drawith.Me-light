@@ -491,7 +491,7 @@ const onSaveDraftError = () => {
 export const saveCopy = () => save({
   onSave: onSaveCopy,
   onError: onSaveCopyError,
-  asCopy: true
+  asCopy: true,
 })
 const onSaveCopy = () => {
   state.modifiedSinceLastCopy = false
