@@ -43,10 +43,11 @@ import { spacing } from 'main/Theme'
   - ovviamente il salvataggio sulla branch originale va più veloce perché tutti i layer hanno già il base64 bello pronto. devo provare qui a generare un base64 off thread.
   - provare ad esportare il layer direttamente dal bitmap del current step dell'history. Il problema è che non posso chiudere il bitmap alla chiusura dell'editor. no pb durante la bozza.
   - dopo ogni salvataggio bozza, mettere il layer.modified a false.
+  - provare ad ottimizzare anche l'apertura di un grosso disegno caricando i base64 to bitmap in un worker.
+  - Layers -> on drawing open, pre-scroll al selected layer
 
   DA FARE:
   - to test performances on iPad con taaaanti layer belli peni.
-  - provare ad ottimizzare anche l'apertura di un grosso disegno caricando i base64 to bitmap in un worker.
 
 
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
@@ -236,8 +237,6 @@ const labels = {
 }
 
 export let coworking
-export const getCurrentOpenedDrawingLocalId = () => state.localDbDrawId
-
 
 const stepDataKeys = ['type', 'x', 'y', 'midX', 'midY', 'size', 'alpha', 'rotation', 'oldSize', 'oldAlpha', 'oldRotation', 'oldMidX', 'oldMidY', 'oldX', 'oldY', 'stepLength']
 const addTouchStepDataKeys = (stepDataArray) => Object.fromEntries(stepDataArray.map((v, i) => [stepDataKeys[i], v]))
@@ -491,7 +490,7 @@ const onSaveDraftError = () => {
 export const saveCopy = () => save({
   onSave: onSaveCopy,
   onError: onSaveCopyError,
-  asCopy: true
+  asCopy: true,
 })
 const onSaveCopy = () => {
   state.modifiedSinceLastCopy = false

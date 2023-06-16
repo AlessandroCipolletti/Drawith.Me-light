@@ -27,9 +27,8 @@ const blobToBase64Async = (blob) => {
 }
 
 
-
 self.addEventListener('message', async (event) => {
-  let { id, bitmap } = event.data
+  const { id, bitmap } = event.data
 
   const canvas = imgToCanvas(bitmap, false)
 

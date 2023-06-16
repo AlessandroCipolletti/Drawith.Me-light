@@ -80,6 +80,7 @@
 .editor-layers__list {
   max-height: var(--layers-list-height);
   overflow: auto;
+  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   transform: translate3d(0px, calc(var(--layers-new-button-height) * -1), 0px);
 }

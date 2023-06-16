@@ -15,7 +15,7 @@ import { preventDefault, loadTemplate, createDom } from 'utils/domUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import { addInElement, removeOutElement, fadeOutElements, fadeInElements } from 'utils/animationsUtils'
 import { round, convertAngleDegToRad } from 'utils/mathUtils'
-import { getImgBase64OffThread, cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImages, getImgBase64Async, duplicateCanvas, getCanvasFromBase64 } from 'utils/imageUtils'
+import { getImgBase64OffThread, cropImageWithMargin, resizeImage, flipImage, findImageContentCoords, mergeImages, duplicateCanvas, getCanvasFromBase64 } from 'utils/imageUtils'
 import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
@@ -434,7 +434,7 @@ export const mergeUnchangedLayers = (exportedLayers, previousLayers) => {
 
 export const exportLayers = async({
   processLayersInParallel = false,
-  exportJustModiedLayers = true,
+  exportJustModifiedLayers = true,
   cleanMemoryAfterwards = false,
 } = {}) => {
   let layerData = []
@@ -443,7 +443,7 @@ export const exportLayers = async({
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
     .map(l => layerDeepCopy(l, {
-      exportBitmap: !exportJustModiedLayers || l.modified,
+      exportBitmap: !exportJustModifiedLayers || l.modified,
       deepCopyCanvas: false,
     }))
 
@@ -454,7 +454,6 @@ export const exportLayers = async({
   if (processLayersInParallel) {
     layerData = Promise.all(layers.map(prepareLayerDataToExport))
   } else {
-    
     for (const layer of layers) {
       layerData.push(await prepareLayerDataToExport(layer))
     }
@@ -501,19 +500,25 @@ export const exportWholeCanvasData = async(returnCanvasContext = false) => {
   data.width = round(data.maxX - data.minX, 0)
   data.height = round(data.maxY - data.minY, 0)
 
+  let bitmap
   if (returnCanvasContext) {
     if (Number.isFinite(data.minX)) {
-      data.base64 = await getImgBase64Async(tempCanvas)
+      bitmap = await createImageBitmap(tempCanvas)
+      data.base64 = await getImgBase64OffThread(bitmap)
     }
     data.context = tempContext
   } else {
     if (Number.isFinite(data.minX)) {
-      const [drawing] = cropImageWithMargin(tempCanvas, data.minX, data.minY, data.maxX, data.maxY)
-      data.base64 = await getImgBase64Async(drawing)
+      [bitmap] = cropImageWithMargin(tempCanvas, data.minX, data.minY, data.maxX, data.maxY)
+      bitmap = await createImageBitmap(bitmap)
+      data.base64 = await getImgBase64OffThread(bitmap)
     }
     tempCanvas.width = tempCanvas.height = 0
     tempCanvas = tempContext = null
   }
+
+  bitmap.close()
+  bitmap = null
 
   return data
 }
@@ -1380,6 +1385,11 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
   }
   await initLayers(initialLayers, canvasWidth, canvasHeight)
   state.maxLayerCount = Object.keys(state.layers).length
+
+  setTimeout(() => {
+    window.layersList = refs.layersList
+    refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected').offsetTop
+  }, 200)
 }
 
 // chiamata da history.onDelete
