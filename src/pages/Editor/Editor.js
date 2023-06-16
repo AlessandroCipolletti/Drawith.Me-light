@@ -33,23 +33,6 @@ import { spacing } from 'main/Theme'
 
 /*
   ----- OFFSCREEN CANVAS -----
-  FATTO:
-  - Ottimizzata la preview del layer con un piccolo canvas.
-  - Provare a rimpiazzare i layer.img con un layer.canvas come in origine, e riempirli con le img bitmap.
-  - Bitmap salvata in indexDB e rimpiazzate tutte le locahPathSmall
-  - Add bitmap.close() quando cancello uno step, e su tutta la history di un layer quando lo cancello definitivamente
-  - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
-  - Salvare solo i layer che sono cambiati dall'ultima apertura.
-  - ovviamente il salvataggio sulla branch originale va più veloce perché tutti i layer hanno già il base64 bello pronto. devo provare qui a generare un base64 off thread.
-  - provare ad esportare il layer direttamente dal bitmap del current step dell'history. Il problema è che non posso chiudere il bitmap alla chiusura dell'editor. no pb durante la bozza.
-  - dopo ogni salvataggio bozza, mettere il layer.modified a false.
-  - provare ad ottimizzare anche l'apertura di un grosso disegno caricando i base64 to bitmap in un worker.
-  - Layers -> on drawing open, pre-scroll al selected layer
-
-  DA FARE:
-  - to test performances on iPad con taaaanti layer belli peni.
-
-
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
   - Test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
   - Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.

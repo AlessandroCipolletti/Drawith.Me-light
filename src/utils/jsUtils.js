@@ -271,3 +271,21 @@ export const testDeviceSupported = async() => {
   //
   // return supported
 }
+
+export const parallelize = async(data, fn, maxParallel = 8) => {
+  const results = []
+  const promises = []
+  let i = 0
+
+  while (i < data.length) {
+    promises.push(fn(data[i], i))
+    if (promises.length >= maxParallel) {
+      results.push(...(await Promise.all(promises)))
+      promises.length = 0
+    }
+    i++
+  }
+  results.push(...(await Promise.all(promises)))
+
+  return results
+}

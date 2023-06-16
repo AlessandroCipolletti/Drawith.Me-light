@@ -20,7 +20,7 @@ import { getNewContextForCanvas, fillCanvasWithImage } from 'utils/canvasUtils'
 import { addListScrollClickAndPressHandlers, addVerticalDragSliderHandler, handleElementsListDragAndDrop } from 'utils/uiUtils'
 import { getMagnetismCoordXForLayer, getMagnetismCoordYForLayer, getMagnetismCoordLeftForLayer, getMagnetismCoordTopForLayer, getMagnetismCoordRightForLayer, getMagnetismCoordBottomForLayer } from './layersUtils'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
-import { deepCopy, delay } from 'utils/jsUtils'
+import { deepCopy, delay, parallelize } from 'utils/jsUtils'
 import { timing } from 'main/Theme'
 
 import { HISTORY_STEP_LAYER_CONTENT, HISTORY_STEP_LAYER_OPACITY, HISTORY_STEP_LAYER_SHOW, HISTORY_STEP_LAYER_HIDE, HISTORY_STEP_LAYER_ORDER, HISTORY_STEP_LAYER_DUPLICATE, HISTORY_STEP_LAYER_NEW, HISTORY_STEP_LAYER_DELETE, HISTORY_STEP_LAYERS_MERGE } from './constants'
@@ -30,11 +30,12 @@ const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQA
 
 
 const config = {
+  maxConcurrentThreads: 8,
   stepHistoryMaxLength: 20 + 1,
-  maxLayersNumber: 50, // 20
-  maxLayersNumberLowPerf: 50, // 15
-  maxLayersNumberMediumPerf: 50, // 20
-  maxLayersNumberHightPerf: 50, // 25
+  maxLayersNumber: 30,
+  maxLayersNumberLowPerf: 30,
+  maxLayersNumberMediumPerf: 30,
+  maxLayersNumberHightPerf: 40,
   paramsCloseDelay: 7_000,
   coordsImgScale: 1, // findImageContentCoords pxPrecision. 1 = check every px, 2 = check every 2px, etc...
 }
@@ -433,7 +434,6 @@ export const mergeUnchangedLayers = (exportedLayers, previousLayers) => {
 }
 
 export const exportLayers = async({
-  processLayersInParallel = false,
   exportJustModifiedLayers = true,
   cleanMemoryAfterwards = false,
 } = {}) => {
@@ -451,13 +451,7 @@ export const exportLayers = async({
     layer.modified = false
   }
 
-  if (processLayersInParallel) {
-    layerData = Promise.all(layers.map(prepareLayerDataToExport))
-  } else {
-    for (const layer of layers) {
-      layerData.push(await prepareLayerDataToExport(layer))
-    }
-  }
+  layerData = await parallelize(layers, prepareLayerDataToExport, config.maxConcurrentThreads)
 
   if (cleanMemoryAfterwards) {
     currentLayers.forEach(layer => {
@@ -1281,20 +1275,21 @@ const onContainerTouchStart = (e) => {
   }
 }
 
+const prepareLayerFromDb = async(l) => {
+  const layer = layerDeepCopy(l, { deepCopyCanvas: false })
+  layer.modified = false
+  layer.selectedByCoworker = false
+  layer.canvas = await getCanvasFromBase64(l.base64)
+  layer.canvas.context = getNewContextForCanvas(layer.canvas)
+  layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
+  return layer
+}
+
 const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
   state.canvases.width = canvasWidth
   state.canvases.height = canvasHeight
   if (initialLayers.length) {
-    initialLayers = await Promise.all(initialLayers.map(async(l) => {
-      const layer = layerDeepCopy(l, { deepCopyCanvas: false })
-      layer.modified = false
-      layer.selectedByCoworker = false
-      layer.canvas = await getCanvasFromBase64(l.base64)
-      layer.canvas.context = getNewContextForCanvas(layer.canvas)
-      layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
-      delete l.base64
-      return layer
-    }))
+    initialLayers = await parallelize(initialLayers, prepareLayerFromDb, config.maxConcurrentThreads)
     state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, l])))
   } else {
     const newLayerData = createNewLayerData()
