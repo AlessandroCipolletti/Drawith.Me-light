@@ -142,10 +142,25 @@ export const imgToCanvas = (img, prepareContext = false) => {
 }
 
 export const getImgBase64Async = async(dom) => {
-  if (dom.tagName?.toLowerCase() !== 'canvas' && !(dom instanceof OffscreenCanvas)) {
+  if (!(dom instanceof HTMLCanvasElement) && !(dom instanceof OffscreenCanvas)) {
     dom = imgToCanvas(dom, true)
   }
   return blobToBase64Async(await getCanvasBlobAsync(dom))
+}
+
+export const getImgBase64OffThread = async(bitmap) => {
+  const worker = new Worker(
+    new URL('./workers/imgToBase64Worker.js', import.meta.url),
+    { type: 'module' }
+  )
+
+  const id = uuidv4()
+  worker.postMessage({ id, bitmap })
+  const res = await waitWorkerMessage(worker, id)
+  delete res.id
+  worker.terminate()
+
+  return res.base64
 }
 
 export const getCanvasBase64Async = async(canvas) => blobToBase64Async(await getCanvasBlobAsync(canvas))

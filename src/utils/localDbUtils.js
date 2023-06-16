@@ -1,7 +1,7 @@
 import Dexie from 'dexie'
-
 import Params from 'main/Params'
 import { securizeAsyncFn } from 'utils/jsUtils'
+import { mergeUnchangedLayers } from '../pages/Editor/components/Layers/Layers'
 
 export const DEFAULT_LOCAL_DB_ERROR_MSG = 'Db Error: refresh the page.'
 export const DRAWING_STATE_SAVING_DRAFT_LOCALLY = 1
@@ -49,7 +49,7 @@ export const emptyDrawingsData = securizeAsyncFn(async() => await LocalDatabase.
 
 export const deleteLocalDrawings = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('localDbId').anyOf(ids).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteLocalDrawings')
 
-export const deleteUnsavedDrawings = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('layers').equals([]).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteUnsavedDrawings')
+export const deleteUnsavedDrawings = securizeAsyncFn(async(ids = []) => await LocalDatabase.Drawings.where('state').equals(DRAWING_STATE_SAVING_DRAFT_LOCALLY).or('state').equals(DRAWING_STATE_SAVING_LOCALLY).delete(), DEFAULT_LOCAL_DB_ERROR_MSG, 'deleteUnsavedDrawings')
 
 export const getAllLocalDrawings = securizeAsyncFn(async() => (await LocalDatabase.Drawings.orderBy('updateTimestamp').reverse().toArray()), DEFAULT_LOCAL_DB_ERROR_MSG, 'getAllLocalDrawings')
 
@@ -86,7 +86,7 @@ const addDrawing = securizeAsyncFn(async(drawing) => {
 
 export const saveDrawingToDB = securizeAsyncFn(async(drawing, isDraft = false) => {
   let id = drawing.localDbId
-  const alreadyExists = id && await getOneDrawing(id)
+  const existingDrawing = !!id && await getOneDrawing(id)
   drawing.wasSavedAsDraft = isDraft
 
   if (isDraft) {
@@ -103,9 +103,19 @@ export const saveDrawingToDB = securizeAsyncFn(async(drawing, isDraft = false) =
     }
   }
 
-  console.log(`${alreadyExists ? 'Updated' : 'Saved new'} drawing ${isDraft ? 'draft' : ''}${drawing.layers.length === 0 ? 'temporarly': ''} --> state:${drawing.state}`)
+  console.log(`${existingDrawing ? 'Updated' : 'Saved new'} drawing ${isDraft ? 'draft' : ''}${drawing.layers.length === 0 ? 'temporarly': `(${drawing.layers.filter(l => l.base64).length} modified layers)`} --> state: ${drawing.state}`)
 
-  if (alreadyExists) {
+  // Ogni salvataggio fatto a mano passa di qui due volte:
+  //   la prima salvo la preview del disegno completo, poi apro il folder per dare effetto async, e infine ripasso da qui per salvare tutti i layer esportati in background.
+  // Quindi anche durante il primo salvataggio (senza layer) ho bisogno di mantenere i layer precedenti nel database per poterli sfruttare durante il secondo salvataggio definitivo.
+  // Questo perché per ottimizzare il secondo salvataggio, esporto solo i layers che sono stati modificati, e per gli altri copio il base64 del layer già nel db.
+  // Quindi se all'init trovo un disegno bloccato in stato di "saving" devo eliminarlo perché contiene la preview del disegno finito ma con i layers precedenti.
+  if (existingDrawing) {
+    if (drawing.layers.length) {
+      drawing.layers = mergeUnchangedLayers(drawing.layers, existingDrawing.layers)
+    } else {
+      drawing.layers = existingDrawing.layers
+    }
     await updateDrawing(drawing, isDraft)
   } else {
     delete drawing.localDbId
