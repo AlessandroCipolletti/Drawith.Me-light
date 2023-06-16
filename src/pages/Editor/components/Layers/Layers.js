@@ -447,6 +447,10 @@ export const exportLayers = async({
       deepCopyCanvas: false,
     }))
 
+  for (const layer of currentLayers) {
+    layer.modified = false
+  }
+
   if (processLayersInParallel) {
     layerData = Promise.all(layers.map(prepareLayerDataToExport))
   } else {
