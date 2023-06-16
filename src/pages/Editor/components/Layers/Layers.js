@@ -1385,6 +1385,11 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
   }
   await initLayers(initialLayers, canvasWidth, canvasHeight)
   state.maxLayerCount = Object.keys(state.layers).length
+
+  setTimeout(() => {
+    window.layersList = refs.layersList
+    refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected').offsetTop
+  }, 200)
 }
 
 // chiamata da history.onDelete

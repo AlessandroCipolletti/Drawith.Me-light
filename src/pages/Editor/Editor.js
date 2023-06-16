@@ -44,10 +44,10 @@ import { spacing } from 'main/Theme'
   - provare ad esportare il layer direttamente dal bitmap del current step dell'history. Il problema è che non posso chiudere il bitmap alla chiusura dell'editor. no pb durante la bozza.
   - dopo ogni salvataggio bozza, mettere il layer.modified a false.
   - provare ad ottimizzare anche l'apertura di un grosso disegno caricando i base64 to bitmap in un worker.
+  - Layers -> on drawing open, pre-scroll al selected layer
 
   DA FARE:
   - to test performances on iPad con taaaanti layer belli peni.
-  - Layers -> on drawing open, pre-scroll al selected layer
 
 
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
