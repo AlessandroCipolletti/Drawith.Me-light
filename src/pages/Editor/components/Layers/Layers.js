@@ -375,26 +375,42 @@ export const redoLayers = async() => {
   }
 }
 
-const layerDeepCopy = (layer, deepCopyCanvas = true, usingOffscreen = false) => ({
-  id: layer.id,
-  minX: layer.minX,
-  minY: layer.minY,
-  maxX: layer.maxX,
-  maxY: layer.maxY,
-  name: layer.name,
-  order: layer.order,
-  active: layer.active,
-  opacity: layer.opacity,
-  modified: layer.modified,
-  selected: layer.selected,
-  createTimestamp: layer.createTimestamp,
-  updateTimestamp: layer.updateTimestamp,
-  selectedByCoworker: layer.selectedByCoworker,
-  canvas: deepCopyCanvas ? duplicateCanvas(layer.canvas, usingOffscreen) : null,
-})
+const layerDeepCopy = (layer, {
+  exportBitmap = false,
+  deepCopyCanvas = true,
+  usingOffscreen = false,
+} = {}) => {
+  const copy = {
+    id: layer.id,
+    minX: layer.minX,
+    minY: layer.minY,
+    maxX: layer.maxX,
+    maxY: layer.maxY,
+    name: layer.name,
+    order: layer.order,
+    active: layer.active,
+    opacity: layer.opacity,
+    modified: layer.modified,
+    selected: layer.selected,
+    createTimestamp: layer.createTimestamp,
+    updateTimestamp: layer.updateTimestamp,
+    selectedByCoworker: layer.selectedByCoworker,
+  }
+  if (deepCopyCanvas) {
+    copy.canvas = duplicateCanvas(layer.canvas, usingOffscreen)
+  }
+  if (exportBitmap) {
+    copy.bitmap = layer.history.getCurrent()?.bitmap
+  }
+  return copy
+}
 
 const prepareLayerDataToExport = async(layer) => {
-  if (layer.canvas) {
+  if (layer.bitmap) {
+    layer.base64 = await getImgBase64OffThread(layer.bitmap)
+    // layer.bitmap.close()
+    // layer.bitmap = undefined
+  } else if (layer.canvas) {
     let bitmap = await createImageBitmap(layer.canvas)
     layer.base64 = await getImgBase64OffThread(bitmap)
     bitmap.close()
@@ -417,11 +433,17 @@ export const mergeUnchangedLayers = (exportedLayers, previousLayers) => {
   })
 }
 
-export const exportLayers = async(processLayersInParallel = false, exportJustModiedLayers = true) => {
+export const exportLayers = async({
+  processLayersInParallel = false,
+  exportJustModiedLayers = true,
+} = {}) => {
   let layers = Object.values(state.layers)
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
-    .map(l => layerDeepCopy(l, !exportJustModiedLayers || l.modified, true))
+    .map(l => layerDeepCopy(l, {
+      deepCopyCanvas: !exportJustModiedLayers || l.modified,
+      usingOffscreen: true,
+    }))
 
   if (processLayersInParallel) {
     return Promise.all(layers.map(prepareLayerDataToExport))
@@ -1244,7 +1266,7 @@ const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
   state.canvases.height = canvasHeight
   if (initialLayers.length) {
     initialLayers = await Promise.all(initialLayers.map(async(l) => {
-      const layer = layerDeepCopy(l, false)
+      const layer = layerDeepCopy(l, { deepCopyCanvas: false })
       layer.modified = false
       layer.selectedByCoworker = false
       layer.canvas = await getCanvasFromBase64(l.base64)
@@ -1354,24 +1376,16 @@ const clearLayerHistoryStepBitmap = (step) => {
 }
 
 // chiamata su chiusura editor, e pulizia deleteLayers
-const hardDeleteLayer = (layerId) => {
-  if (state.deletedLayers[layerId]) {
-    state.deletedLayers[layerId].history.clear()
-    state.deletedLayers[layerId].canvas.remove()
-    state.deletedLayers[layerId].canvas.width = state.deletedLayers[layerId].canvas.height = 0
-    state.deletedLayers[layerId].canvas = state.deletedLayers[layerId].history = undefined
-    delete state.deletedLayers[layerId]
-  }
+const hardDeleteLayer = (layer) => {
+  layer.history.clear()
+  layer.canvas.remove()
+  layer.canvas.width = layer.canvas.height = 0
+  layer.canvas = layer.history = undefined
 }
 
 export const remove = () => {
-  Object.values(state.layers).forEach(layer => {
-    layer.history.clear()
-    layer.canvas.remove()
-    layer.canvas.width = layer.canvas.height = 0
-    layer.canvas = layer.history = undefined
-  })
-  Object.values(state.deletedLayers).forEach(layer => hardDeleteLayer(layer.id))
+  Object.values(state.layers).forEach(hardDeleteLayer)
+  Object.values(state.deletedLayers).forEach(hardDeleteLayer)
   LayersHistory.clear()
   cleanRefs(refs)
   state = {}

@@ -45,6 +45,8 @@ import { spacing } from 'main/Theme'
   DA FARE:
   - to test performances on iPad con taaaanti layer belli peni.
   - provare ad ottimizzare anche l'apertura di un grosso disegno caricando i base64 to bitmap in un worker.
+  - dopo ogni salvataggio bozza, mettere il layer.modified a false.
+  - provare ad esportare il layer direttamente dal bitmap del current step dell'history. Il problema è che non posso chiudere il bitmap alla chiusura dell'editor. no pb durante la bozza.
 
 
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
