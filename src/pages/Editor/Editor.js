@@ -21,7 +21,7 @@ import { rgbToHex } from 'utils/colorsUtils'
 import { saveDrawingToDB, getOneDrawing, saveDrawingPaletteColors } from 'utils/localDbUtils'
 import { addRotationHandler, removeRotationHandler, cleanRefs } from 'utils/moduleUtils'
 import { handlePointerEvents } from 'utils/pointerEventsUtils'
-import { delay, deepCopy } from 'utils/jsUtils'
+import { delay, noop, deepCopy } from 'utils/jsUtils'
 import { addResizeBulletsHandlers } from 'utils/uiUtils'
 import { init as initCanvasUtils, remove as removeCanvasUtils, fillWithBucket, setImageShapeIfNeeded, drawCurvedFunctionLine, drawMultipleCoworkingSteps, cleanBucketHistory, toolShapesDrawFns, getCanvasColorAtPx, fillCompletely, getNewContextForCanvas } from 'utils/canvasUtils'
 import { updateCurrentTouchData, getStepData, updateEditorZoomGlobalState, shouldThisStepMoveAdaptLine, initState, initCanvasOffset, findValueWithMagnetism, applyRationResizeMagnetism, getAltitudeFactorFromAngle } from './editorUtils'
@@ -41,12 +41,12 @@ import { spacing } from 'main/Theme'
   - salvataggio disegno asyncrono -> apro subito il folder con uno spinner sul disegno -> per non bloccare l'ipad traduco in base64 un layer alla volta, e chiudo tutti i suoi history bitmap.
   - Salvare solo i layer che sono cambiati dall'ultima apertura.
   - ovviamente il salvataggio sulla branch originale va più veloce perché tutti i layer hanno già il base64 bello pronto. devo provare qui a generare un base64 off thread.
+  - provare ad esportare il layer direttamente dal bitmap del current step dell'history. Il problema è che non posso chiudere il bitmap alla chiusura dell'editor. no pb durante la bozza.
 
   DA FARE:
   - to test performances on iPad con taaaanti layer belli peni.
   - provare ad ottimizzare anche l'apertura di un grosso disegno caricando i base64 to bitmap in un worker.
   - dopo ogni salvataggio bozza, mettere il layer.modified a false.
-  - provare ad esportare il layer direttamente dal bitmap del current step dell'history. Il problema è che non posso chiudere il bitmap alla chiusura dell'editor. no pb durante la bozza.
 
 
   - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
@@ -92,7 +92,8 @@ export const config = {
 let state = {}
 const initialState = {
   pageOpened: false,
-  modified: false,
+  modifiedSinceLastSave: false,
+  modifiedSinceLastCopy: false,
   withCoworking: false,
   currentTouch: {
     type: '',
@@ -181,13 +182,12 @@ const initialState = {
   currentToolGCO: 'source-over',
   currentLayerIsActive: true,
   currentDeviceHasStylus: false,
-  changedSinceDraft: false,
   drawnStepsSinceDraft: 0,
   draftInterval: false,
-  canMakeACopy: false,
   currentSavingDraw: false,
   stepsSinceLastCoworkingUpdate: 0,
   localDbDrawId: false,
+  isSavingToGoToFolder: false,
   currentToolProps: {
     ...config.defaultToolParams,
     color: '',
@@ -275,14 +275,13 @@ const saveStepHistory = () => {
 const debounceSaveStep = debounce(saveStepHistory, 50)
 
 export const setDrawingModified = () => {
-  state.modified = true
-  state.changedSinceDraft = true
+  state.modifiedSinceLastSave = true
   state.drawnStepsSinceDraft += 1
   if (state.drawnStepsSinceDraft >= config.draftStepsInterval) {
-    saveDraftIfNeeded()
+    saveDraft()
   }
-  if (!state.canMakeACopy) {
-    state.canMakeACopy = true
+  if (!state.modifiedSinceLastCopy) {
+    state.modifiedSinceLastCopy = true
     Toolbar.enableSaveCopy()
   }
 }
@@ -414,62 +413,27 @@ const getCurrentDrawingInfo = async () => {
   return currentDrawing
 }
 
-const saveDraftIfNeeded = async () => {
-  if (!state.currentTouch.isDown && state.changedSinceDraft) {
-    state.changedSinceDraft = false
-    state.drawnStepsSinceDraft = 0
-    setDraftInterval(true)
-    if (state.modified) {
-      const currentDrawing = await getCurrentDrawingInfo()
-      if (currentDrawing.maxX >= 0) {
-        currentDrawing.madeByCorowking = Coworking.isOpen()
-        currentDrawing.layers = await Layers.exportLayers()
-        const savedId = await saveDrawingToDB(currentDrawing, true)
-        if (savedId) {
-          if (state.localDbDrawId === false) { // se è la prima bozza che salvo per questo nuovo disegno (mai salvato prima)
-            Messages.info(labels.draftSaved, config.draftInfoDuration)
-            state.localDbDrawId = savedId
-          }
-        } else {
-          state.localDbDrawId = false
-          Messages.error(labels.draftError)
-        }
-      }
-    }
-  }
-}
-
 export const saveAndGoToFolder = async () => {
   if (!Coworking.isOpen() || await Messages.confirm(labels.areYouSureToCloseCoworking)) {
     const madeByCorowking = Coworking.isOpen()
     setSpinner(true)
     setDraftInterval(false)
     Coworking.stop()
-    await delay(20)
-    if (state.modified) {
-      console.time('export disegno base')
+    if (state.modifiedSinceLastSave) {
       const currentDrawing = await getCurrentDrawingInfo()
-      console.timeEnd('export disegno base')
-      await delay(50)
       if (currentDrawing.maxX >= 0) {
         currentDrawing.layers = []
         currentDrawing.madeByCorowking = madeByCorowking
-        console.time('salvataggio 1')
         await saveDrawingToDB(currentDrawing)
-        console.timeEnd('salvataggio 1')
-        await delay(50)
         addPreventPageRefresh()
-        console.time('export layer')
-        Layers.exportLayers().then(layers => {
-          console.timeEnd('export layer')
+        state.isSavingToGoToFolder = true
+        Layers.exportLayers({
+          cleanMemoryAfterwards: true,
+        }).then(layers => {
           currentDrawing.layers = layers
-          console.time('salvataggio 2')
-          delay(50).then(() => {
-            saveDrawingToDB(currentDrawing).then(() => {
-              console.timeEnd('salvataggio 2')
-            })
-            removePreventPageRefresh()
-          })
+          saveDrawingToDB(currentDrawing)
+          state.modifiedSinceLastSave = true
+          removePreventPageRefresh()
         })
       }
     }
@@ -477,26 +441,66 @@ export const saveAndGoToFolder = async () => {
   }
 }
 
-export const saveCopy = async () => {
-  if (state.canMakeACopy) {
-    state.canMakeACopy = false
+const save = async({
+  onSave = noop,
+  onError = noop,
+  asDraft = false,
+  asCopy = false,
+} = {}) => {
+  if (state.modifiedSinceLastSave) {
     const currentDrawing = await getCurrentDrawingInfo()
-    delete currentDrawing.localDbId
-
     if (currentDrawing.maxX >= 0) {
+      if (asCopy) {
+        delete currentDrawing.localDbId
+      }
       currentDrawing.madeByCorowking = Coworking.isOpen()
       currentDrawing.layers = await Layers.exportLayers()
       const savedId = await saveDrawingToDB(currentDrawing)
       if (savedId) {
-        Messages.info(labels.copySaved, config.draftInfoDuration)
-        Toolbar.disableSaveCopy()
+        onSave(savedId)
       } else {
-        Messages.error(labels.draftError)
-        state.canMakeACopy = true
-        Toolbar.enableSaveCopy()
+        onError()
       }
     }
   }
+}
+
+const saveDraft = () => {
+  if (!state.currentTouch.isDown && state.modifiedSinceLastSave) {
+    setDraftInterval(true)
+    save({
+      onSave: onSaveDraft,
+      onError: onSaveDraftError,
+      asDraft: true,
+    })
+  }
+}
+const onSaveDraft = (draftId) => {
+  state.drawnStepsSinceDraft = 0
+  state.modifiedSinceLastSave = false
+  if (state.localDbDrawId === false) { // se è la prima bozza che salvo per questo nuovo disegno (mai salvato prima)
+    Messages.info(labels.draftSaved, config.draftInfoDuration)
+    state.localDbDrawId = draftId
+  }
+}
+const onSaveDraftError = () => {
+  state.localDbDrawId = false
+  Messages.error(labels.draftError)
+}
+
+export const saveCopy = () => save({
+  onSave: onSaveCopy,
+  onError: onSaveCopyError,
+  asCopy: true
+})
+const onSaveCopy = () => {
+  state.modifiedSinceLastCopy = false
+  Messages.info(labels.copySaved, config.draftInfoDuration)
+  Toolbar.disableSaveCopy()
+}
+const onSaveCopyError = () => {
+  Messages.error(labels.draftError)
+  Toolbar.enableSaveCopy()
 }
 
 export const saveDrawingsPalette = (colors = []) => {
@@ -510,7 +514,7 @@ const setDraftInterval = (start) => {
   state.draftInterval = false
 
   if (start) {
-    state.draftInterval = setInterval(saveDraftIfNeeded, config.draftTimeInterval)
+    state.draftInterval = setInterval(saveDraft, config.draftTimeInterval)
   }
 }
 
@@ -762,7 +766,6 @@ const sendCoworkingStep = (stepData, saveStep = false) => {
 
 const drawStepStart = (context, stepData, tool) => {
   let doneSomething = false
-  state.changedSinceDraft = true
   context.globalCompositeOperation = tool.globalCompositeOperation
 
   if (tool.frameType) {
@@ -1418,7 +1421,7 @@ export const open = async (preloadedDrawindId, withCoworking = false, coworkingC
   await fadeInElements([refs.container])
   initCanvasCenter()
   state.pageOpened = true
-  state.modified = false
+  state.modifiedSinceLastSave = false
   setSpinner(false)
 }
 
@@ -1434,7 +1437,7 @@ export const close = async () => {
   removeRotationHandler(onRotate)
   await fadeOutElements([refs.container])
   Tools.remove()
-  Layers.remove()
+  Layers.remove(state.isSavingToGoToFolder)
   ColorPicker.remove()
   Toolbar.remove()
   Ruler.remove()

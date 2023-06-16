@@ -408,8 +408,6 @@ const layerDeepCopy = (layer, {
 const prepareLayerDataToExport = async(layer) => {
   if (layer.bitmap) {
     layer.base64 = await getImgBase64OffThread(layer.bitmap)
-    // layer.bitmap.close()
-    // layer.bitmap = undefined
   } else if (layer.canvas) {
     let bitmap = await createImageBitmap(layer.canvas)
     layer.base64 = await getImgBase64OffThread(bitmap)
@@ -420,6 +418,7 @@ const prepareLayerDataToExport = async(layer) => {
   delete layer.resizeMode
   delete layer.modified
   delete layer.canvas
+  delete layer.bitmap
   delete layer.gco
   return layer
 }
@@ -436,24 +435,36 @@ export const mergeUnchangedLayers = (exportedLayers, previousLayers) => {
 export const exportLayers = async({
   processLayersInParallel = false,
   exportJustModiedLayers = true,
+  cleanMemoryAfterwards = false,
 } = {}) => {
-  let layers = Object.values(state.layers)
+  let layerData = []
+  let currentLayers = Object.values(state.layers)
+  let layers = currentLayers
     .filter(layer => !currentLayerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
     .map(l => layerDeepCopy(l, {
-      deepCopyCanvas: !exportJustModiedLayers || l.modified,
-      usingOffscreen: true,
+      exportBitmap: !exportJustModiedLayers || l.modified,
+      deepCopyCanvas: false,
     }))
 
   if (processLayersInParallel) {
-    return Promise.all(layers.map(prepareLayerDataToExport))
+    layerData = Promise.all(layers.map(prepareLayerDataToExport))
   } else {
-    const layerData = []
+    
     for (const layer of layers) {
       layerData.push(await prepareLayerDataToExport(layer))
     }
-    return layerData
   }
+
+  if (cleanMemoryAfterwards) {
+    currentLayers.forEach(layer => {
+      layer.history.clear()
+      layer.history = undefined
+    })
+  }
+  currentLayers = undefined
+
+  return layerData
 }
 
 // chiamata da editor quando si salva il disegno, e pipette init.
@@ -1376,16 +1387,19 @@ const clearLayerHistoryStepBitmap = (step) => {
 }
 
 // chiamata su chiusura editor, e pulizia deleteLayers
-const hardDeleteLayer = (layer) => {
-  layer.history.clear()
+const hardDeleteLayer = (layer, clearHistory = true) => {
+  if (clearHistory) {
+    layer.history.clear()
+    layer.history = undefined
+  }
   layer.canvas.remove()
   layer.canvas.width = layer.canvas.height = 0
-  layer.canvas = layer.history = undefined
+  layer.canvas = undefined
 }
 
-export const remove = () => {
-  Object.values(state.layers).forEach(hardDeleteLayer)
-  Object.values(state.deletedLayers).forEach(hardDeleteLayer)
+export const remove = (isSavingLayers = false) => {
+  Object.values(state.layers).forEach(layer => hardDeleteLayer(layer, !isSavingLayers))
+  Object.values(state.deletedLayers).forEach(layer => hardDeleteLayer(layer, true))
   LayersHistory.clear()
   cleanRefs(refs)
   state = {}
