@@ -1,5 +1,6 @@
 // import Dexie from 'dexie'
 const isEqual = require('lodash.isequal')
+import { v4 as uuidv4 } from 'uuid'
 
 import * as Messages from 'modules/Messages'
 import { setSpinner } from 'utils/domUtils'
@@ -205,6 +206,15 @@ export const waitWorkerMessage = (worker, id) => {
     }
     worker.addEventListener('message', onLoaded)
   })
+}
+
+export const postWorkerCommand = async(worker, data) => {
+  const id = uuidv4()
+  data.id = id
+  worker.postMessage(data)
+  const result = await waitWorkerMessage(worker, id)
+  delete result.id
+  return result
 }
 
 export const copyTextToClipboard = (str) => {
