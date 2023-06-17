@@ -254,6 +254,10 @@ export const getQuadraticFunctioRoots = (a, b, c) => {
   return [(-b + d) / (2 * a), (-b - d) / (2 * a)]
 }
 
+export const getQuadraticExpressionX = (a, b, c) => {
+  // ax^2 + bx + c = 0
+  return [(-b + Math.sqrt(b*b - 4*a*c)) / (2 * a), (-b - Math.sqrt(b*b - 4*a*c)) / (2 * a)]
+}
 
 // const logSlider = (position) => {
 //   // position will be between 0 and 100
