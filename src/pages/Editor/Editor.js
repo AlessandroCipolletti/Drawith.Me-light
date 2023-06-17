@@ -31,27 +31,6 @@ import { TOUCH_TYPE_STYLUS, TOUCH_TYPE_FINGER } from 'main/constants'
 import { spacing } from 'main/Theme'
 
 
-/*
-  ----- OFFSCREEN CANVAS -----
-  - New branch con offscreenCanvas per ogni layer --> offscreenCanvas.transferToImageBitmap()
-  - Test performance e memoria e massimo numero di canvas con IMG vs CANVAS vs OFFSCREEN CANVAS
-  - Ad ogni apertura di un nuovo canvas / layer, inizializzare un worker sperifico per quel canvas / layer.
-    - const offscreenCanvas = canvas2.transferControlToOffscreen()
-    - const worker = new Worker(
-    -   new URL('worker.js', import.meta.url),
-    -   { type: 'module' }
-    - )
-    - worker.postMessage({ id, canvas: offscreenCanvas }, [offscreenCanvas])
-    - await waitWorkerMessage(worker, id)
-    Da dentro al worker posso accedere alle stesse funzioni che oggi uso dal CanvasUtils,
-    ed il codice principale deve solo occuparsi di inviare un messaggio al worker con i dati dello step/tool da disegnare.
-
-  IN FUTURO:
-    In teoria quando sto disegnando molti step in un colpo solo per il corowking,
-    potremmo anche spezzettare il lavoro su più worker, uno per ogni step, e poi disegnarli sul canvas finale in ordine.
-*/
-
-
 export const config = {
   draftTimeInterval: 30_000,
   draftStepsInterval: 50,
