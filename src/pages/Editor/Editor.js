@@ -32,20 +32,11 @@ import { spacing } from 'main/Theme'
 
 
 /*
-  ----- WORKERS TASK MANAGER -----
-    - Utils che gestisce un buffer ordinato di messaggi e risposte async tramite workers.
-    - Su const workerManager = new WorkersManager(workerUrl, 2) devo passare l'url del file da usare come worker, e il numero di workers da creare in parallelo.
-    - Ad ogni .pushAction({}) aggiungo i dati ricevuti ad un array di buffer di azioni da eseguire.
-    - Invio un'azione per volta ad ogni worker, ed il primo che si libera dandomi la risposta precedente, riceve i dati per la nuova azione da eseguire.
-    - Devo restituire tutte le azioni in ordine, quindi quando un worker mi risponde, guardo in che posizione dell'array di buffer è la sua azione, e se è la prima in ordine (la più anziata), la restituisco.
-        Quando restitusco un'azione, controllo se la successiva è già pronta o ancora da eseguire. Se è pronta ritorno pure quella. (magari con un await configurabile?)
-
   ----- OFFSCREEN CANVAS -----
   - Provare ad usare un solo offscreenCanvas per utente. Cioè tutto ciò che fai viene semrpe disegnato su un offscreenCanvas, e poi printato sul layer (quello di contextForLine VS quello del layer).
   - Provare prima con await della risposta del worker (equivalente a ora, dove ogni step start/move/end è sincrono), poi anche con un buffer nel worker.
       Ogni cursor start/move/end invia un messaggio al worker, che li esegue in fila, e ad ogni risposta del worker printo sul giusto layer.
   - Poooootenzialmente potrei anche avere più di un worker in background che lavorano in parallelo, ma dovrei fare attenzione a printare comunque gli step in ordine corretto sul layer finale.
-      Magari creo prima una utils che gestisce un buffer ordinato di messaggi e risposte async tramite workers.
 
   ----- COWORKING MULTI-LAYERS -----
     - un bel po' di lavoro da fare
@@ -57,6 +48,9 @@ import { spacing } from 'main/Theme'
         Al momento di ricevere una connessione dall'esterno, se sei già nell'editor con un disegno aperto, lo sincronizzi con l'altro utente e gli mandi tutti i layers.
         Al massimo potrei fare che all'apertura dell'app la prima volta, ti chiedo come ti chiami. E quando si riceve una connessione, compare il messaggio "picopllino vuole connettersi con te, accetti?"
         Da Folder puoi copiare il link, ma anche da dentro l'editor ci dev'essere un pulsante per aprire o chiudere la connessione.
+
+  ----- TESTS PERFORMANCE -----
+    - Un solo Worker, a cui passo N OffscreenCanvas, e vedo quanti ne supporta
 */
 
 

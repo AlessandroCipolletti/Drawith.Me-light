@@ -18,17 +18,18 @@ import { noop } from 'utils/jsUtils'
  * promisesManager.pushPromise(delay(getRandomNumber(10000)).then(() => 5))
  * promisesManager.pushPromise(delay(getRandomNumber(10000)).then(() => 6))
  * promisesManager.pushPromise(delay(getRandomNumber(10000)).then(() => 7))
- * --> logs in order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
+ *   --> logs in order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
  */
 class PromisesBufferManager {
   #buffer = []
+  #callback = noop
   #isLoopingResults = false
 
   constructor(callback = noop) {
-    this.callback = callback
+    this.#callback = callback
   }
 
-  pushPromise = function(...promises) {
+  pushPromise(...promises) {
     for (const promise of promises) {
       const id = uuidv4()
       promise
@@ -54,7 +55,7 @@ class PromisesBufferManager {
     if (this.#buffer[0]?.result || this.#buffer[0]?.error) {
       this.#isLoopingResults = true
       const endedPromise = this.#buffer.shift()
-      await this.callback(endedPromise.result, endedPromise.error)
+      await this.#callback(endedPromise.result, endedPromise.error)
       this.#returnEndedPromises()
     } else {
       this.#isLoopingResults = false
