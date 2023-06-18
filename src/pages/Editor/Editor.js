@@ -23,8 +23,8 @@ import { addRotationHandler, removeRotationHandler, cleanRefs } from 'utils/modu
 import { handlePointerEvents } from 'utils/pointerEventsUtils'
 import { delay, noop, deepCopy } from 'utils/jsUtils'
 import { addResizeBulletsHandlers } from 'utils/uiUtils'
-import { init as initCanvasUtils, remove as removeCanvasUtils, fillWithBucket, setImageShapeIfNeeded, drawCurvedFunctionLine, drawMultipleCoworkingSteps, cleanBucketHistory, toolShapesDrawFns, getCanvasColorAtPx, fillCompletely, getNewContextForCanvas } from 'utils/canvasUtils'
-import { updateCurrentTouchData, getStepData, updateEditorZoomGlobalState, shouldThisStepMoveAdaptLine, initState, initCanvasOffset, findValueWithMagnetism, applyRationResizeMagnetism, getAltitudeFactorFromAngle } from './editorUtils'
+import { init as initCanvasUtils, remove as removeCanvasUtils, fillWithBucket, setImageShapeIfNeeded, drawCurvedFunctionLine, cleanBucketHistory, toolShapesDrawFns, getCanvasColorAtPx, fillCompletely, getNewContextForCanvas } from 'utils/canvasUtils'
+import { initEditorUtils, cleanEditorUtils, drawMultipleCoworkingSteps, updateCurrentTouchData, getStepData, updateEditorZoomGlobalState, shouldThisStepMoveAdaptLine, initState, initCanvasOffset, findValueWithMagnetism, applyRationResizeMagnetism, getAltitudeFactorFromAngle } from './editorUtils'
 import { toolDefaultProps } from './config'
 import { openPageFolder } from 'modules/Router'
 import { TOUCH_TYPE_STYLUS, TOUCH_TYPE_FINGER } from 'main/constants'
@@ -51,6 +51,9 @@ import { spacing } from 'main/Theme'
 
   ----- TESTS PERFORMANCE -----
     - Un solo Worker, a cui passo N OffscreenCanvas, e vedo quanti ne supporta
+
+  ----- BUGS -----
+    - Su coworking chiuso dal collega, non ho ricevuto un messaggio di connessione persa
 */
 
 
@@ -1342,6 +1345,7 @@ const initDom = async () => {
 }
 
 const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
+  initEditorUtils(state.canvas.width, state.canvas.height)
   await Toolbar.init(refs.container)
   await Layers.init(
     refs.container,
@@ -1372,6 +1376,17 @@ const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
 
 export const open = async (preloadedDrawindId, withCoworking = false, coworkingCanvasWidth, coworkingCanvasHeight) => {
   console.log('editor show', preloadedDrawindId, withCoworking, coworkingCanvasWidth, coworkingCanvasHeight)
+
+  const coordsWorker = new Worker(
+    new URL('./workers/canvasWorker.js', import.meta.url),
+    { type: 'module' }
+  )
+  coordsWorker.postMessage({ type: 'init' })
+  coordsWorker.onmessage = (e) => {
+    console.log('ciao dal worker', e.data)
+  }
+
+
   coworking = Coworking.requestSession // just to have an alias for app.drawith.me?editor/coworking
   state = initState(initialState)
   state.withCoworking = withCoworking
@@ -1414,6 +1429,7 @@ export const close = async () => {
   removeGlobalStatus('drawith__EDITOR-COWORKING')
   setDraftInterval(false)
   cleanBucketHistory()
+  cleanEditorUtils()
   refs.pipetteCursor.style.left = '50%'
   refs.pipetteCursor.style.top = '50%'
   Header.show()

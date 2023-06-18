@@ -2,8 +2,6 @@ import { v4 as uuidv4 } from 'uuid'
 import { getRandomNumber, round, quadraticBezierValue, distanceBetweenTwoPointsGreaterThan, getPerc } from './mathUtils'
 import { colorStringToRgb, compareRgbColorsWithinTollerance } from './colorsUtils'
 import { deepCopy, waitWorkerMessage } from './jsUtils'
-import { getOneToolVersionCompleteProps } from '../pages/Editor/components/Tools'
-import { cleanRefs } from './moduleUtils'
 
 import {
   TOOL_FRAME_CIRCLE,
@@ -22,14 +20,7 @@ const config = {
 }
 let state
 const initialState = {
-  currentCoworkingToolProps: {},
-  currentCoworkingToolName: '',
-  currentCoworkingToolVersion: -1,
   bucketColorsHistory: [],
-}
-const refs = {
-  coworkingCanvas: null,
-  coworkingContext: null,
 }
 
 // for particles shape tools
@@ -303,49 +294,6 @@ export const drawMultipleSteps = (destinationContext, steps, tool) => {
   steps.forEach(step => multipleStepsFns[step.type](destinationContext, step, tool))
 }
 
-export const drawMultipleCoworkingSteps = async(destinationContext, steps, tool, fns) => {
-  // Recupero lo strumento usato da questi step, se è diverso dal precedente
-  if (state.currentCoworkingToolName !== tool.name || state.currentCoworkingToolVersion !== tool.version) {
-    state.currentCoworkingToolProps = getOneToolVersionCompleteProps(tool.name, tool.version, {
-      color: tool.color,
-      globalCompositeOperation: tool.globalCompositeOperation,
-      frameImageName: tool.frameImageName,
-      ...tool.customProps,
-    })
-  }
-
-  // Preparo l'immagine da usare con questo strumento, se diversa dalla precedente
-  if (state.currentCoworkingToolProps.frameImageName) {
-    setImageShapeIfNeeded(refs.coworkingContext, state.currentCoworkingToolProps.frameImageFile, state.currentCoworkingToolProps.frameImageName, state.currentCoworkingToolProps.color)
-  }
-
-  // Svuoto il canvas che uso per il coworking
-  refs.coworkingContext.clearRect(0, 0, refs.coworkingCanvas.width, refs.coworkingCanvas.height)
-
-  // Se il tratto attuale non è una semplice aggiunta, devo mettere nel canvas del coworking tutto il disegno attuale.
-  // Per esempio la gomma per funzionare deve avere un disegno da cancellare, se no non apporta alcuna differenza.
-  // Anche il bucket ha bisogno del resto del disegno per funzionare bene.
-  if (state.currentCoworkingToolProps.name === 'bucket') {
-    await fns.bucket(destinationContext, steps[0].x, steps[0].y, state.currentCoworkingToolProps.color, destinationContext.canvas.width, destinationContext.canvas.height, false)
-  } else { // normal steps
-    if (state.currentCoworkingToolProps.globalCompositeOperation !== 'source-over') {
-      refs.coworkingContext.globalCompositeOperation = 'source-over'
-      refs.coworkingContext.globalAlpha = 1
-      refs.coworkingContext.drawImage(destinationContext.canvas, 0, 0)
-
-      steps.forEach(step => fns[step.type](refs.coworkingContext, step, state.currentCoworkingToolProps))
-
-      destinationContext.clearRect(0, 0, destinationContext.canvas.width, destinationContext.canvas.height)
-    } else {
-      steps.forEach(step => fns[step.type](refs.coworkingContext, step, state.currentCoworkingToolProps))
-    }
-
-    destinationContext.globalAlpha = 1
-    destinationContext.globalCompositeOperation = 'source-over'
-    destinationContext.drawImage(refs.coworkingCanvas, 0, 0)
-  }
-}
-
 // qui la faccenda si fa un po' complicata...
 // FillWithBucket si divide in due praticamente.
 // Se non deve fare nessun riempimento di colore, ritorna false in modo sincrono.
@@ -470,17 +418,12 @@ export const getNewContextForCanvas = (canvas) => {
   return context
 }
 
-export const init = (width, height) => {
+export const init = () => {
   state = deepCopy(initialState)
-  refs.coworkingCanvas = document.createElement('canvas')
-  refs.coworkingCanvas.width = width
-  refs.coworkingCanvas.height = height
-  refs.coworkingContext = getNewContextForCanvas(refs.coworkingCanvas)
 }
 
 export const remove = () => {
   state = {}
-  cleanRefs(refs)
 }
 
 export const toolShapesDrawFns = {

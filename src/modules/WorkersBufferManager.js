@@ -22,6 +22,7 @@ const DEFAULT_MAX_PARALLEL_WORKERS = 4
  * workersManager.pushAction({ id: 4 })
  * workersManager.pushAction({ id: 5 }, { id: 6 }, { id: 7 })
  *   --> logs in order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
+ * FIFO strategy
  */
 class WorkersBufferManager {
   #buffer = []

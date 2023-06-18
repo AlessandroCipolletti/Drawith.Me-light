@@ -19,6 +19,7 @@ import { noop } from 'utils/jsUtils'
  * promisesManager.pushPromise(delay(getRandomNumber(10000)).then(() => 6))
  * promisesManager.pushPromise(delay(getRandomNumber(10000)).then(() => 7))
  *   --> logs in order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
+ * FIFO strategy
  */
 class PromisesBufferManager {
   #buffer = []

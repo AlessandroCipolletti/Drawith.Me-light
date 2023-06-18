@@ -3,7 +3,8 @@ import './main.css'
 import { debounce } from 'debounce'
 
 import Params from 'main/Params'
-import { init as initMessages } from 'modules/Messages'
+import * as Messages from 'modules/Messages'
+import * as Coworking from 'modules/Coworking'
 import { init as initCoworking } from 'modules/Coworking'
 import initDomUtils, { loadTemplate, preventDefault, setSpinner, preventMoveDefaultIfNeeded } from 'utils/domUtils'
 import { init as initHeader, menuButtonAnimations } from 'components/Header'
@@ -11,19 +12,15 @@ import { initLocalDb } from 'utils/localDbUtils'
 import { openPageNotSupported, isSupportedOs, openPageFolder, openPageAboutUs, openCurrentUrlPage } from 'modules/Router'
 import { round } from 'utils/mathUtils'
 import { delay, securizeAsyncFn } from 'utils/jsUtils'
-import { cleanEventsForNextRefresh } from 'utils/moduleUtils'
+import { getRealScreenWidth, getRealScreenHeight, cleanEventsForNextRefresh, mergeObject, handleGlobalResize, addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 import initPolyfills from './polyfills'
-
-
 import * as Theme from './Theme'
-
-import { mergeObject, handleGlobalResize, addGlobalStatus, removeGlobalStatus } from 'src/utils/moduleUtils'
 
 
 const AppState = {
   NAME: 'Drawith.Me',
   VERSION: '2.6.0',
-  DEBUG: false,
+  DEBUG: true,
 }
 const state = {
   menuIsOpen: false,
@@ -53,7 +50,11 @@ const attachRotationHandler = () => {
   // To give support to multitask on iPad we need to handle both resize and rotation events.
   // But whan the iPad is rotated, both events are fired.
   // This small code takes care of this to call handleGlobalResize just one time.
-  const handleRotation = debounce(handleGlobalResize, 200)
+  const handleRotation = debounce((event) => {
+    handleGlobalResize(event)
+    Coworking.updateClientEnvironment()
+  }, 200)
+
   if ('onorientationchange' in window) {
     let handledByRotation = false
     const resetRotation = () => handledByRotation = false
@@ -179,32 +180,6 @@ const setViewport = async() => {
   await delay(16)
 }
 
-export const getRealScreenWidth = () => {
-  if (Params.isDesktop) {
-    return Math.trunc(screen.width * Params.pixelRatio)
-  } else {
-    // return screen.height * Params.pixelRatio
-    if (window.innerWidth > window.innerHeight) {
-      return Math.trunc(screen.height * Params.pixelRatio)
-    } else {
-      return Math.trunc(screen.width * Params.pixelRatio)
-    }
-  }
-}
-
-export const getRealScreenHeight = () => {
-  if (Params.isDesktop) {
-    return Math.trunc(screen.height * Params.pixelRatio)
-  } else {
-    // return screen.height * Params.pixelRatio
-    if (window.innerHeight > window.innerWidth) {
-      return Math.trunc(screen.height * Params.pixelRatio)
-    } else {
-      return Math.trunc(screen.width * Params.pixelRatio)
-    }
-  }
-}
-
 export const getRealScreenMaxSize = () => Math.max(getRealScreenWidth(), getRealScreenHeight())
 
 const getRealPxScale = () => {
@@ -279,7 +254,8 @@ const init = securizeAsyncFn(async(props = {}) => {
 
   if (await isSupportedOs()) {
     setSpinner(true)
-    await initMessages()
+    await Messages.init()
+    window.Messages = Messages
     const dbInit = await initLocalDb()
     if (dbInit) {
       initDomUtils()

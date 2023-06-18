@@ -1,7 +1,5 @@
 import Params from 'main/Params'
-import * as Coworking from 'modules/Coworking'
 import { round } from 'utils/mathUtils'
-import { spacing } from 'main/Theme'
 
 const rotationHandlers = []
 
@@ -18,10 +16,6 @@ export const handleGlobalResize = (event = false) => {
   Params.set('width', round((window?.visualViewport?.width || window.innerWidth), 0))
   Params.set('height', round((window?.visualViewport?.height || window.innerHeight), 0))
 
-  if (Params.showAdsOnPhones && Params.isPhone) {
-    Params.set('height', Params.height - spacing.PHONE_ADS_HEIGHT)
-  }
-
   removeGlobalStatus('drawith__LANDSCAPE')
   removeGlobalStatus('drawith__PORTRAIT')
   addGlobalStatus(window.innerWidth > window.innerHeight ? 'drawith__LANDSCAPE' : 'drawith__PORTRAIT')
@@ -29,7 +23,6 @@ export const handleGlobalResize = (event = false) => {
   document.documentElement.style.setProperty('--100vh', `${Params.height}px`)
 
   if (event) { // to prevent this from main.init() first call
-    Coworking.updateClientEnvironment()
     for (const i in rotationHandlers) {
       rotationHandlers[i](event)
     }
@@ -92,6 +85,32 @@ export const hasEventForNextRefresh = (event) => {
   events = events.filter(e => e.event !== event)
   window.sessionStorage.setItem('eventsOnRefresh', JSON.stringify(events))
   return result
+}
+
+export const getRealScreenWidth = () => {
+  if (Params.isDesktop) {
+    return Math.trunc(screen.width * Params.pixelRatio)
+  } else {
+    // return screen.height * Params.pixelRatio
+    if (window.innerWidth > window.innerHeight) {
+      return Math.trunc(screen.height * Params.pixelRatio)
+    } else {
+      return Math.trunc(screen.width * Params.pixelRatio)
+    }
+  }
+}
+
+export const getRealScreenHeight = () => {
+  if (Params.isDesktop) {
+    return Math.trunc(screen.height * Params.pixelRatio)
+  } else {
+    // return screen.height * Params.pixelRatio
+    if (window.innerHeight > window.innerWidth) {
+      return Math.trunc(screen.height * Params.pixelRatio)
+    } else {
+      return Math.trunc(screen.width * Params.pixelRatio)
+    }
+  }
 }
 
 export const appHasGlobalStatus = (status) => Params.pagesContainer.classList.contains(status)

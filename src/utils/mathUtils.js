@@ -1,8 +1,10 @@
-import { arrayOrderNumberUp } from './jsUtils'
-
 const MATH = Math
 const PI = MATH.PI
 const PI2 = PI / 2
+
+export const arrayOrderNumberUp = (a, b) => a - b
+export const arrayOrderNumberDown = (a, b) => b - a
+
 
 export const getNumberInBetween = (a, b, c, decimals = 4) => round([a, b, c].sort(arrayOrderNumberUp)[1], decimals)
 export const getRandomNumber = (n, float = false) => float ? MATH.random() * n : MATH.random() * n | 0
