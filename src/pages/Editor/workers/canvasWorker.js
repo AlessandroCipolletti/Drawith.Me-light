@@ -6,7 +6,7 @@ import { delay } from 'utils/jsUtils'
 self.addEventListener('message', async (event) => {
   const { id, workerActionId } = event.data
 
-  await delay(getRandomNumber(1000))
+  await delay(getRandomNumber(10000))
 
   self.postMessage({ id, workerActionId })
 })

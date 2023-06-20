@@ -1,7 +1,6 @@
 const editorTemplate = require('./editor.tpl')
 import './editor.css'
 
-import { debounce } from 'debounce'
 import Params from 'main/Params'
 import * as Coworking from 'modules/Coworking'
 import * as Debug from 'modules/Debug'
@@ -27,6 +26,7 @@ import { init as initCanvasUtils, remove as removeCanvasUtils, fillWithBucket, s
 import { initEditorUtils, cleanEditorUtils, drawMultipleCoworkingSteps, updateCurrentTouchData, getStepData, updateEditorZoomGlobalState, shouldThisStepMoveAdaptLine, initState, initCanvasOffset, findValueWithMagnetism, applyRationResizeMagnetism, getAltitudeFactorFromAngle } from './editorUtils'
 import { toolDefaultProps } from './config'
 import { openPageFolder } from 'modules/Router'
+import WorkersBufferManager from 'modules/WorkersBufferManager'
 import { TOUCH_TYPE_STYLUS, TOUCH_TYPE_FINGER } from 'main/constants'
 import { spacing } from 'main/Theme'
 
@@ -224,7 +224,8 @@ const labels = {
   youHaveDifferentScreenSizes: 'You and your friend have different screen sizes',
 }
 
-export let coworking
+export let coworking, WorkerManager
+
 
 const stepDataKeys = ['type', 'x', 'y', 'midX', 'midY', 'size', 'alpha', 'rotation', 'oldSize', 'oldAlpha', 'oldRotation', 'oldMidX', 'oldMidY', 'oldX', 'oldY', 'stepLength']
 const addTouchStepDataKeys = (stepDataArray) => Object.fromEntries(stepDataArray.map((v, i) => [stepDataKeys[i], v]))
@@ -242,14 +243,17 @@ const removeToolDataKeys = (toolData) => [toolData.name, toolData.version, toolD
 export const drawCoworkingMultipleStepsData = (data) => {
   if (state?.pageOpened) {
     requestAnimationFrame(() => {
+      // Qui potrei aggiungere una key boolean dentro "data" per dire che i draw degli step sono fatti da un coworking,
+      // e quindi non devono avere una callback quando sono finiti
       drawMultipleCoworkingSteps(refs.layerContext, data.steps.map(addTouchStepDataKeys), addToolDataKeys(data.tool), {
         start: drawStepStart,
         move: drawStepMove,
         end: drawStepEnd,
         bucket: useBucket,
       })
+      // Solo in questo caso devo salvare lo step, e quindi serve la callback, ma diversa da quella classica di drawStepEnd dell'utente principale
       if (data.steps.find(step => step[0] === 'end')) {
-        debounceSaveStep()
+        requestAnimationFrame(saveStepHistory) // qui chiedo a Layers.js di aggiornare le coordinate del contenuto del layer
       }
     })
   }
@@ -259,7 +263,7 @@ const getResizeState = () => deepCopy(state.resizeMode)
 const saveStepHistory = () => {
   Layers.addLayerHistoryContentChangedStep()
 }
-const debounceSaveStep = debounce(saveStepHistory, 50)
+
 
 export const setDrawingModified = () => {
   state.modifiedSinceLastSave = true
@@ -768,6 +772,20 @@ const drawStepMove = (context, stepData, tool) => {
   context.globalCompositeOperation = tool.globalCompositeOperation
 
   if (tool.frameType) {
+    // adesso che WorkersManager supporta l'await come una normale promise,
+    // posso lanciare qui un'azione verso un worker del tipo:
+    /*
+      const { bitmap, x, y } = await workersManager.waitAction({
+        type: 'move',
+        stepData,
+        tool,
+      })
+      context.drawImage(bitmap, x, y)
+    */
+    // - Problema è che certi tool necessitano che lo step sia disegnato sul contenuto già esistente,
+    //   quindi per alcuni step devo inviare un bitmap del canvas attuale, ed usarlo base dentro al worker.
+    // - Inoltre devo gestire un drawStepMove asincrono.
+    // - Per ottimizzare la memoria, dentro al worker devo fare il calcolo necessario per sapere che porzione di canvas ho colorato, è ritornare un bitmap più piccolo possibile.
     doneSomething = drawCurvedFunctionLine(context, stepData, tool)
   }
 
@@ -795,7 +813,7 @@ const updateLastStepData = (stepData) => {
   state.lastStep.rotation = stepData.rotation
 }
 
-const handleTouchStartStep = (context = refs.layerContext) => {
+const handleTouchStartStep = (context) => {
   state.currentTouch.drewSomething = false
   const stepData = getStepData(state.currentToolProps, state.currentTouch, state.lastStep)
 
@@ -818,6 +836,12 @@ const handleTouchStartStep = (context = refs.layerContext) => {
     state.currentTouch.isDown = true
     const thisStepHasDoneSomething = drawStepStart(context, stepData, state.currentToolProps)
     state.currentTouch.drewSomething = state.currentTouch.drewSomething || (thisStepHasDoneSomething && coordsAreInsideLayer(stepData.x, stepData.y))
+    // state.currentTouch.drewSomething = thisStepHasDoneSomething && (
+    //   coordsAreInsideLayer(stepData.x - state.currentToolProps.size / 2, stepData.y - state.currentToolProps.size / 2) ||
+    //   coordsAreInsideLayer(stepData.x - state.currentToolProps.size / 2, stepData.y + state.currentToolProps.size / 2) ||
+    //   coordsAreInsideLayer(stepData.x + state.currentToolProps.size / 2, stepData.y + state.currentToolProps.size / 2) ||
+    //   coordsAreInsideLayer(stepData.x + state.currentToolProps.size / 2, stepData.y - state.currentToolProps.size / 2)
+    // )
     if (thisStepHasDoneSomething && Coworking.isOpen()) {
       sendCoworkingStep(stepData)
     }
@@ -825,7 +849,7 @@ const handleTouchStartStep = (context = refs.layerContext) => {
   }
 }
 
-const handleTouchMoveStep = (context = refs.layerContext, sendDataForCoworking) => {
+const handleTouchMoveStep = (context, sendDataForCoworking) => {
   if (state.currentTouch.isDown === false) {
     return
   }
@@ -843,7 +867,7 @@ const handleTouchMoveStep = (context = refs.layerContext, sendDataForCoworking) 
   Debug.logFps()
 }
 
-const handleTouchEndStep = (context = refs.layerContext) => {
+const handleTouchEndStep = (context) => {
   if (state.currentTouch.isDown === false) {
     return
   }
@@ -1069,7 +1093,7 @@ const onStepTouchEnd = (e) => {
     Ruler.unlock()
   }
   updateCurrentTouchData(state, e, Params.eventEnd)
-  handleTouchEndStep()
+  handleTouchEndStep(refs.layerContext)
 }
 
 const onResizeLayerContentTouchEnd = () => {
@@ -1344,8 +1368,16 @@ const initDom = async () => {
   })
 }
 
+const openNewCanvasWorker = () => {
+  return new Worker(
+    new URL('./workers/canvasWorker.js', import.meta.url),
+    { type: 'module' }
+  )
+}
+
 const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
   initEditorUtils(state.canvas.width, state.canvas.height)
+  WorkerManager = new WorkersBufferManager(openNewCanvasWorker)
   await Toolbar.init(refs.container)
   await Layers.init(
     refs.container,
@@ -1376,17 +1408,6 @@ const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
 
 export const open = async (preloadedDrawindId, withCoworking = false, coworkingCanvasWidth, coworkingCanvasHeight) => {
   console.log('editor show', preloadedDrawindId, withCoworking, coworkingCanvasWidth, coworkingCanvasHeight)
-
-  const coordsWorker = new Worker(
-    new URL('./workers/canvasWorker.js', import.meta.url),
-    { type: 'module' }
-  )
-  coordsWorker.postMessage({ type: 'init' })
-  coordsWorker.onmessage = (e) => {
-    console.log('ciao dal worker', e.data)
-  }
-
-
   coworking = Coworking.requestSession // just to have an alias for app.drawith.me?editor/coworking
   state = initState(initialState)
   state.withCoworking = withCoworking
@@ -1430,6 +1451,7 @@ export const close = async () => {
   setDraftInterval(false)
   cleanBucketHistory()
   cleanEditorUtils()
+  WorkerManager.terminate()
   refs.pipetteCursor.style.left = '50%'
   refs.pipetteCursor.style.top = '50%'
   Header.show()
@@ -1444,5 +1466,6 @@ export const close = async () => {
   removeCanvasUtils()
   state = {}
   coworking = undefined
+  WorkerManager = undefined
   cleanRefs(refs)
 }
