@@ -246,7 +246,7 @@ export const getQuadraticFunctionVertex = (a, b, c) => {
   // if a > 0 ==> it's a parabola with vertex at the bottom
   // if a < 0 ==> it's a parabola with vertex at the top
   const x = -b / (2 * a)
-  x + c
+  const y = a * x * x + b * x + c
   return [x, y]
 }
 
