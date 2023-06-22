@@ -51,6 +51,7 @@ import { spacing } from 'main/Theme'
 
   ----- TESTS PERFORMANCE -----
     - Un solo Worker, a cui passo N OffscreenCanvas, e vedo quanti ne supporta
+    - Un grosso lavoro di canvas eseguito sia in main thread che worker
 
   ----- BUGS -----
     - Su coworking chiuso dal collega, non ho ricevuto un messaggio di connessione persa

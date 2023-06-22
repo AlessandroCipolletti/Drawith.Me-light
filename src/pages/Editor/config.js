@@ -29,7 +29,7 @@ export const toolDefaultProps = {
   handlePathRotation: false,
   // globalCompositeOperation: 'source-over', // default
   cursor: false,
-  maxSizeThatNeedsToAdaptLine: 75,
+  maxSizeThatNeedsToAdaptLine: 75, // if 0 ==> tool neven needs to adapt line
   pxToAdaptLine: 15,
   msToAdaptLine: 10,
   stepsToAdaptLine: 5,
