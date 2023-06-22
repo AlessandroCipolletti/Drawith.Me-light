@@ -111,6 +111,7 @@ class WorkersBufferManager {
     const index = this.#buffer.findIndex((item) => item.workerActionId === result.workerActionId)
     if (index !== -1) {
       this.#buffer[index].result = result
+      delete this.#buffer[index].result.workerActionId
       this.#buffer[index].state = ACTION_STATE_PROCESSED
     } else {
       console.error('WorkersBufferManager: Lost worker')
@@ -121,7 +122,7 @@ class WorkersBufferManager {
     if (firstWaitingAction) {
       this.#launchWorkerAction(worker, firstWaitingAction)
     }
-    console.log(`Ended: ${result.id}. next: ${firstWaitingAction?.id || 'NO'}. OCCUPIED:`, this.#workers.filter(w => w.isOccupied).length)
+    // console.log(`Ended. Next: ${!!firstWaitingAction}. OCCUPIED:`, this.#workers.filter(w => w.isOccupied).length)
 
     if (!this.#isLoopingResults) {
       this.#returnEndedResults()
