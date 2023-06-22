@@ -407,7 +407,7 @@ export const getNewContextForCanvas = (canvas) => {
   const context = canvas.getContext('2d', { willReadFrequently: true })
   context.lastDrawCoordX = -1
   context.lastDrawCoordY = -1
-  const shapeImageCanvas = document.createElement('canvas')
+  const shapeImageCanvas = new OffscreenCanvas(300, 300)
   const shapeImageContext = shapeImageCanvas.getContext('2d', { willReadFrequently: true })
   context.toolImageShape = {
     frameImageName: '',

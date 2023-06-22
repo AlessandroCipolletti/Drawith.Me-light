@@ -27,7 +27,7 @@ export const toolDefaultProps = {
   frameImageFile: null,
   handleStylusRotation: false,
   handlePathRotation: false,
-  // globalCompositeOperation: 'source-over',
+  // globalCompositeOperation: 'source-over', // default
   cursor: false,
   maxSizeThatNeedsToAdaptLine: 75,
   pxToAdaptLine: 15,

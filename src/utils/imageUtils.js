@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
-const logo = new Image()
-logo.src = require('static/img/logoExport.png')
+let logo
+const logoSrc = require('static/img/logoExport.png')
 
 import { waitWorkerMessage, postWorkerCommand } from 'utils/jsUtils'
 import { getNumberInBetween, round, valuesAreSimilar } from 'utils/mathUtils'
@@ -11,9 +11,9 @@ const MAX_LOGO_SIZE = 300
 const MAX_THUMBNAIL_SIZE = 400
 
 
-const tempImage = new Image()
-tempImage.crossOrigin = 'Anonymous'
-const tempCanvas = document.createElement('canvas')
+let tempImage
+// const tempCanvas = document.createElement('canvas')
+const tempCanvas = new OffscreenCanvas(100, 100)
 const tempContext = tempCanvas.getContext('2d')
 
 export const resizeImage = (image, maxSize = MAX_THUMBNAIL_SIZE) => {
@@ -79,12 +79,11 @@ export const findImageContentCoords = async(dom, pxPrecision = 1, alphaTolleranc
 }
 
 export const cropImage = (image, x, y, width, height) => {
-  const canvas = document.createElement('canvas')
-  const context = canvas.getContext('2d')
+  const canvas = new OffscreenCanvas(300, 300)
   if (Number.isFinite(width) && Number.isFinite(height)) {
     canvas.width = width
     canvas.height = height
-    context.drawImage(image, x, y, width, height, 0, 0, width, height)
+    canvas.getContext('2d').drawImage(image, x, y, width, height, 0, 0, width, height)
   }
   return canvas
 }
@@ -332,6 +331,7 @@ export const shareImageWithBase64 = async(img, bgWhite = false) => {
   tempContext.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height)
 
   // drawith.me logo
+  logo = logo || await getImageFromUrl(logoSrc)
   const maxSide = Math.max(tempCanvas.width, tempCanvas.height)
   const minSide = Math.min(tempCanvas.width, tempCanvas.height)
   const margin = Math.min(minSide * 0.03, 10)
@@ -463,3 +463,8 @@ export const addImageWithOutlineAndGetBase64 = (image, color) => {
 //   }
 //   return new Blob(byteArrays, { type: contentType })
 // }
+
+export const init = () => {
+  tempImage = new Image()
+  tempImage.crossOrigin = 'Anonymous'
+}

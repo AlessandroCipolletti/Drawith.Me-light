@@ -3,18 +3,19 @@ import './main.css'
 import { debounce } from 'debounce'
 
 import Params from 'main/Params'
+import * as Theme from './Theme'
+import initPolyfills from './polyfills'
+import { round } from 'utils/mathUtils'
 import * as Messages from 'modules/Messages'
 import * as Coworking from 'modules/Coworking'
-import { init as initCoworking } from 'modules/Coworking'
-import initDomUtils, { loadTemplate, preventDefault, setSpinner, preventMoveDefaultIfNeeded } from 'utils/domUtils'
-import { init as initHeader, menuButtonAnimations } from 'components/Header'
 import { initLocalDb } from 'utils/localDbUtils'
-import { openPageNotSupported, isSupportedOs, openPageFolder, openPageAboutUs, openCurrentUrlPage } from 'modules/Router'
-import { round } from 'utils/mathUtils'
 import { delay, securizeAsyncFn } from 'utils/jsUtils'
+import { init as initCoworking } from 'modules/Coworking'
+import { init as initImageUtils } from 'utils/imageUtils'
+import { init as initHeader, menuButtonAnimations } from 'components/Header'
+import initDomUtils, { loadTemplate, preventDefault, setSpinner, preventMoveDefaultIfNeeded } from 'utils/domUtils'
+import { openPageNotSupported, isSupportedOs, openPageFolder, openPageAboutUs, openCurrentUrlPage } from 'modules/Router'
 import { getRealScreenWidth, getRealScreenHeight, cleanEventsForNextRefresh, mergeObject, handleGlobalResize, addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
-import initPolyfills from './polyfills'
-import * as Theme from './Theme'
 
 
 const AppState = {
@@ -259,6 +260,7 @@ const init = securizeAsyncFn(async(props = {}) => {
     const dbInit = await initLocalDb()
     if (dbInit) {
       initDomUtils()
+      initImageUtils()
       addEnviromentGlobalStatus()
       await initCoworking()
       openCurrentUrlPage()
