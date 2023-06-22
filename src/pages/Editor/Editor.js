@@ -23,7 +23,7 @@ import { handlePointerEvents } from 'utils/pointerEventsUtils'
 import { delay, noop, deepCopy } from 'utils/jsUtils'
 import { addResizeBulletsHandlers } from 'utils/uiUtils'
 import { init as initCanvasUtils, remove as removeCanvasUtils, fillWithBucket, setImageShapeIfNeeded, drawCurvedFunctionLine, cleanBucketHistory, toolShapesDrawFns, getCanvasColorAtPx, fillCompletely, getNewContextForCanvas } from 'utils/canvasUtils'
-import { initEditorUtils, cleanEditorUtils, drawMultipleCoworkingSteps, updateCurrentTouchData, getStepData, updateEditorZoomGlobalState, shouldThisStepMoveAdaptLine, initState, initCanvasOffset, findValueWithMagnetism, applyRationResizeMagnetism, getAltitudeFactorFromAngle } from './editorUtils'
+import { initEditorUtils, cleanEditorUtils, drawMultipleCoworkingSteps, updateCurrentTouchData, getStepData, updateEditorZoomGlobalState, shouldThisStepMoveAdaptLine, initState, initCanvasOffset, findValueWithMagnetism, applyRationResizeMagnetism, getAltitudeFactorFromAngle, updateLastStepData } from './editorUtils'
 import { toolDefaultProps } from './config'
 import { openPageFolder } from 'modules/Router'
 import WorkersBufferManager from 'modules/WorkersBufferManager'
@@ -32,11 +32,6 @@ import { spacing } from 'main/Theme'
 
 
 /*
-  ----- OFFSCREEN CANVAS -----
-  - Provare ad usare un solo offscreenCanvas per utente. Cioè tutto ciò che fai viene semrpe disegnato su un offscreenCanvas, e poi printato sul layer (quello di contextForLine VS quello del layer).
-  - Provare prima con await della risposta del worker (equivalente a ora, dove ogni step start/move/end è sincrono), poi anche con un buffer nel worker.
-      Ogni cursor start/move/end invia un messaggio al worker, che li esegue in fila, e ad ogni risposta del worker printo sul giusto layer.
-  - Poooootenzialmente potrei anche avere più di un worker in background che lavorano in parallelo, ma dovrei fare attenzione a printare comunque gli step in ordine corretto sul layer finale.
 
   ----- COWORKING MULTI-LAYERS -----
     - un bel po' di lavoro da fare

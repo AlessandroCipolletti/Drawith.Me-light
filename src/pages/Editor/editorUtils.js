@@ -154,6 +154,16 @@ export const getStepsDataFromTouchEvents = (touchEvents, tool, offsetX = 0, offs
   return stepsData
 }
 
+export const updateLastStepData = (state, stepData) => {
+  state.lastStep.x = stepData.x
+  state.lastStep.y = stepData.y
+  state.lastStep.midX = stepData.midX
+  state.lastStep.midY = stepData.midY
+  state.lastStep.size = stepData.size
+  state.lastStep.alpha = stepData.alpha
+  state.lastStep.rotation = stepData.rotation
+}
+
 export const updateCurrentTouchData = (state, touchEvent, eventType, x = false, y = false) => {
   const currentTouch = state.currentTouch
   currentTouch.type = eventType
