@@ -26,13 +26,11 @@ import { init as initCanvasUtils, remove as removeCanvasUtils, fillWithBucket, s
 import { initEditorUtils, cleanEditorUtils, drawMultipleCoworkingSteps, updateCurrentTouchData, getStepData, updateEditorZoomGlobalState, shouldThisStepMoveAdaptLine, initState, initCanvasOffset, findValueWithMagnetism, applyRationResizeMagnetism, getAltitudeFactorFromAngle, updateLastStepData } from './editorUtils'
 import { toolDefaultProps } from './config'
 import { openPageFolder } from 'modules/Router'
-import WorkersBufferManager from 'modules/WorkersBufferManager'
 import { TOUCH_TYPE_STYLUS, TOUCH_TYPE_FINGER } from 'main/constants'
 import { spacing } from 'main/Theme'
 
 
 /*
-
   ----- COWORKING MULTI-LAYERS -----
     - un bel po' di lavoro da fare
     - far vedere quale layer è selezionato da ogni utente.
@@ -50,6 +48,7 @@ import { spacing } from 'main/Theme'
 
   ----- BUGS -----
     - Su coworking chiuso dal collega, non ho ricevuto un messaggio di connessione persa
+    - Log.fps() su iPad assente
 */
 
 
@@ -220,7 +219,7 @@ const labels = {
   youHaveDifferentScreenSizes: 'You and your friend have different screen sizes',
 }
 
-export let coworking, WorkerManager
+export let coworking
 
 
 const stepDataKeys = ['type', 'x', 'y', 'midX', 'midY', 'size', 'alpha', 'rotation', 'oldSize', 'oldAlpha', 'oldRotation', 'oldMidX', 'oldMidY', 'oldX', 'oldY', 'stepLength']
@@ -768,20 +767,6 @@ const drawStepMove = (context, stepData, tool) => {
   context.globalCompositeOperation = tool.globalCompositeOperation
 
   if (tool.frameType) {
-    // adesso che WorkersManager supporta l'await come una normale promise,
-    // posso lanciare qui un'azione verso un worker del tipo:
-    /*
-      const { bitmap, x, y } = await workersManager.waitAction({
-        type: 'move',
-        stepData,
-        tool,
-      })
-      context.drawImage(bitmap, x, y)
-    */
-    // - Problema è che certi tool necessitano che lo step sia disegnato sul contenuto già esistente,
-    //   quindi per alcuni step devo inviare un bitmap del canvas attuale, ed usarlo base dentro al worker.
-    // - Inoltre devo gestire un drawStepMove asincrono.
-    // - Per ottimizzare la memoria, dentro al worker devo fare il calcolo necessario per sapere che porzione di canvas ho colorato, è ritornare un bitmap più piccolo possibile.
     doneSomething = drawCurvedFunctionLine(context, stepData, tool)
   }
 
@@ -799,22 +784,12 @@ const drawStepEnd = (context, stepData, tool) => {
   return doneSomething
 }
 
-const updateLastStepData = (stepData) => {
-  state.lastStep.x = stepData.x
-  state.lastStep.y = stepData.y
-  state.lastStep.midX = stepData.midX
-  state.lastStep.midY = stepData.midY
-  state.lastStep.size = stepData.size
-  state.lastStep.alpha = stepData.alpha
-  state.lastStep.rotation = stepData.rotation
-}
-
 const handleTouchStartStep = (context) => {
   state.currentTouch.drewSomething = false
   const stepData = getStepData(state.currentToolProps, state.currentTouch, state.lastStep)
 
   if (
-    state.currentToolGCO !== 'destination-out' &&
+    state.currentToolGCO !== 'destination-out' && // not eraser
     (state.currentToolProps.randomColor || !state.currentToolProps.color)
   ) {
     setToolColor(ColorPicker.getRandomColor(), true)
@@ -841,7 +816,7 @@ const handleTouchStartStep = (context) => {
     if (thisStepHasDoneSomething && Coworking.isOpen()) {
       sendCoworkingStep(stepData)
     }
-    updateLastStepData(stepData)
+    updateLastStepData(state, stepData)
   }
 }
 
@@ -858,7 +833,7 @@ const handleTouchMoveStep = (context, sendDataForCoworking) => {
     // se son passati abbastanza steps dall'ultima break nel coworking, aggiungo un breaks
     sendCoworkingStep(stepData, state.currentTouch.drewSomething && state.stepsSinceLastCoworkingUpdate >= state.currentToolProps.stepsToUpdateCoworking - 1)
   }
-  updateLastStepData(stepData)
+  updateLastStepData(state, stepData)
 
   Debug.logFps()
 }
@@ -914,8 +889,9 @@ const onDragLayerContentTouchStart = (touchEvent) => {
 }
 
 const onStepTouchStart = (touchEvent) => {
-  state.currentTouch = { ...initialState.currentTouch }
-  state.lastStep = state.lastAdaptedStep = {}
+  state.currentTouch = deepCopy(initialState.currentTouch)
+  state.lastStep = {}
+  state.lastAdaptedStep = {}
   updateCurrentTouchType(touchEvent)
 
   // init the adapted line if needed
@@ -930,7 +906,7 @@ const onStepTouchStart = (touchEvent) => {
 
   if (state.currentToolProps.size < state.currentToolProps.maxSizeThatNeedsToAdaptLine) {
     handleTouchStartStep(refs.contextForLine)
-    state.lastAdaptedStep = { ...state.lastStep }
+    state.lastAdaptedStep = deepCopy(state.lastStep) // questa forse non serve perché lastStep è = {}
     state.pxDistanceSinceLastLineAdaptation = 0
     refs.contextForLine.clearRect(0, 0, refs.canvasForLine.width, refs.canvasForLine.height)
   } else {
@@ -1023,15 +999,14 @@ const onStepTouchMove = (touchEvent) => {
   if (state.currentToolProps.size < state.currentToolProps.maxSizeThatNeedsToAdaptLine) {
     let adaptedStepLine = shouldThisStepMoveAdaptLine(state)
     if (adaptedStepLine) {
-      state.lastStep = { ...state.lastAdaptedStep }
+      state.lastStep = deepCopy(state.lastAdaptedStep)
       updateCurrentTouchData(state, touchEvent, Params.eventMove)
     }
-
     // does the touchMove job
     handleTouchMoveStep(adaptedStepLine ? refs.layerContext : refs.contextForLine, adaptedStepLine)
 
     if (adaptedStepLine) {
-      state.lastAdaptedStep = { ...state.lastStep }
+      state.lastAdaptedStep = deepCopy(state.lastStep)
       refs.contextForLine.clearRect(0, 0, refs.canvasForLine.width, refs.canvasForLine.height)
     }
   } else {
@@ -1080,7 +1055,7 @@ const onDragLayerContentTouchEnd = (e) => {
 const onStepTouchEnd = (e) => {
   // ends the adapted line if needed
   if (state.currentToolProps.size < state.currentToolProps.maxSizeThatNeedsToAdaptLine) {
-    state.lastStep = { ...state.lastAdaptedStep }
+    state.lastStep = deepCopy(state.lastAdaptedStep)
     refs.contextForLine.clearRect(0, 0, refs.canvasForLine.width, refs.canvasForLine.height)
   }
 
@@ -1364,16 +1339,8 @@ const initDom = async () => {
   })
 }
 
-const openNewCanvasWorker = () => {
-  return new Worker(
-    new URL('./workers/canvasWorker.js', import.meta.url),
-    { type: 'module' }
-  )
-}
-
 const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
   initEditorUtils(state.canvas.width, state.canvas.height)
-  WorkerManager = new WorkersBufferManager(openNewCanvasWorker)
   await Toolbar.init(refs.container)
   await Layers.init(
     refs.container,
@@ -1447,7 +1414,6 @@ export const close = async () => {
   setDraftInterval(false)
   cleanBucketHistory()
   cleanEditorUtils()
-  WorkerManager.terminate()
   refs.pipetteCursor.style.left = '50%'
   refs.pipetteCursor.style.top = '50%'
   Header.show()
@@ -1462,6 +1428,5 @@ export const close = async () => {
   removeCanvasUtils()
   state = {}
   coworking = undefined
-  WorkerManager = undefined
   cleanRefs(refs)
 }
