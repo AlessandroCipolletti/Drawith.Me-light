@@ -283,3 +283,21 @@ export const getDigitalRoot = (n) => {
 //
 //   return Math.exp(minv + scale*(position-minp))
 // }
+export const getGreatCommonDivisor = (a, b) => {
+  if (a === 0) {
+    return b
+  }
+  return getGreatCommonDivisor(b % a, a)
+}
+
+// how many integers are relatively prime to the given number
+export const getTotient = (n) => {
+  let result = 1
+  for (let i = 2; i < n; i++) {
+    if (getGreatCommonDivisor(i, n) === 1) {
+      result++
+    }
+  }
+  return result
+}
+
