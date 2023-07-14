@@ -33,8 +33,29 @@ import { spacing } from 'main/Theme'
 /*
   ----- COWORKING MULTI-LAYERS -----
     - un bel po' di lavoro da fare
-    - far vedere quale layer è selezionato da ogni utente.
+    - Come faccio a fare undo/redo in coworking ?
     - Qui si che potrei usare un offscreenCanvas. Tutto ciò che l'altro utente fa, viene disegnato in un offscreenCanvas, e poi printato sul suo layer.
+        Quindi dovrei creare una versione di drawStepStart/Move/End che usa il WorkersBufferManager
+
+    - Su creazione nuovo disegno con coworking, devo creare due layers. Il primo al proprietario del disegno, il secondo a chi si è collegato.
+    - Far vedere il layer selezionato dall'altro utente (ad ogni utente viene assegnato un colore).
+    - Non si può selezionare il layer dell'altro utente (forse: volendo lo si può nascondere e duplicare).
+    - Preparare il codice per gestire più di due persone, quindi N utenti ognuno con un livello assegnato.
+    - Quando arrivano degli step da un utente, uso un offscreenCanvas per disegnare tutti i suoi step, e su stepEnd li disegno sul suo layer.
+    - Gli stepEnd (e flip, e resize) ricevuti da coworking non devono salvare un history step, perché tanto non posso fare undo di cose fatte dal mio collega.
+    - Devo creare tante nuove azioni di coworking per trasmettere le modifiche al layer (opacità, visibilità, duplica, emilina, rinomica, ordine, undo, redo).
+    - Undo/redo dentro ad un layer mentre ce l'ho ancora selezionato non dovrebbero creare problemi.
+        Il problema è che potrei disegnare qualcosa su un layer, selezionare un altro layer, ed il mio collega potrebbe selezionare il mio layer precedente.
+        A questo punto cosa faccio col mio undo ? Non posso modificare un layer di un altro utente (anche perché lui potrebbe aver fatto altri step).
+        Stranamente l'altro utente facendo undo potrebbe correttamente annullare anche lo step disegnato da me.
+        Ma non sarebbe chiaro come mai certe volte io possa fare undo (se il mio layer precedente non è stato preso da nessuno) ed altre volte no.
+        Se lasciassi solo undo/redo dentro al layer, cose come "delete layer" sarebbero irreversibili.
+        Potrei fare che sull'azione "coworkerSelectedLayer" cancello dal mio glocal history tutti gli step di quel layer. Cosi facendo potrei fare tutti gli altri undo.
+          Ma stranamente i miei step fatti dentro quel layer non li potrebbe und-are nemmeno il mio collega che ora possiede quel layer.
+          // Forse ogni stepEnd anche ricevuto dal coworking dovrebbe creare un history step, ma salvandosi anche l'id utente che l'ha generato.
+          // Cosi facendo ogni ctrl+z di chiunque, andrebbe a cercare lo step da annullare in una lista globale uguale per tutti, ma prenderebbe l'ultimo step fatto da me,
+          // oppure di un layer che ora è in mio possesso. Ma cosi facendo farei undo di step che non riconosco.
+
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
     - Non avendo più un server in mezzo, i due utenti devono essere connessi allo stesso momento. Quindi l'url è sempre uno solo per ogni utente: quello col suo peerId.
@@ -49,6 +70,9 @@ import { spacing } from 'main/Theme'
   ----- BUGS -----
     - Su coworking chiuso dal collega, non ho ricevuto un messaggio di connessione persa
     - Log.fps() su iPad assente
+    - la preview del size ed alpha del tool, deve funzionare con requestAnimationFrame o qualcosa del genere. Altrimenti è troppo lento
+    - Quando modifico un disegno e salvo, la fase 1 viene salvata con spinner. Poi il folder si apre con il disegno senza spinner. E poi parte la fase due del salvataggio
+        Aggiungendo nuovamente lo spinner sul disegno.
 */
 
 
@@ -238,15 +262,12 @@ const removeToolDataKeys = (toolData) => [toolData.name, toolData.version, toolD
 export const drawCoworkingMultipleStepsData = (data) => {
   if (state?.pageOpened) {
     requestAnimationFrame(() => {
-      // Qui potrei aggiungere una key boolean dentro "data" per dire che i draw degli step sono fatti da un coworking,
-      // e quindi non devono avere una callback quando sono finiti
       drawMultipleCoworkingSteps(refs.layerContext, data.steps.map(addTouchStepDataKeys), addToolDataKeys(data.tool), {
         start: drawStepStart,
         move: drawStepMove,
         end: drawStepEnd,
         bucket: useBucket,
       })
-      // Solo in questo caso devo salvare lo step, e quindi serve la callback, ma diversa da quella classica di drawStepEnd dell'utente principale
       if (data.steps.find(step => step[0] === 'end')) {
         requestAnimationFrame(saveStepHistory) // qui chiedo a Layers.js di aggiornare le coordinate del contenuto del layer
       }
