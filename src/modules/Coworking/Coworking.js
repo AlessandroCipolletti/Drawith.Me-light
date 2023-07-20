@@ -18,6 +18,7 @@ export const state = {
   userId: uuidv4(),
   isOpen: false,
   connectedUsersId: '',
+  iAskedForCoworking: false, // true if I'm connecting to someone else
   clientData: {
     userId: '',
     codeVersion: 0,
@@ -31,7 +32,7 @@ export const state = {
     minCanvasWidth: 0,
     minCanvasHeight: 0,
   },
-  isWaitingConnection: false,
+  isWaitingPeerConnection: false,
   waitingToConnectToSocketId: false, // false or coworkerSocketId. If coworkerSocketId, onConnect we try to open coworking with that coworkerSocketId
   stepsBuffer: [],
 }
@@ -92,7 +93,13 @@ const startCoworkingSession = (userId) => {
   // ma questa cosa dovrà essere modificata quando sarà possibile anche aprire un coworking da dentro l'editor con un disegno già esistente
   // il canvas li resterà alle sue dimensioni attuali, ma chi ha lo schermo più piccolo deve ricevere una notifica
   Messages.info(labels.coworkingStarted)
-  goToPage(`/editor/open/false/true/${state.coworkingData.minCanvasWidth}/${state.coworkingData.minCanvasHeight}`)
+  const editorOptions = {
+    withCoworking: true,
+    isHostingCoworking: !state.iAskedForCoworking,
+    coworkingCanvasWidth: state.coworkingData.minCanvasWidth,
+    coworkingCanvasHeight: state.coworkingData.minCanvasHeight,
+  }
+  goToPage(`/editor/open/false/${JSON.stringify(editorOptions)}`)
 }
 
 export const updateClientEnvironment = () => {
@@ -134,6 +141,7 @@ const checkCoworkerEnvironment = (coworkerEnvironment) => {
 // to call from module Editor, when url drawith.me/editor/coworking/abc123 is open
 export const requestSession = (coworkerSocketId) => {
   console.log('requestSession', coworkerSocketId)
+  state.iAskedForCoworking = true
   if (!coworkerSocketId) {
     return
   }
@@ -161,7 +169,7 @@ export const stop = () => {
 
 const handlePeerClientConnect = async(id) => {
   console.log('Peer client online', id)
-  state.isWaitingConnection = false
+  state.isWaitingPeerConnection = false
   addGlobalStatus(SOCKET_CONNECTED_STATUS)
   updateClientEnvironment()
   if (state.waitingToConnectToSocketId) {
@@ -203,12 +211,13 @@ const handleConnectionClosed = () => {
   Messages.info(labels.coworkingClosed)
   state.connectedUsersId = ''
   state.isOpen = false
+  state.iAskedForCoworking = false
 }
 
 export const init = () => {
   return new Promise((resolve, reject) => {
-    if (!isOnline() && !state.isWaitingConnection) {
-      state.isWaitingConnection = true
+    if (!isOnline() && !state.isWaitingPeerConnection) {
+      state.isWaitingPeerConnection = true
 
       peerClient = new PeerSocket({
         maxConcurrentConnections: config.maxConcurrentConnections,

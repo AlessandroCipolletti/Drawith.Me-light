@@ -35,25 +35,17 @@ import { spacing } from 'main/Theme'
     - Qui si che potrei usare un offscreenCanvas. Tutto ciò che l'altro utente fa, viene disegnato in un offscreenCanvas, e poi printato sul suo layer.
         Quindi dovrei creare una versione di drawStepStart/Move/End che usa il WorkersBufferManager
 
-    - Su creazione nuovo disegno con coworking, devo creare due layers. Il primo al proprietario del disegno, il secondo a chi si è collegato.
     - Non si può selezionare il layer dell'altro utente (volendo lo si può nascondere e duplicare).
     - Quando arrivano degli step da un utente, uso un offscreenCanvas per disegnare tutti i suoi step, e su stepEnd li disegno sul suo layer.
-    - Gli stepEnd (e flip, e resize) ricevuti da coworking non devono salvare un history step, perché tanto non posso fare undo di cose fatte dal mio collega.
     - Devo creare tante nuove azioni di coworking per trasmettere le modifiche al layer (opacità, visibilità, duplica, emilina, rinomica, ordine, undo, redo).
     - Undo/redo dentro ad un layer mentre ce l'ho ancora selezionato non dovrebbero creare problemi.
-        Il problema è che potrei disegnare qualcosa su un layer, selezionare un altro layer, ed il mio collega potrebbe selezionare il mio layer precedente.
-        A questo punto cosa faccio col mio undo ? Non posso modificare un layer di un altro utente (anche perché lui potrebbe aver fatto altri step).
-        Stranamente l'altro utente facendo undo potrebbe correttamente annullare anche lo step disegnato da me.
-        Ma non sarebbe chiaro come mai certe volte io possa fare undo (se il mio layer precedente non è stato preso da nessuno) ed altre volte no.
-        Se lasciassi solo undo/redo dentro al layer, cose come "delete layer" sarebbero irreversibili.
-        Potrei fare che sull'azione "coworkerSelectedLayer" cancello dal mio glocal history tutti gli step di quel layer. Cosi facendo potrei fare tutti gli altri undo.
-          Ma stranamente i miei step fatti dentro quel layer non li potrebbe und-are nemmeno il mio collega che ora possiede quel layer.
-          // Forse ogni stepEnd anche ricevuto dal coworking dovrebbe creare un history step, ma salvandosi anche l'id utente che l'ha generato.
-          // Cosi facendo ogni ctrl+z di chiunque, andrebbe a cercare lo step da annullare in una lista globale uguale per tutti, ma prenderebbe l'ultimo step fatto da me,
-          // oppure di un layer che ora è in mio possesso. Ma cosi facendo farei undo di step che non riconosco.
-
-      Un'altra opzione potrebbe essere che ognuno si crea i propri layer e non si possono modificare quelli dell'altro utente.
+      Ognuno si crea i propri layer e non si possono modificare quelli dell'altro utente.
       Volendo me ne posso duplicare uno ed usarlo, oppure trasferire la proprietà di un layer ad un altro utente.
+      Tutte le mie azioni sui miei layers e tutti i miei step devono entrare nell'history come al solito,
+        ma tutti gli step e le azioni che ricevo dal coworking no, perché tanto sono su layers che io non posso selezionare.
+      Quindi entrambi possono fare undo/ redo normalmente, ma su undo/redo devo anche trasferire il contrario dell'azione in questione al coworker.
+        (l'undo di uno step sarà un casino, perché, non potendo rimuovere un solo tratto rischio di dover trasferire il base64 o l'imageData di tutto il layer).
+      Quando trasferisco un layer a qualcuno, devo rimuovere dal mio history globale tutti i suoi step, e svuotare l'history del layer.
 
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
@@ -1357,7 +1349,7 @@ const initDom = async () => {
   })
 }
 
-const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
+const initSubModules = async (preloadedDrawing = {}, options = {}) => {
   initEditorUtils(state.canvas.width, state.canvas.height)
   await Toolbar.init(refs.container)
   await Layers.init(
@@ -1365,7 +1357,8 @@ const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
     preloadedDrawing.layers || [],
     state.canvas.width,
     state.canvas.height,
-    withCoworking
+    options.withCoworking,
+    options.isHostingCoworking
   )
   await Promise.all([
     Tools.init(
@@ -1386,8 +1379,8 @@ const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
   ])
 }
 
-export const open = async (preloadedDrawindId, withCoworking = false, coworkingCanvasWidth, coworkingCanvasHeight) => {
-  console.log('editor show', preloadedDrawindId, withCoworking, coworkingCanvasWidth, coworkingCanvasHeight)
+export const open = async (preloadedDrawindId, options = {}) => {
+  console.log('editor show', preloadedDrawindId, options)
   coworking = Coworking.requestSession // just to have an alias for app.drawith.me?editor/coworking
   state = initState(initialState)
   await initDom()
@@ -1395,7 +1388,7 @@ export const open = async (preloadedDrawindId, withCoworking = false, coworkingC
   Header.hide()
   addRotationHandler(onRotate)
   addGlobalStatus('drawith__EDITOR-OPEN')
-  toggleGlobalStatus('drawith__EDITOR-COWORKING', withCoworking)
+  toggleGlobalStatus('drawith__EDITOR-COWORKING', options.withCoworking)
 
   let preloadedDrawing = {}
   if (preloadedDrawindId) {
@@ -1405,15 +1398,15 @@ export const open = async (preloadedDrawindId, withCoworking = false, coworkingC
       state.localDbDrawId = preloadedDrawindId
     }
   } else {
-    if (withCoworking) {
-      initCanvasDimension(coworkingCanvasWidth, coworkingCanvasHeight, true)
+    if (options.withCoworking) {
+      initCanvasDimension(options.coworkingCanvasWidth, options.coworkingCanvasHeight, true)
     } else {
       initCanvasDimension()
     }
   }
 
   setDraftInterval(true)
-  await initSubModules(preloadedDrawing, withCoworking)
+  await initSubModules(preloadedDrawing, options)
   await fadeInElements([refs.container])
   initCanvasCenter()
   state.pageOpened = true

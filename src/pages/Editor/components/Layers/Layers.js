@@ -1304,28 +1304,38 @@ const prepareLayerFromDb = async(l) => {
   return layer
 }
 
-const initLayers = async(initialLayers, withCoworking, canvasWidth, canvasHeight) => {
+const initLayers = async(initialLayers, canvasWidth, canvasHeight, withCoworking, isHostingCoworking) => {
   state.canvases.width = canvasWidth
   state.canvases.height = canvasHeight
+
+  // if we are opening a drawing --> just its layers
   if (initialLayers.length) {
     initialLayers = await parallelize(initialLayers, prepareLayerFromDb, config.maxConcurrentThreads)
     state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, l])))
+  } else if (withCoworking) {
+    // new coworking drawing --> 2 new layers
+    // first for who is hosting, second for who is joining
+    const layerForGuest = createNewLayerData(isHostingCoworking ? Coworking.getCoworkerUserId() : Coworking.getUserId())
+    layerForGuest.canvas = createNewLayerCanvas()
+    state.layers[layerForGuest.id] = layerForGuest
+    const layerForHost = createNewLayerData(isHostingCoworking ? Coworking.getUserId() : Coworking.getCoworkerUserId())
+    layerForHost.canvas = createNewLayerCanvas()
+    state.layers[layerForHost.id] = layerForHost
   } else {
+    // new drawing alone --> just one layer for me
     const newLayerData = createNewLayerData()
     newLayerData.canvas = createNewLayerCanvas()
     state.layers[newLayerData.id] = newLayerData
   }
 
-  if (withCoworking) {
-    const coworkerLayer = createNewLayerData(Coworking.getCoworkerUserId())
-    coworkerLayer.canvas = createNewLayerCanvas()
-    state.layers[coworkerLayer.id] = coworkerLayer
-  }
-
   const layersIds = Object.keys(state.layers)
   await Promise.all(layersIds.map(createNewLayerDom))
+  const firstSelectedLayerId =
+    layersIds.find(layerId => state.layers[layerId].selected) ||
+    layersIds.find(layerId => state.layers[layerId].owner === Coworking.getUserId()) ||
+    layersIds[0]
 
-  await selectLayer(layersIds.find(layerId => state.layers[layerId].selected) || layersIds[0])
+  await selectLayer(firstSelectedLayerId)
   closeParams()
   reorderLayersList()
 
@@ -1377,7 +1387,7 @@ const initDom = async(moduleContainer) => {
   dom = undefined
 }
 
-export const init = async(moduleContainer, initialLayers = [], canvasWidth, canvasHeight, withCoworking = false) => {
+export const init = async(moduleContainer, initialLayers, canvasWidth, canvasHeight, withCoworking = false, isHostingCoworking = false) => {
   config.maxLayersNumber = config.maxLayersNumberHighPerf
   if (Params.isTablet && Params.ios) {
     const screenMaxSize = getRealScreenMaxSize()
@@ -1388,11 +1398,11 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
   state = deepCopy(initialState)
   await initDom(moduleContainer)
   refs.layersList.scrollTop = 1
-  await initLayers(initialLayers, withCoworking, canvasWidth, canvasHeight)
+  await initLayers(initialLayers, canvasWidth, canvasHeight, withCoworking, isHostingCoworking)
   state.maxLayerCount = Object.keys(state.layers).length
 
   setTimeout(() => {
-    refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected').offsetTop
+    refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected')?.offsetTop || 0
   }, 200)
 }
 
