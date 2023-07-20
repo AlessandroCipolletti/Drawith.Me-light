@@ -97,7 +97,6 @@
   border-radius: 1rem;
   background-color: var(--palette-white);
   margin: 1.5rem auto 0rem;
-  border: solid 0.15rem var(--palette-gray-4);
   transition: all var(--slide-transition);
   cursor: pointer;
   overflow: hidden;
@@ -110,8 +109,17 @@
   width: calc(var(--layers-container-width) - 0.5rem);
   height: calc(var(--layers-container-width) - 0.5rem);
 }
+.editor-layers__layer.editor-layers__layer-yours {
+  border: solid 0.15rem var(--palette-gray-4);
+}
+.editor-layers__layer.editor-layers__layer-coworker {
+  border: solid 0.15rem var(--palette-gray-5);
+}
 .editor-layers__layer.editor-layers__layer-yours.editor-layers__layer-selected {
   border: solid 0.2rem var(--palette-green-0);
+}
+.editor-layers__layer.editor-layers__layer-coworker.editor-layers__layer-selected {
+  border: solid 0.15rem var(--palette-gray-3);
 }
 
 .editor-layers__layer-active .editor-layers__layer-preview {

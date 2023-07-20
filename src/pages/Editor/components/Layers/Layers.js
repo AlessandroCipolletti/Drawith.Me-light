@@ -558,7 +558,7 @@ export const clearCurrentLayer = async () => {
   }
 }
 
-const createNewLayerData = () => ({
+const createNewLayerData = (owner = false) => ({
   id: uuidv4(),
   minX: Infinity,
   minY: Infinity,
@@ -575,10 +575,13 @@ const createNewLayerData = () => ({
   previewRef: null,
   createTimestamp: Date.now(),
   updateTimestamp: Date.now(),
-  owner: Coworking.getUserId(),
+  owner: owner || Coworking.getUserId(),
 })
 
-const getMaxOrder = () => Math.max(...Object.values(state.layers).map(l => l.order))
+const getMaxOrder = () => {
+  const max = Math.max(...Object.values(state.layers).map(l => l.order))
+  return isFinite(max) ? max : 0
+}
 
 const toggleParams = () => {
   if (refs.paramsContainer.classList.contains('params-container-visible')) {
@@ -1301,7 +1304,7 @@ const prepareLayerFromDb = async(l) => {
   return layer
 }
 
-const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
+const initLayers = async(initialLayers, withCoworking, canvasWidth, canvasHeight) => {
   state.canvases.width = canvasWidth
   state.canvases.height = canvasHeight
   if (initialLayers.length) {
@@ -1311,6 +1314,12 @@ const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
     const newLayerData = createNewLayerData()
     newLayerData.canvas = createNewLayerCanvas()
     state.layers[newLayerData.id] = newLayerData
+  }
+
+  if (withCoworking) {
+    const coworkerLayer = createNewLayerData(Coworking.getCoworkerUserId())
+    coworkerLayer.canvas = createNewLayerCanvas()
+    state.layers[coworkerLayer.id] = coworkerLayer
   }
 
   const layersIds = Object.keys(state.layers)
@@ -1379,7 +1388,7 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
   state = deepCopy(initialState)
   await initDom(moduleContainer)
   refs.layersList.scrollTop = 1
-  await initLayers(initialLayers, canvasWidth, canvasHeight)
+  await initLayers(initialLayers, withCoworking, canvasWidth, canvasHeight)
   state.maxLayerCount = Object.keys(state.layers).length
 
   setTimeout(() => {
@@ -1395,7 +1404,7 @@ const clearLayerHistoryStepBitmap = (step) => {
   }
 }
 
-// chiamata su chiusura editor, e pulizia deleteLayers
+// chiamata su chiusura editor, e pulizia deletedLayers
 const hardDeleteLayer = (layer, clearHistory = true) => {
   if (clearHistory) {
     layer.history.clear()

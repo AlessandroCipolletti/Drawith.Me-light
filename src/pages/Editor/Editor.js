@@ -32,15 +32,11 @@ import { spacing } from 'main/Theme'
 
 /*
   ----- COWORKING MULTI-LAYERS -----
-    - un bel po' di lavoro da fare
-    - Come faccio a fare undo/redo in coworking ?
     - Qui si che potrei usare un offscreenCanvas. Tutto ciò che l'altro utente fa, viene disegnato in un offscreenCanvas, e poi printato sul suo layer.
         Quindi dovrei creare una versione di drawStepStart/Move/End che usa il WorkersBufferManager
 
     - Su creazione nuovo disegno con coworking, devo creare due layers. Il primo al proprietario del disegno, il secondo a chi si è collegato.
-    - Far vedere il layer selezionato dall'altro utente (ad ogni utente viene assegnato un colore).
     - Non si può selezionare il layer dell'altro utente (volendo lo si può nascondere e duplicare).
-    - Preparare il codice per gestire più di due persone, quindi N utenti ognuno con un livello assegnato.
     - Quando arrivano degli step da un utente, uso un offscreenCanvas per disegnare tutti i suoi step, e su stepEnd li disegno sul suo layer.
     - Gli stepEnd (e flip, e resize) ricevuti da coworking non devono salvare un history step, perché tanto non posso fare undo di cose fatte dal mio collega.
     - Devo creare tante nuove azioni di coworking per trasmettere le modifiche al layer (opacità, visibilità, duplica, emilina, rinomica, ordine, undo, redo).
@@ -1375,8 +1371,7 @@ const initSubModules = async (preloadedDrawing = {}, withCoworking = false) => {
     Tools.init(
       refs.container,
       preloadedDrawing.toolsCustomProps || [],
-      preloadedDrawing.selectedTool || false,
-      withCoworking
+      preloadedDrawing.selectedTool || false
     ),
     ColorPicker.init(
       refs.container,

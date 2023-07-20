@@ -34,10 +34,6 @@
   transition: transform var(--options-show-transition);
 }
 
-.editor-tools__tool-hidden {
-  display: none;
-}
-
 .editor-tools__versions {
   width: 100%;
   height: 100%;

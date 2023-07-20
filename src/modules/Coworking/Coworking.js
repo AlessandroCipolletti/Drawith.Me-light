@@ -52,6 +52,7 @@ export const isConnectedWithSomeone = () => !!peerClient.connected
 export const isOpen = () => !!state.isOpen
 export const getSocketId = () => peerClient.id
 export const getUserId = () => state.userId
+export const getCoworkerUserId = () => state.connectedUsersId
 
 
 const handlePeerMessage = (message) => {
