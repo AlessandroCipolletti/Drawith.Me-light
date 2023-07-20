@@ -14,7 +14,7 @@ import * as Ruler from './components/Ruler'
 import { addPreventPageRefresh, removePreventPageRefresh } from 'main/main'
 import { setSpinner, getEventCoordX, getEventCoordY, loadTemplate, preventDefault, getDomRect } from 'utils/domUtils'
 import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
-import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
+import { addGlobalStatus, removeGlobalStatus, toggleGlobalStatus } from 'utils/moduleUtils'
 import { round, getNumberInBetween, getOriginalCoordsFromScaleRotation, getAverage, roundAngleForSteps } from 'utils/mathUtils'
 import { rgbToHex } from 'utils/colorsUtils'
 import { saveDrawingToDB, getOneDrawing, saveDrawingPaletteColors } from 'utils/localDbUtils'
@@ -39,7 +39,7 @@ import { spacing } from 'main/Theme'
 
     - Su creazione nuovo disegno con coworking, devo creare due layers. Il primo al proprietario del disegno, il secondo a chi si è collegato.
     - Far vedere il layer selezionato dall'altro utente (ad ogni utente viene assegnato un colore).
-    - Non si può selezionare il layer dell'altro utente (forse: volendo lo si può nascondere e duplicare).
+    - Non si può selezionare il layer dell'altro utente (volendo lo si può nascondere e duplicare).
     - Preparare il codice per gestire più di due persone, quindi N utenti ognuno con un livello assegnato.
     - Quando arrivano degli step da un utente, uso un offscreenCanvas per disegnare tutti i suoi step, e su stepEnd li disegno sul suo layer.
     - Gli stepEnd (e flip, e resize) ricevuti da coworking non devono salvare un history step, perché tanto non posso fare undo di cose fatte dal mio collega.
@@ -56,6 +56,9 @@ import { spacing } from 'main/Theme'
           // Cosi facendo ogni ctrl+z di chiunque, andrebbe a cercare lo step da annullare in una lista globale uguale per tutti, ma prenderebbe l'ultimo step fatto da me,
           // oppure di un layer che ora è in mio possesso. Ma cosi facendo farei undo di step che non riconosco.
 
+      Un'altra opzione potrebbe essere che ognuno si crea i propri layer e non si possono modificare quelli dell'altro utente.
+      Volendo me ne posso duplicare uno ed usarlo, oppure trasferire la proprietà di un layer ad un altro utente.
+
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
     - Non avendo più un server in mezzo, i due utenti devono essere connessi allo stesso momento. Quindi l'url è sempre uno solo per ogni utente: quello col suo peerId.
@@ -68,7 +71,6 @@ import { spacing } from 'main/Theme'
     - Un grosso lavoro di canvas eseguito sia in main thread che worker
 
   ----- BUGS -----
-    - Su coworking chiuso dal collega, non ho ricevuto un messaggio di connessione persa
     - Log.fps() su iPad assente
     - la preview del size ed alpha del tool, deve funzionare con requestAnimationFrame o qualcosa del genere. Altrimenti è troppo lento
     - Quando modifico un disegno e salvo, la fase 1 viene salvata con spinner. Poi il folder si apre con il disegno senza spinner. E poi parte la fase due del salvataggio
@@ -102,7 +104,6 @@ const initialState = {
   pageOpened: false,
   modifiedSinceLastSave: false,
   modifiedSinceLastCopy: false,
-  withCoworking: false,
   currentTouch: {
     type: '',
     x: 0,
@@ -1229,7 +1230,7 @@ const updateZoomCss = (scale = state.canvas.scale, rotation = state.canvas.rotat
   }
 }
 
-export const getCanvasPxSizes = (withCoworking) => {
+export const getCanvasPxSizes = (withCoworking = false) => {
   if (withCoworking) {
     let [width, height] = getCanvasContainerPxSizes()
     width = width + spacing.EDITOR_TOOLS_WIDTH // fix temporaneo perché in coworking non ci sono i layers
@@ -1394,16 +1395,12 @@ export const open = async (preloadedDrawindId, withCoworking = false, coworkingC
   console.log('editor show', preloadedDrawindId, withCoworking, coworkingCanvasWidth, coworkingCanvasHeight)
   coworking = Coworking.requestSession // just to have an alias for app.drawith.me?editor/coworking
   state = initState(initialState)
-  state.withCoworking = withCoworking
   await initDom()
-  addGlobalStatus('drawith__EDITOR-OPEN')
   Debug.startFpsLog()
   Header.hide()
   addRotationHandler(onRotate)
-
-  if (withCoworking) {
-    addGlobalStatus('drawith__EDITOR-COWORKING')
-  }
+  addGlobalStatus('drawith__EDITOR-OPEN')
+  toggleGlobalStatus('drawith__EDITOR-COWORKING', withCoworking)
 
   let preloadedDrawing = {}
   if (preloadedDrawindId) {
@@ -1413,7 +1410,7 @@ export const open = async (preloadedDrawindId, withCoworking = false, coworkingC
       state.localDbDrawId = preloadedDrawindId
     }
   } else {
-    if (state.withCoworking) {
+    if (withCoworking) {
       initCanvasDimension(coworkingCanvasWidth, coworkingCanvasHeight, true)
     } else {
       initCanvasDimension()

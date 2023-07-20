@@ -395,7 +395,7 @@ const layerDeepCopy = (layer, {
     selected: layer.selected,
     createTimestamp: layer.createTimestamp,
     updateTimestamp: layer.updateTimestamp,
-    selectedByCoworker: layer.selectedByCoworker,
+    owner: layer.owner,
   }
   if (deepCopyCanvas) {
     copy.canvas = duplicateCanvas(layer.canvas, usingOffscreen)
@@ -415,7 +415,7 @@ const prepareLayerDataToExport = async(layer) => {
     bitmap.close()
     bitmap = undefined
   }
-  delete layer.selectedByCoworker
+  delete layer.owner
   delete layer.resizeMode
   delete layer.modified
   delete layer.canvas
@@ -511,8 +511,10 @@ export const exportWholeCanvasData = async(returnCanvasContext = false) => {
     tempCanvas = tempContext = null
   }
 
-  bitmap.close()
-  bitmap = null
+  if (bitmap) {
+    bitmap.close()
+    bitmap = null
+  }
 
   return data
 }
@@ -573,7 +575,7 @@ const createNewLayerData = () => ({
   previewRef: null,
   createTimestamp: Date.now(),
   updateTimestamp: Date.now(),
-  selectedByCoworker: false,
+  owner: Coworking.getUserId(),
 })
 
 const getMaxOrder = () => Math.max(...Object.values(state.layers).map(l => l.order))
@@ -628,9 +630,9 @@ const createNewLayerListElementDom = (layerId, withAnimation = true) => {
   layerListDom.setAttribute('data-id', layerId)
   state.layers[layerId].previewRef = layerListDom.querySelector('.editor-layers__layer-preview')
   state.layers[layerId].previewRef.context = state.layers[layerId].previewRef.getContext('2d')
-  if (state.layers[layerId].selected) {
-    layerListDom.classList.add('editor-layers__layer-selected')
-  }
+  layerListDom.classList.toggle('editor-layers__layer-selected', state.layers[layerId].selected)
+  layerListDom.classList.toggle('editor-layers__layer-yours', layerIsYours(layerId))
+  layerListDom.classList.toggle('editor-layers__layer-coworker', !layerIsYours(layerId))
   layerListDom.querySelector('input').value = state.layers[layerId].name
 
   layerListDom.querySelector('input').addEventListener(Params.eventStart, (e) => {
@@ -710,7 +712,7 @@ const updateEditorCanvas = () => {
 }
 
 const selectLayer = async(layerId, showParams = true) => {
-  if (layerId !== state.currentSelectedLayerId && state.layers[layerId].selectedByCoworker === false) {
+  if (layerIsYours(layerId) && layerId !== state.currentSelectedLayerId) {
     const wasInResizeMode = state.resizeMode
 
     if (state.currentSelectedLayerId) {
@@ -765,6 +767,14 @@ const reorderLayersList = () => {
   updateEditorCanvas()
 }
 
+const layerIsYours = (layerId) => {
+  return state.layers[layerId].owner === Coworking.getUserId()
+}
+
+const filterYoursLayers = () => {
+  return Object.values(state.layers).filter(l => l.owner === Coworking.getUserId())
+}
+
 const _deleteLayer = async(layerId, nextSelectedId = 0, withAnimation = true) => {
   refs.imageForResize = null
   if (nextSelectedId) {
@@ -793,16 +803,14 @@ const deleteLayer = async(e, layerId = state.currentSelectedLayerId) => {
     return
   } // params are closed
   openParams()
-  if (
-    state.layers[layerId].selectedByCoworker ||
-    Object.values(state.layers).filter(l => l.selectedByCoworker === false).length <= 1
-  ) {
+  let yoursLayers = filterYoursLayers()
+  if (!layerIsYours(layerId) || yoursLayers.length <= 1) {
     return
   }
 
-  const layers = Object.values(state.layers).filter(l => !l.selectedByCoworker && l.id !== layerId)
-  const maxOrder = Math.max(...layers.map(l => l.order))
-  const nextSelectedId = layers.filter(l => l.order === maxOrder)[0].id
+  yoursLayers = yoursLayers.filter(l => l.id !== layerId)
+  const maxOrder = Math.max(...yoursLayers.map(l => l.order))
+  const nextSelectedId = yoursLayers.filter(l => l.order === maxOrder)[0].id
   addLayerHistoryDeleteStep(layerId, nextSelectedId)
   await _deleteLayer(layerId, nextSelectedId)
 }
@@ -933,8 +941,14 @@ const enableLayer = (layerId = state.currentSelectedLayerId) => {
   layer.active = true
   refs.layersList.querySelector(`div[data-id="${layerId}"]`).classList.add('editor-layers__layer-active')
   const layerOptionButton = refs.layersList.querySelector(`div[data-id="${layerId}"] .editor-layers__layer-options-button`)
-  layerOptionButton.classList.add('svg-icon-visible')
-  layerOptionButton.classList.remove('svg-icon-hidden')
+
+  if (layerIsYours(layerId)) {
+    layerOptionButton.classList.add('svg-icon-visible')
+    layerOptionButton.classList.remove('svg-icon-hidden')
+  } else {
+    layerOptionButton.classList.add('svg-icon-user-visible')
+    layerOptionButton.classList.remove('svg-icon-user-hidden')
+  }
 
   fadeInElements(layer.canvas, { maxFadeIn: layer.opacity })
   if (layerId === state.currentSelectedLayerId) {
@@ -952,8 +966,14 @@ const disableLayer = (layerId = state.currentSelectedLayerId) => {
   layer.active = false
   refs.layersList.querySelector(`div[data-id="${layerId}"]`).classList.remove('editor-layers__layer-active')
   const layerOptionButton = refs.layersList.querySelector(`div[data-id="${layerId}"] .editor-layers__layer-options-button`)
-  layerOptionButton.classList.add('svg-icon-hidden')
-  layerOptionButton.classList.remove('svg-icon-visible')
+
+  if (layerIsYours(layerId)) {
+    layerOptionButton.classList.add('svg-icon-hidden')
+    layerOptionButton.classList.remove('svg-icon-visible')
+  } else {
+    layerOptionButton.classList.add('svg-icon-user-hidden')
+    layerOptionButton.classList.remove('svg-icon-user-visible')
+  }
 
   fadeOutElements(layer.canvas, { maxFadeIn: layer.opacity })
   if (layerId === state.currentSelectedLayerId) {
@@ -1162,7 +1182,7 @@ const updateLayerOpacity = (() => {
 })()
 
 const updateParamsByLayer = (layerId = state.currentSelectedLayerId) => {
-  if (layerId) {
+  if (layerId && layerIsYours(layerId)) {
     const layer = state.layers[layerId]
     const layerIsEmpty = !Number.isFinite(layer.minX)
     const canBeResized = layerCanBeResized(layerId)
@@ -1170,7 +1190,6 @@ const updateParamsByLayer = (layerId = state.currentSelectedLayerId) => {
     refs.opacityLabel.innerHTML = opacity
     refs.opacityCursor.style.bottom = `${opacity}%`
     refs.opacitySlider.style.background = `linear-gradient(0deg, var(--palette-green-1) ${opacity}%, var(--palette-white) ${opacity}%)`
-    refs.deleteLayerButton.classList.toggle('disabled', layer.selectedByCoworker)
     refs.duplicateLayerButton.classList.toggle('disabled', layerIsEmpty)
     refs.mergeDownLayerButton.classList.toggle('disabled', layerIsEmpty || layer.order === 0)
     refs.flipVerticalButton.classList.toggle('disabled', layerIsEmpty)
@@ -1230,16 +1249,13 @@ const findListTargetLayerParent = (target) => {
 }
 
 const onLayerTouchDown = (layerId) => {
-  if (layerId !== state.currentSelectedLayerId) {
-    if (state.layers[layerId].selectedByCoworker) {
+  if (layerIsYours(layerId)) {
+    if (layerId === state.currentSelectedLayerId) {
       updateParamsByLayer(layerId)
-      openParams()
+      toggleParams()
     } else {
       selectLayer(layerId)
     }
-  } else {
-    updateParamsByLayer(layerId)
-    toggleParams()
   }
 }
 
@@ -1278,7 +1294,7 @@ const onContainerTouchStart = (e) => {
 const prepareLayerFromDb = async(l) => {
   const layer = layerDeepCopy(l, { deepCopyCanvas: false })
   layer.modified = false
-  layer.selectedByCoworker = false
+  layer.owner = Coworking.getUserId()
   layer.canvas = await getCanvasFromBase64(l.base64)
   layer.canvas.context = getNewContextForCanvas(layer.canvas)
   layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
@@ -1309,7 +1325,7 @@ const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
   })
 }
 
-const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking) => {
+const initDom = async(moduleContainer) => {
   let dom = await loadTemplate(tplLayers, {
     maxLength: MAX_LAYER_NAME_LENGTH,
   }, moduleContainer)
@@ -1334,6 +1350,8 @@ const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking)
 
   refs.layerListElement.remove()
   refs.paramsContainer.addEventListener(Params.eventStart, preventDefault)
+  refs.gcoButton.addEventListener(Params.eventStart, gcoModeTouchStart)
+  refs.resizeButton.addEventListener(Params.eventStart, resizeButtonTouchStart)
   refs.layersContainer.addEventListener(Params.eventStart, onContainerTouchStart)
   refs.addNewLayerButton.addEventListener(Params.eventStart, addNewLayer)
   refs.flipVerticalButton.addEventListener(Params.eventStart, flipVertically)
@@ -1345,15 +1363,7 @@ const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking)
   refs.deleteLayerButton.addEventListener(Params.eventStart, deleteLayer)
   addListScrollClickAndPressHandlers(refs.layersList, onListClick, onListLongPress)
   addVerticalDragSliderHandler(refs.opacityCursor, refs.opacitySlider, updateLayerOpacity, 100, 0, false, 0)
-
-  if (withCoworking) {
-    refs.resizeButton.remove()
-    refs.gcoButton.remove()
-  } else {
-    Toolbar.addOptionButtonsGroup([refs.resizeButton, refs.gcoButton])
-    refs.gcoButton.addEventListener(Params.eventStart, gcoModeTouchStart)
-    refs.resizeButton.addEventListener(Params.eventStart, resizeButtonTouchStart)
-  }
+  Toolbar.addOptionButtonsGroup([refs.resizeButton, refs.gcoButton])
 
   dom = undefined
 }
@@ -1367,22 +1377,12 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
     }
   }
   state = deepCopy(initialState)
-
-  await initDom(moduleContainer, canvasWidth, canvasHeight, withCoworking)
-
+  await initDom(moduleContainer)
   refs.layersList.scrollTop = 1
-  if (withCoworking) {
-    refs.layersContainer.classList.add('displayNone')
-    refs.paramsContainer.classList.add('displayNone')
-  } else {
-    refs.layersContainer.classList.remove('displayNone')
-    refs.paramsContainer.classList.remove('displayNone')
-  }
   await initLayers(initialLayers, canvasWidth, canvasHeight)
   state.maxLayerCount = Object.keys(state.layers).length
 
   setTimeout(() => {
-    window.layersList = refs.layersList
     refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected').offsetTop
   }, 200)
 }

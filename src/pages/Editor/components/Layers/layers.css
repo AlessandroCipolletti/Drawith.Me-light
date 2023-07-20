@@ -97,7 +97,7 @@
   border-radius: 1rem;
   background-color: var(--palette-white);
   margin: 1.5rem auto 0rem;
-  border: solid 0.15rem var(--palette-gray-5);
+  border: solid 0.15rem var(--palette-gray-4);
   transition: all var(--slide-transition);
   cursor: pointer;
   overflow: hidden;
@@ -107,9 +107,11 @@
   opacity: 1;
 }
 .editor-layers__layer.editor-layers__layer-selected {
-  border: solid 0.2rem var(--palette-green-0);
   width: calc(var(--layers-container-width) - 0.5rem);
   height: calc(var(--layers-container-width) - 0.5rem);
+}
+.editor-layers__layer.editor-layers__layer-yours.editor-layers__layer-selected {
+  border: solid 0.2rem var(--palette-green-0);
 }
 
 .editor-layers__layer-active .editor-layers__layer-preview {
@@ -142,22 +144,20 @@
   height: 3rem;
   position: absolute;
   bottom: 0px;
-  border-bottom-left-radius: 1rem;
-  border-bottom-right-radius: 1rem;
   background-color: var(--palette-gray-6);
 }
 .editor-layers__layer-options-button {
   display: inline-block;
-  width: 2rem;
-  height: 2rem;
-  margin-top: 0.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-top: 0.125rem;
   margin-left: 0.5rem;
   vertical-align: top;
 }
 .editor-layers__layer-options-name {
   display: inline-block;
   height: 100%;
-  width: calc(100% - 3.25rem);
+  width: calc(100% - 4rem);
   vertical-align: top;
 }
 .editor-layers__layer-options-name input {

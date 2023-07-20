@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid'
 import Params from 'main/Params'
 import PeerSocket from 'modules/PeerSocket'
 import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
@@ -13,13 +14,16 @@ let peerClient = {}
 const config = {
   maxConcurrentConnections: 1,
 }
-const state = {
+export const state = {
+  userId: uuidv4(),
   isOpen: false,
+  connectedUsersId: '',
   clientData: {
+    userId: '',
     codeVersion: 0,
+    deviceType: '',
     screenWidth: 0,
     screenHeight: 0,
-    deviceType: '',
     canvasWidth: 0,
     canvasHeight: 0,
   },
@@ -28,7 +32,7 @@ const state = {
     minCanvasHeight: 0,
   },
   isWaitingConnection: false,
-  waitingToConnectToCliendId: false, // false or coworkerClientId. If coworkerClientId, onConnect we try to open coworking with that coworkerClientId
+  waitingToConnectToSocketId: false, // false or coworkerSocketId. If coworkerSocketId, onConnect we try to open coworking with that coworkerSocketId
   stepsBuffer: [],
 }
 const labels = {
@@ -46,7 +50,8 @@ const labels = {
 export const isOnline = () => !!peerClient.online
 export const isConnectedWithSomeone = () => !!peerClient.connected
 export const isOpen = () => !!state.isOpen
-export const getClientId = () => peerClient.id
+export const getSocketId = () => peerClient.id
+export const getUserId = () => state.userId
 
 
 const handlePeerMessage = (message) => {
@@ -79,8 +84,9 @@ export const sendSteps = (tool) => {
   clearSteps()
 }
 
-const startCoworkingSession = () => {
+const startCoworkingSession = (userId) => {
   state.isOpen = true
+  state.connectedUsersId = userId
   // qui passo la dimensione dello schermo piú piccolo tra i due per farli disegnare sullo stesso foglio
   // ma questa cosa dovrà essere modificata quando sarà possibile anche aprire un coworking da dentro l'editor con un disegno già esistente
   // il canvas li resterà alle sue dimensioni attuali, ma chi ha lo schermo più piccolo deve ricevere una notifica
@@ -91,12 +97,13 @@ const startCoworkingSession = () => {
 export const updateClientEnvironment = () => {
   if (isOnline()) {
     const [canvasWidth, canvasHeight] = getCanvasPxSizes(true)
+    state.clientData.userId = state.userId
+    state.clientData.codeVersion = Params.appVersion
+    state.clientData.deviceType = Params.deviceType
     state.clientData.canvasWidth = canvasWidth
     state.clientData.canvasHeight = canvasHeight
-    state.clientData.codeVersion = Params.appVersion
     state.clientData.screenWidth = Params.width
     state.clientData.screenHeight = Params.height
-    state.clientData.deviceType = Params.deviceType
   }
 }
 
@@ -120,35 +127,34 @@ const checkCoworkerEnvironment = (coworkerEnvironment) => {
   state.coworkingData.minCanvasWidth = Math.min(coworkerEnvironment.canvasWidth, state.clientData.canvasWidth)
   state.coworkingData.minCanvasHeight = Math.min(coworkerEnvironment.canvasHeight, state.clientData.canvasHeight)
 
-  startCoworkingSession()
+  startCoworkingSession(coworkerEnvironment.userId)
 }
 
 // to call from module Editor, when url drawith.me/editor/coworking/abc123 is open
-export const requestSession = (coworkerClientId) => {
-  console.log('requestSession', coworkerClientId)
-  if (!coworkerClientId) {
+export const requestSession = (coworkerSocketId) => {
+  console.log('requestSession', coworkerSocketId)
+  if (!coworkerSocketId) {
     return
   }
   if (!isOnline()) {
-    state.waitingToConnectToCliendId = coworkerClientId
+    state.waitingToConnectToSocketId = coworkerSocketId
     return
   }
   if (isOpen()) {
     Messages.error(labels.alreadyConnected)
     return
   }
-  if (coworkerClientId === peerClient.id) {
+  if (coworkerSocketId === peerClient.id) {
     Messages.error(labels.errorHimself)
     return
   }
 
-  peerClient.connectTo(coworkerClientId)
+  peerClient.connectTo(coworkerSocketId)
 }
 
 export const stop = () => {
   if (isOpen()) {
     peerClient.disconnectFrom()
-    Messages.info(labels.coworkingClosed)
   }
 }
 
@@ -157,9 +163,9 @@ const handlePeerClientConnect = async(id) => {
   state.isWaitingConnection = false
   addGlobalStatus(SOCKET_CONNECTED_STATUS)
   updateClientEnvironment()
-  if (state.waitingToConnectToCliendId) {
-    requestSession(state.waitingToConnectToCliendId)
-    state.waitingToConnectToCliendId = false
+  if (state.waitingToConnectToSocketId) {
+    requestSession(state.waitingToConnectToSocketId)
+    state.waitingToConnectToSocketId = false
   }
 }
 
@@ -194,6 +200,7 @@ const handleConnectionRefused = () => {
 const handleConnectionClosed = () => {
   console.log('Coworking connectionClosed')
   Messages.info(labels.coworkingClosed)
+  state.connectedUsersId = ''
   state.isOpen = false
 }
 
