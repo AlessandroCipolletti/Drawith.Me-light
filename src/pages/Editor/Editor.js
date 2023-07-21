@@ -38,14 +38,18 @@ import { spacing } from 'main/Theme'
     - Non si può selezionare il layer dell'altro utente (volendo lo si può nascondere e duplicare).
     - Quando arrivano degli step da un utente, uso un offscreenCanvas per disegnare tutti i suoi step, e su stepEnd li disegno sul suo layer.
     - Devo creare tante nuove azioni di coworking per trasmettere le modifiche al layer (opacità, visibilità, duplica, emilina, rinomica, ordine, undo, redo).
-    - Undo/redo dentro ad un layer mentre ce l'ho ancora selezionato non dovrebbero creare problemi.
+    - Undo / Redo: dentro ad un layer mentre ce l'ho ancora selezionato non dovrebbero creare problemi.
       Ognuno si crea i propri layer e non si possono modificare quelli dell'altro utente.
       Volendo me ne posso duplicare uno ed usarlo, oppure trasferire la proprietà di un layer ad un altro utente.
-      Tutte le mie azioni sui miei layers e tutti i miei step devono entrare nell'history come al solito,
-        ma tutti gli step e le azioni che ricevo dal coworking no, perché tanto sono su layers che io non posso selezionare.
-      Quindi entrambi possono fare undo/ redo normalmente, ma su undo/redo devo anche trasferire il contrario dell'azione in questione al coworker.
-        (l'undo di uno step sarà un casino, perché, non potendo rimuovere un solo tratto rischio di dover trasferire il base64 o l'imageData di tutto il layer).
-      Quando trasferisco un layer a qualcuno, devo rimuovere dal mio history globale tutti i suoi step, e svuotare l'history del layer.
+      Tutte le mie azioni sui miei layers e tutti i miei step devono entrare nell'history come al solito.
+
+      Ogni step crea sempre un history, anche nei layer dell'altra persona. Cosi quando l'altra persona fa undo, basta che io faccia undo sul suo layer.
+      In più se l'altra persona mi trasferisce quel layer, io posso fare undo degli step fatti da lei.
+      L'azione di "trasferire un layer" non lascia step nell'history e non può essere undato.
+      Quando io faccio undo/redo, cerco l'ultima azione del global history fatta davvero da me, ed ignoro le altre.
+      Quando ricevo un'azione di undo/redo dal coworking, cerco l'ultima azione del global history fatta dall'altra persona, ed ignoro le altre.
+      I pulsanti di undo/redo devono essere attivi controllando quante azioni mie sono ancora disponibili, perché avendo una sola lista di history globale,
+        l'aggiunta di un nuovo step del coworker potrebbe cancellare un mio vecchio step precedente.
 
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
@@ -251,7 +255,7 @@ const removeToolDataKeys = (toolData) => [toolData.name, toolData.version, toolD
 export const drawCoworkingMultipleStepsData = (data) => {
   if (state?.pageOpened) {
     requestAnimationFrame(() => {
-      drawMultipleCoworkingSteps(refs.layerContext, data.steps.map(addTouchStepDataKeys), addToolDataKeys(data.tool), {
+      drawMultipleCoworkingSteps(Layers.getLayerContext(data.layerId), data.steps.map(addTouchStepDataKeys), addToolDataKeys(data.tool), {
         start: drawStepStart,
         move: drawStepMove,
         end: drawStepEnd,
@@ -752,7 +756,7 @@ const sendCoworkingStep = (stepData, saveStep = false) => {
     if (stepData) {
       Coworking.addStep(removeTouchStepDataKeys(stepData))
     }
-    Coworking.sendSteps(toolData)
+    Coworking.sendSteps(Layers.getCurrentSelectedLayerId(), toolData)
     state.stepsSinceLastCoworkingUpdate = 0
   } else {
     Coworking.addStep(removeTouchStepDataKeys(stepData))

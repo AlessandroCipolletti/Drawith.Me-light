@@ -138,7 +138,7 @@ const openPeer = () => {
     path: '/',
     pingInterval: 5000,
     secure: true,
-    // debug: 0,
+    debug: 0,
   })
   window.peer = peer
   peer.on('open', (id) => {

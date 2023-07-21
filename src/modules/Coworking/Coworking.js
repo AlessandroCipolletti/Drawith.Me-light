@@ -5,6 +5,7 @@ import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
 import { deepCopy } from 'utils/jsUtils'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
+import { addNewLayerFromCoworker } from 'pages/Editor/components/Layers'
 import { closeCoworkingPopup } from 'pages/Folder'
 import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -54,23 +55,43 @@ export const isOpen = () => !!state.isOpen
 export const getSocketId = () => peerClient.id
 export const getUserId = () => state.userId
 export const getCoworkerUserId = () => state.connectedUsersId
-
+export const isHostingCoworking = () => state.isOpen && !state.iAskedForCoworking
 
 const handlePeerMessage = (message) => {
   if (message.event === editorEvents.coworkingSteps) {
     drawCoworkingMultipleStepsData(message.data)
+  } else if (message.event === editorEvents.newLayer) {
+    addNewLayerFromCoworker(message.data.layer)
   } else if (message.event === editorEvents.clientEnvironment) {
     checkCoworkerEnvironment(message.data)
   }
 }
 
-export const addStep = (step, tool = false) => {
+export const sendNewLayer = (layer) => {
+  layer = JSON.parse(JSON.stringify(layer))
+  for (const key in layer) {
+    if (layer[key] === null) {
+      delete layer[key]
+    }
+  }
+
+  const message = {
+    event: editorEvents.newLayer,
+    data: {
+      layer,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+export const addStep = (step) => {
   state.stepsBuffer.push(step)
 }
 
 export const clearSteps = () => state.stepsBuffer = []
 
-export const sendSteps = (tool) => {
+export const sendSteps = (layerId, tool) => {
   tool = deepCopy(tool)
   delete tool.frameImageFile
 
@@ -78,6 +99,7 @@ export const sendSteps = (tool) => {
     event: editorEvents.coworkingSteps,
     data: {
       steps: state.stepsBuffer,
+      layerId,
       tool,
     },
   }

@@ -98,6 +98,9 @@ const updateUndoRedoButtons = () => {
   Tools.toggleButton('redo', LayersHistory.canGoForward)
 }
 
+export const getCurrentSelectedLayerId = () => state.currentSelectedLayerId
+export const getLayerContext = (layerId = state.currentSelectedLayerId) => state.layers[layerId].canvas.context
+
 const cleanLayersHistoryOldActionIfNeeded = (action) => {
   if (action.type === HISTORY_STEP_LAYER_CONTENT) {
     const layer = state.layers[action.layerId] || state.deletedLayers[action.layerId]
@@ -686,6 +689,31 @@ const createNewLayerCanvas = () => {
   return canvas
 }
 
+export const addNewLayerFromCoworker = async(layer) => {
+  await delay(5000) // TODO rimuovere e sistemare come mai passo da qui prima ancora che l'editor sia inizializzato
+  if (Object.values(state.layers).length === 1 && layer.order === state.layers[state.currentSelectedLayerId].order) {
+    if (Coworking.isHostingCoworking()) {
+      state.layers[state.currentSelectedLayerId].order = state.layers[state.currentSelectedLayerId].order + 1
+      state.layers[state.currentSelectedLayerId].name = state.layers[state.currentSelectedLayerId].name.replace('1', '2')
+      // TODO cambiare nome anche nel dom
+    } else {
+      layer.order = layer.order + 1
+      layer.name = layer.name.replace('1', '2')
+    }
+  }
+
+  layer.minX = Infinity
+  layer.minY = Infinity
+  layer.maxX = -Infinity
+  layer.maxY = -Infinity
+  layer.canvas = createNewLayerCanvas()
+  layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap),
+  state.layers[layer.id] = layer
+  createNewLayerDom(layer.id, true)
+  reorderLayersList()
+  addLayerHistoryNewStep(layer.id, state.currentSelectedLayerId) // forse con l'id del coworker
+}
+
 const addNewLayer = (e) => {
   preventDefault(e)
   if (Object.keys(state.layers).length >= config.maxLayersNumber) {
@@ -701,6 +729,10 @@ const addNewLayer = (e) => {
   addLayerHistoryNewStep(newLayerData.id, state.currentSelectedLayerId)
   selectLayer(newLayerData.id, false)
   refs.layersList.scrollTop = 0
+
+  if (Coworking.isOpen()) {
+    Coworking.sendNewLayer(newLayerData)
+  }
 }
 
 const updateEditorCanvas = () => {
@@ -1307,37 +1339,21 @@ const prepareLayerFromDb = async(l) => {
 const initLayers = async(initialLayers, canvasWidth, canvasHeight, withCoworking, isHostingCoworking) => {
   state.canvases.width = canvasWidth
   state.canvases.height = canvasHeight
+  closeParams()
+
+  console.log('initLayers', Coworking.isOpen())
 
   // if we are opening a drawing --> just its layers
   if (initialLayers.length) {
     initialLayers = await parallelize(initialLayers, prepareLayerFromDb, config.maxConcurrentThreads)
     state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, l])))
-  } else if (withCoworking) {
-    // new coworking drawing --> 2 new layers
-    // first for who is hosting, second for who is joining
-    const layerForGuest = createNewLayerData(isHostingCoworking ? Coworking.getCoworkerUserId() : Coworking.getUserId())
-    layerForGuest.canvas = createNewLayerCanvas()
-    state.layers[layerForGuest.id] = layerForGuest
-    const layerForHost = createNewLayerData(isHostingCoworking ? Coworking.getUserId() : Coworking.getCoworkerUserId())
-    layerForHost.canvas = createNewLayerCanvas()
-    state.layers[layerForHost.id] = layerForHost
+    const layersIds = Object.keys(state.layers)
+    await Promise.all(layersIds.map(createNewLayerDom))
+    await selectLayer(layersIds.find(layerId => state.layers[layerId].selected) || layersIds[0])
+    reorderLayersList()
   } else {
-    // new drawing alone --> just one layer for me
-    const newLayerData = createNewLayerData()
-    newLayerData.canvas = createNewLayerCanvas()
-    state.layers[newLayerData.id] = newLayerData
+    addNewLayer()
   }
-
-  const layersIds = Object.keys(state.layers)
-  await Promise.all(layersIds.map(createNewLayerDom))
-  const firstSelectedLayerId =
-    layersIds.find(layerId => state.layers[layerId].selected) ||
-    layersIds.find(layerId => state.layers[layerId].owner === Coworking.getUserId()) ||
-    layersIds[0]
-
-  await selectLayer(firstSelectedLayerId)
-  closeParams()
-  reorderLayersList()
 
   LayersHistory.add({
     type: 'init',
