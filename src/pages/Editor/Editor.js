@@ -67,6 +67,7 @@ import { spacing } from 'main/Theme'
     - la preview del size ed alpha del tool, deve funzionare con requestAnimationFrame o qualcosa del genere. Altrimenti è troppo lento
     - Quando modifico un disegno e salvo, la fase 1 viene salvata con spinner. Poi il folder si apre con il disegno senza spinner. E poi parte la fase due del salvataggio
         Aggiungendo nuovamente lo spinner sul disegno.
+    - Se apro due volte un link di coworking, all'host viene chiusa e riaperta la connessione, invece che rifiutarla.
 */
 
 
@@ -1384,7 +1385,7 @@ const initSubModules = async (preloadedDrawing = {}, options = {}) => {
 }
 
 export const open = async (preloadedDrawindId, options = {}) => {
-  console.log('editor show', preloadedDrawindId, options)
+  console.log('editor open', preloadedDrawindId, options)
   coworking = Coworking.requestSession // just to have an alias for app.drawith.me?editor/coworking
   state = initState(initialState)
   await initDom()

@@ -691,8 +691,6 @@ const createNewLayerCanvas = () => {
 }
 
 export const addNewLayerFromCoworker = async(layer) => {
-  await delay(5000) // TODO rimuovere e sistemare come mai passo da qui prima ancora che l'editor sia inizializzato
-
   if (Object.values(state.layers).length === 1 && layer.order === state.layers[state.currentSelectedLayerId].order) {
     if (Coworking.isHostingCoworking()) {
       state.layers[state.currentSelectedLayerId].order = state.layers[state.currentSelectedLayerId].order + 1
@@ -714,7 +712,7 @@ export const addNewLayerFromCoworker = async(layer) => {
   state.layers[layer.id] = layer
   createNewLayerDom(layer.id, true)
   reorderLayersList()
-  addLayerHistoryNewStep(layer.id, state.currentSelectedLayerId) // forse con l'id del coworker
+  addLayerHistoryNewStep(layer.id, state.currentSelectedLayerId) // TODO forse con l'id del coworker
 }
 
 const addNewLayer = (e) => {
@@ -1334,8 +1332,6 @@ const initLayers = async(initialLayers, canvasWidth, canvasHeight, withCoworking
   state.canvases.width = canvasWidth
   state.canvases.height = canvasHeight
   closeParams()
-
-  console.log('initLayers', Coworking.isOpen())
 
   // if we are opening a drawing --> just its layers
   if (initialLayers.length) {
