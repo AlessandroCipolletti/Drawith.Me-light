@@ -6,6 +6,9 @@
   <div class="editor-layers__list"></div>
 
   <div class="editor-layers__layer" draggable="false">
+    <div class="editor-layers__layer-coworker-icon">
+      <div class="svg-icon-user svg-icon-gray"></div>
+    </div>
     <canvas class="editor-layers__layer-preview" draggable="false"></canvas>
     <div class="editor-layers__layer-options">
       <div class="editor-layers__layer-options-button svg-icon-gray"></div>
