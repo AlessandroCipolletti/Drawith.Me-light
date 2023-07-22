@@ -703,10 +703,6 @@ export const addNewLayerFromCoworker = async(layer) => {
     }
   }
 
-  layer.minX = Infinity
-  layer.minY = Infinity
-  layer.maxX = -Infinity
-  layer.maxY = -Infinity
   layer.canvas = createNewLayerCanvas()
   layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap),
   state.layers[layer.id] = layer

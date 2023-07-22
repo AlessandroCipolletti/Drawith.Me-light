@@ -57,18 +57,35 @@ export const getUserId = () => state.userId
 export const getCoworkerUserId = () => state.connectedUsersId
 export const isHostingCoworking = () => state.isOpen && !state.iAskedForCoworking
 
-const handlePeerMessage = async(message) => {
+const handlePeerMessage = (message) => {
   if (message.event === editorEvents.coworkingSteps) {
     drawCoworkingMultipleStepsData(message.data)
   } else if (message.event === editorEvents.newLayer) {
-    await waitForEditorToBeReady()
-    addNewLayerFromCoworker(message.data.layer)
+    receiveCoworkerLayer(message.data.layer)
   } else if (message.event === editorEvents.clientEnvironment) {
     checkCoworkerEnvironment(message.data)
   }
 }
 
+const receiveCoworkerLayer = async(layer) => {
+  await waitForEditorToBeReady()
+  layer.minX = Infinity
+  layer.minY = Infinity
+  layer.maxX = -Infinity
+  layer.maxY = -Infinity
+  addNewLayerFromCoworker(layer)
+}
+
 export const sendNewLayer = (layer) => {
+  layer = JSON.parse(JSON.stringify(layer))
+  delete layer.minX
+  delete layer.minY
+  delete layer.maxX
+  delete layer.maxY
+  delete layer.canvas
+  delete layer.history
+  delete layer.previewRef
+
   const message = {
     event: editorEvents.newLayer,
     data: {

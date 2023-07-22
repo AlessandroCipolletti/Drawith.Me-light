@@ -129,7 +129,6 @@ const initDom = () => {
 }
 
 const openPeer = () => {
-  console.log('openPeer')
   window.removeEventListener('online', openPeer)
 
   peer = new Peer({

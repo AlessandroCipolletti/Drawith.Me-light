@@ -49,9 +49,6 @@ class PeerSocket {
   }
 
   sendMessage(message) {
-    message = deepCopy(message)
-    message = this.#cleanNullKeys(message)
-
     this.connections.forEach((conn) => {
       conn.send(message)
     })
@@ -246,26 +243,6 @@ class PeerSocket {
   #removeClosedConnections = () => {
     this.connections = this.connections.filter(conn => !!conn.peerConnection)
     this.connected = !!this.connections.length
-  }
-
-  #cleanNullKeys = (data) => {
-    if (Array.isArray(data)) {
-      return data.map(this.#cleanNullKeys).filter(e => e)
-    }
-
-    if (data && typeof (data) === 'object') {
-      for (const key in data) {
-        if (data[key] === null) {
-          delete data[key]
-        } else if (Array.isArray(data[key])) {
-          data[key] = data[key].map(this.#cleanNullKeys)
-        } else if (typeof(data[key]) === 'object') {
-          data[key] = this.#cleanNullKeys(data[key])
-        }
-      }
-    }
-
-    return data
   }
 }
 
