@@ -35,12 +35,12 @@ import { spacing } from 'main/Theme'
     - Qui si che potrei usare un offscreenCanvas. Tutto ciò che l'altro utente fa, viene disegnato in un offscreenCanvas, e poi printato sul suo layer.
         Quindi dovrei creare una versione di drawStepStart/Move/End che usa il WorkersBufferManager
 
-    - Non si può selezionare il layer dell'altro utente (volendo lo si può nascondere e duplicare).
+    - Non si può selezionare il layer dell'altro utente.
     - Quando arrivano degli step da un utente, uso un offscreenCanvas per disegnare tutti i suoi step, e su stepEnd li disegno sul suo layer.
     - Devo creare tante nuove azioni di coworking per trasmettere le modifiche al layer (opacità, visibilità, duplica, emilina, rinomica, ordine, undo, redo).
     - Undo / Redo: dentro ad un layer mentre ce l'ho ancora selezionato non dovrebbero creare problemi.
       Ognuno si crea i propri layer e non si possono modificare quelli dell'altro utente.
-      Volendo me ne posso duplicare uno ed usarlo, oppure trasferire la proprietà di un layer ad un altro utente.
+      Volendo posso trasferire la proprietà di un layer ad un altro utente.
       Tutte le mie azioni sui miei layers e tutti i miei step devono entrare nell'history come al solito.
 
       Ogni step crea sempre un history, anche nei layer dell'altra persona. Cosi quando l'altra persona fa undo, basta che io faccia undo sul suo layer.
@@ -50,6 +50,23 @@ import { spacing } from 'main/Theme'
       Quando ricevo un'azione di undo/redo dal coworking, cerco l'ultima azione del global history fatta dall'altra persona, ed ignoro le altre.
       I pulsanti di undo/redo devono essere attivi controllando quante azioni mie sono ancora disponibili, perché avendo una sola lista di history globale,
         l'aggiunta di un nuovo step del coworker potrebbe cancellare un mio vecchio step precedente.
+
+      Se salvo insieme i miei step e quelli dell'altro utente, se poi mi trasferisce un layer mi va a puttane il mio history.
+        Magari voglio fare un undo dell'ultimo tratto che ho disegnato, e mi ritrovo in mezzo ai coglioni N tratti fatti da lui sul layer che mi ha appena trasferito (se i suoi tratti sono più recenti del mio ultimo tratto).
+      Quindi o faccio che al momento del trasferimento di un layer, l'history di quel layer viene svuotata, e tutti i suoi step rimossi dall'history globale.
+      Oppure che ogni utente ha il suo global history (duplicato in entrambi i dispositivi), e quando trasferisce un layer, rimuovo gli step di quel layer dal suo history globale (da entrambi i dispositivi).
+      Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
+
+      TODO:
+        - aggiungere N layers senza deselezionare quello dell'altro utente.
+        - Su step dell'altro utente, aggiornare la sua preview layer.
+        - Undo/redo non funziona più se sono in coworking.
+        - Creare il global history dell'altro utente (N/s max step se sono in coworking).
+        - Ogni step dell'altro utente, viene aggiunto al suo global history.
+        - Azione di coworking per trasferire un undo/redo.
+        - Step dell'altro utente disegnati su offscreen canvas.
+        - Test di tutti i vari strumenti di disegnoin coworking.
+        - Azioni di coworking per tutte le varie modifiche possibili ai layer.
 
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
