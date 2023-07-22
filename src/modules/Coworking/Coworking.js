@@ -68,13 +68,6 @@ const handlePeerMessage = (message) => {
 }
 
 export const sendNewLayer = (layer) => {
-  layer = JSON.parse(JSON.stringify(layer))
-  for (const key in layer) {
-    if (layer[key] === null) {
-      delete layer[key]
-    }
-  }
-
   const message = {
     event: editorEvents.newLayer,
     data: {
