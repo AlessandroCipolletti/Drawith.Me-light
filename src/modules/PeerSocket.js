@@ -1,6 +1,6 @@
 import { Peer } from 'peerjs'
 import Params from 'main/Params'
-import { throttle, exponentialTimeout } from 'utils/jsUtils'
+import { throttle, exponentialTimeout, deepCopy } from 'utils/jsUtils'
 
 const CONFIRMED = 'confirmed'
 const REFUSED = 'refused'
@@ -49,7 +49,7 @@ class PeerSocket {
   }
 
   sendMessage(message) {
-    message = JSON.parse(JSON.stringify(message))
+    message = deepCopy(message)
     message = this.#cleanNullKeys(message)
 
     this.connections.forEach((conn) => {
