@@ -640,6 +640,7 @@ const createNewLayerListElementDom = (layerId, withAnimation = true) => {
   layerListDom.classList.toggle('editor-layers__layer-yours', layerIsYours(layerId))
   layerListDom.classList.toggle('editor-layers__layer-coworker', !layerIsYours(layerId))
   layerListDom.querySelector('input').value = state.layers[layerId].name
+  layerListDom.querySelector('.editor-layers__layer-options-button').classList.toggle('svg-icon-visible', !layerIsYours(layerId))
 
   layerListDom.querySelector('input').addEventListener(Params.eventStart, (e) => {
     e.preventDefault()
@@ -691,11 +692,13 @@ const createNewLayerCanvas = () => {
 
 export const addNewLayerFromCoworker = async(layer) => {
   await delay(5000) // TODO rimuovere e sistemare come mai passo da qui prima ancora che l'editor sia inizializzato
+
   if (Object.values(state.layers).length === 1 && layer.order === state.layers[state.currentSelectedLayerId].order) {
     if (Coworking.isHostingCoworking()) {
       state.layers[state.currentSelectedLayerId].order = state.layers[state.currentSelectedLayerId].order + 1
       state.layers[state.currentSelectedLayerId].name = state.layers[state.currentSelectedLayerId].name.replace('1', '2')
-      // TODO cambiare nome anche nel dom
+      const layerOptionNameInput = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"] .editor-layers__layer-options-name input`)
+      layerOptionNameInput.value = state.layers[state.currentSelectedLayerId].name
     } else {
       layer.order = layer.order + 1
       layer.name = layer.name.replace('1', '2')
@@ -976,14 +979,8 @@ const enableLayer = (layerId = state.currentSelectedLayerId) => {
   layer.active = true
   refs.layersList.querySelector(`div[data-id="${layerId}"]`).classList.add('editor-layers__layer-active')
   const layerOptionButton = refs.layersList.querySelector(`div[data-id="${layerId}"] .editor-layers__layer-options-button`)
-
-  if (layerIsYours(layerId)) {
-    layerOptionButton.classList.add('svg-icon-visible')
-    layerOptionButton.classList.remove('svg-icon-hidden')
-  } else {
-    layerOptionButton.classList.add('svg-icon-user-visible')
-    layerOptionButton.classList.remove('svg-icon-user-hidden')
-  }
+  layerOptionButton.classList.add('svg-icon-visible')
+  layerOptionButton.classList.remove('svg-icon-hidden')
 
   fadeInElements(layer.canvas, { maxFadeIn: layer.opacity })
   if (layerId === state.currentSelectedLayerId) {
@@ -1001,14 +998,8 @@ const disableLayer = (layerId = state.currentSelectedLayerId) => {
   layer.active = false
   refs.layersList.querySelector(`div[data-id="${layerId}"]`).classList.remove('editor-layers__layer-active')
   const layerOptionButton = refs.layersList.querySelector(`div[data-id="${layerId}"] .editor-layers__layer-options-button`)
-
-  if (layerIsYours(layerId)) {
-    layerOptionButton.classList.add('svg-icon-hidden')
-    layerOptionButton.classList.remove('svg-icon-visible')
-  } else {
-    layerOptionButton.classList.add('svg-icon-user-hidden')
-    layerOptionButton.classList.remove('svg-icon-user-visible')
-  }
+  layerOptionButton.classList.add('svg-icon-hidden')
+  layerOptionButton.classList.remove('svg-icon-visible')
 
   fadeOutElements(layer.canvas, { maxFadeIn: layer.opacity })
   if (layerId === state.currentSelectedLayerId) {
@@ -1022,6 +1013,9 @@ const disableLayer = (layerId = state.currentSelectedLayerId) => {
 
 const toggleEnableLayer = (e, layerId = state.currentSelectedLayerId, clickedByList = false) => {
   preventDefault(e)
+  if (!layerIsYours(layerId)) {
+    return
+  }
   if (!clickedByList && state.paramsTimeout === false) {
     return
   } // params are closed
