@@ -100,6 +100,8 @@ export const goToPage = async(path, force = false) => {
     }
   })
 
+  console.log('goToPage: ', Date.now(), { page, method, params, path })
+
   if (state.currentPage !== page || force) {
     // 1. if there is a page change, and we had already a page opened, we close it
     if (state.currentPage && ROUTES[state.currentPage].close) {
@@ -121,7 +123,6 @@ export const goToPage = async(path, force = false) => {
     methodPath = `/${method}`
   }
 
-  console.log('goToPage: ', { page, method, params, path })
   history.pushState({}, '', `/${page}${methodPath}${document.location.search}`)
 
   state.currentPage = page
