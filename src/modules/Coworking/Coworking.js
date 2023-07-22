@@ -3,7 +3,7 @@ import Params from 'main/Params'
 import PeerSocket from 'modules/PeerSocket'
 import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
-import { deepCopy } from 'utils/jsUtils'
+import { deepCopy, delay } from 'utils/jsUtils'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
 import { addNewLayerFromCoworker } from 'pages/Editor/components/Layers'
 import { closeCoworkingPopup } from 'pages/Folder'
@@ -57,10 +57,11 @@ export const getUserId = () => state.userId
 export const getCoworkerUserId = () => state.connectedUsersId
 export const isHostingCoworking = () => state.isOpen && !state.iAskedForCoworking
 
-const handlePeerMessage = (message) => {
+const handlePeerMessage = async(message) => {
   if (message.event === editorEvents.coworkingSteps) {
     drawCoworkingMultipleStepsData(message.data)
   } else if (message.event === editorEvents.newLayer) {
+    await waitForEditorToBeReady()
     addNewLayerFromCoworker(message.data.layer)
   } else if (message.event === editorEvents.clientEnvironment) {
     checkCoworkerEnvironment(message.data)
@@ -101,7 +102,7 @@ export const sendSteps = (layerId, tool) => {
   clearSteps()
 }
 
-const startCoworkingSession = (userId) => {
+const startCoworkingSession = async(userId) => {
   state.isOpen = true
   state.connectedUsersId = userId
   // qui passo la dimensione dello schermo piú piccolo tra i due per farli disegnare sullo stesso foglio
@@ -114,6 +115,7 @@ const startCoworkingSession = (userId) => {
     coworkingCanvasWidth: state.coworkingData.minCanvasWidth,
     coworkingCanvasHeight: state.coworkingData.minCanvasHeight,
   }
+
   goToPage(`/editor/open/false/${JSON.stringify(editorOptions)}`)
 }
 
@@ -155,7 +157,7 @@ const checkCoworkerEnvironment = (coworkerEnvironment) => {
 
 // to call from module Editor, when url drawith.me/editor/coworking/abc123 is open
 export const requestSession = (coworkerSocketId) => {
-  console.log('requestSession', coworkerSocketId)
+  console.log('Coworking requestSession', coworkerSocketId)
   state.iAskedForCoworking = true
   if (!coworkerSocketId) {
     return
@@ -182,7 +184,7 @@ export const stop = () => {
   }
 }
 
-const handlePeerClientConnect = async(id) => {
+const handlePeerClientOnline = async(id) => {
   console.log('Peer client online', id)
   state.isWaitingPeerConnection = false
   addGlobalStatus(SOCKET_CONNECTED_STATUS)
@@ -193,7 +195,7 @@ const handlePeerClientConnect = async(id) => {
   }
 }
 
-const handlePeerClientDisonnect = (duringCoworkingSession) => {
+const handlePeerClientOffline = (duringCoworkingSession) => {
   console.log('Peer client offline')
   removeGlobalStatus(SOCKET_CONNECTED_STATUS)
   if (duringCoworkingSession) {
@@ -229,6 +231,12 @@ const handleConnectionClosed = () => {
   state.iAskedForCoworking = false
 }
 
+const waitForEditorToBeReady = async() => {
+  while (getCurrentPage() !== 'editor') {
+    await delay(100)
+  }
+}
+
 export const init = () => {
   return new Promise((resolve, reject) => {
     if (!isOnline() && !state.isWaitingPeerConnection) {
@@ -238,8 +246,8 @@ export const init = () => {
         maxConcurrentConnections: config.maxConcurrentConnections,
       })
 
-      peerClient.on('online', handlePeerClientConnect)
-      peerClient.on('offline', handlePeerClientDisonnect)
+      peerClient.on('online', handlePeerClientOnline)
+      peerClient.on('offline', handlePeerClientOffline)
       peerClient.on('newConnection', handleNewConnection)
       peerClient.on('message', handlePeerMessage)
       peerClient.on('newConnectionFailed', handleConnectionFailed)
