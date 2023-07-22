@@ -498,13 +498,9 @@ iframe {
   mask-image: url("../static/icons/svg/flip-v.svg");
   -webkit-mask-image: url("../static/icons/svg/flip-v.svg");
 }
-.svg-icon-user-visible {
-  mask-image: url("../static/icons/svg/user-visible.svg");
-  -webkit-mask-image: url("../static/icons/svg/user-visible.svg");
-}
-.svg-icon-user-hidden {
-  mask-image: url("../static/icons/svg/user-hidden.svg");
-  -webkit-mask-image: url("../static/icons/svg/user-hidden.svg");
+.svg-icon-user {
+  mask-image: url("../static/icons/svg/user.svg");
+  -webkit-mask-image: url("../static/icons/svg/user.svg");
 }
 .svg-icon-drawing {
   mask-image: url("../static/icons/svg/drawing.svg");
