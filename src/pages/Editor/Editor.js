@@ -58,7 +58,7 @@ import { spacing } from 'main/Theme'
       Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
-        - aggiungere N layers senza deselezionare quello dell'altro utente.
+        - Azione per selezionare un layer.
         - Su step dell'altro utente, aggiornare la sua preview layer.
         - Undo/redo non funziona più se sono in coworking.
         - Creare il global history dell'altro utente (N/s max step se sono in coworking).

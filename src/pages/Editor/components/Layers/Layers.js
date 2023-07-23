@@ -48,7 +48,6 @@ const initialState = {
   gcoMode: false,
   editorIsUsingEraser: false,
   paramsTimeout: false,
-  maxLayerCount: 0,
   resizeModeMadeChanges: false,
   listDragStartIndex: -1,
   canvases: {
@@ -567,7 +566,7 @@ const createNewLayerData = (owner = false) => ({
   minY: Infinity,
   maxX: -Infinity,
   maxY: -Infinity,
-  name: `Layer ${++state.maxLayerCount}`,
+  name: `Layer ${Object.keys(state.layers).length + 1}`,
   order: getMaxOrder() + 1,
   active: true,
   canvas: null,
@@ -691,13 +690,16 @@ const createNewLayerCanvas = () => {
 }
 
 export const addNewLayerFromCoworker = async(layer) => {
+  // to intercept the first layer from coworker when just started
   if (Object.values(state.layers).length === 1 && layer.order === state.layers[state.currentSelectedLayerId].order) {
     if (Coworking.isHostingCoworking()) {
+      // if you are the host, your layer goes on top
       state.layers[state.currentSelectedLayerId].order = state.layers[state.currentSelectedLayerId].order + 1
       state.layers[state.currentSelectedLayerId].name = state.layers[state.currentSelectedLayerId].name.replace('1', '2')
       const layerOptionNameInput = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"] .editor-layers__layer-options-name input`)
       layerOptionNameInput.value = state.layers[state.currentSelectedLayerId].name
     } else {
+      // if you are the coworker, the received layer goes on top
       layer.order = layer.order + 1
       layer.name = layer.name.replace('1', '2')
     }
@@ -708,7 +710,14 @@ export const addNewLayerFromCoworker = async(layer) => {
   state.layers[layer.id] = layer
   createNewLayerDom(layer.id, true)
   reorderLayersList()
-  addLayerHistoryNewStep(layer.id, state.currentSelectedLayerId) // TODO forse con l'id del coworker
+  Object.values(state.layers).forEach(l => {
+    if (!layerIsYours(l.id)) {
+      l.selected = (l.id === layer.id)
+      refs.layersList.querySelector(`div[data-id="${l.id}"]`).classList.toggle('editor-layers__layer-selected', l.selected)
+    }
+  })
+
+  // addLayerHistoryNewStep(layer.id, state.currentSelectedLayerId) // TODO forse con l'id del coworker
 }
 
 const addNewLayer = (e) => {
@@ -755,7 +764,7 @@ const selectLayer = async(layerId, showParams = true) => {
       }
     }
 
-    Object.values(state.layers).forEach(l => {
+    Object.values(filterYoursLayers()).forEach(l => {
       l.selected = (l.id === layerId)
       refs.layersList.querySelector(`div[data-id="${l.id}"]`).classList.toggle('editor-layers__layer-selected', l.selected)
     })
@@ -892,7 +901,7 @@ const duplicateSelectedLayer = async(e) => {
   newLayer.modified = true
   newLayer.createTimestamp = now
   newLayer.updateTimestamp = now
-  newLayer.name = `Layer ${++state.maxLayerCount}`
+  newLayer.name = `Layer ${Object.keys(state.layers).length + 1}`
   newLayer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
   newLayer.active = true
   Object.keys(state.layers).forEach(id => {
@@ -1401,7 +1410,6 @@ export const init = async(moduleContainer, initialLayers, canvasWidth, canvasHei
   await initDom(moduleContainer)
   refs.layersList.scrollTop = 1
   await initLayers(initialLayers, canvasWidth, canvasHeight, withCoworking, isHostingCoworking)
-  state.maxLayerCount = Object.keys(state.layers).length
 
   setTimeout(() => {
     refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected')?.offsetTop || 0

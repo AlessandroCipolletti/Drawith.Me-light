@@ -104,10 +104,6 @@
 .editor-layers__layer-active.editor-layers__layer {
   opacity: 1;
 }
-.editor-layers__layer.editor-layers__layer-selected {
-  width: calc(var(--layers-container-width) - 0.5rem);
-  height: calc(var(--layers-container-width) - 0.5rem);
-}
 .editor-layers__layer.editor-layers__layer-yours {
   cursor: pointer;
   border: solid 0.15rem var(--palette-gray-4);
@@ -118,9 +114,13 @@
 }
 .editor-layers__layer.editor-layers__layer-yours.editor-layers__layer-selected {
   border: solid 0.2rem var(--palette-green-0);
+  width: calc(var(--layers-container-width) - 0.5rem);
+  height: calc(var(--layers-container-width) - 0.5rem);
 }
 .editor-layers__layer.editor-layers__layer-coworker.editor-layers__layer-selected {
-  border: solid 0.15rem var(--palette-gray-3);
+  border: solid 0.15rem var(--palette-gray-4);
+  width: calc(var(--layers-container-width) - 1.25rem);
+  height: calc(var(--layers-container-width) - 1.25rem);
 }
 
 .editor-layers__layer-active .editor-layers__layer-preview {
@@ -181,7 +181,7 @@
   vertical-align: top;
 }
 .editor-layers__layer-coworker .editor-layers__layer-options-button {
-  opacity: 0.6;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 .editor-layers__layer-options-name {
