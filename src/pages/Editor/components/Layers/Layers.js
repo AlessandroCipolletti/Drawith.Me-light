@@ -1417,7 +1417,8 @@ const clearLayerHistoryStepBitmap = (step) => {
 }
 
 // chiamata su chiusura editor, e pulizia deletedLayers
-const hardDeleteLayer = (layer, clearHistory = true) => {
+const hardDeleteLayer = (layerId, clearHistory = true) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
   if (clearHistory) {
     layer.history.clear()
     layer.history = undefined
@@ -1425,11 +1426,14 @@ const hardDeleteLayer = (layer, clearHistory = true) => {
   layer.canvas.remove()
   layer.canvas.width = layer.canvas.height = 0
   layer.canvas = undefined
+
+  delete state.layers[layerId]
+  delete state.deletedLayers[layerId]
 }
 
 export const remove = (isSavingLayers = false) => {
-  Object.values(state.layers).forEach(layer => hardDeleteLayer(layer, !isSavingLayers))
-  Object.values(state.deletedLayers).forEach(layer => hardDeleteLayer(layer, true))
+  Object.values(state.layers).forEach(layer => hardDeleteLayer(layer.id, !isSavingLayers))
+  Object.values(state.deletedLayers).forEach(layer => hardDeleteLayer(layer.id, true))
   LayersHistory.clear()
   cleanRefs(refs)
   state = {}
