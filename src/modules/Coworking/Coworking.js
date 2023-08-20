@@ -266,7 +266,14 @@ const handleConnectionClosed = () => {
 }
 
 const waitForEditorToBeReady = async() => {
+  let attempts = 0
+  const maxAttempts = 10
+
   while (getCurrentPage() !== 'editor') {
+    if (attempts > maxAttempts) {
+      throw new Error('waitForEditorToBeReady timeout')
+    }
+    attempts++
     await delay(100)
   }
 }

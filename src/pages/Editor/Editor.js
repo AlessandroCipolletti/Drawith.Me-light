@@ -58,8 +58,6 @@ import { spacing } from 'main/Theme'
       Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
-        - Su step dell'altro utente, aggiornare la sua preview layer.
-        - Undo/redo non funziona più se sono in coworking.
         - Creare il global history dell'altro utente (N/s max step se sono in coworking).
         - Ogni step dell'altro utente, viene aggiunto al suo global history.
         - Azione di coworking per trasferire un undo/redo.
@@ -280,7 +278,7 @@ export const drawCoworkingMultipleStepsData = (data) => {
         bucket: useBucket,
       })
       if (data.steps.find(step => step[0] === 'end')) {
-        requestAnimationFrame(saveStepHistory) // qui chiedo a Layers.js di aggiornare le coordinate del contenuto del layer
+        requestAnimationFrame(() => Layers.addLayerHistoryContentChangedStep(data.layerId)) // qui chiedo a Layers.js di aggiornare le coordinate del contenuto del layer
       }
     })
   }

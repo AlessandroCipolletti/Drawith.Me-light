@@ -177,21 +177,24 @@ const restoreLayerContentStep = async(layerId, step) => {
 }
 
 // funzione chiamata da editor ad ogni fine tratto, o su fine resize / flip
-export const addLayerHistoryContentChangedStep = async() => {
-  await updateLayerRealCoords(state.currentSelectedLayerId)
-  const layer = state.layers[state.currentSelectedLayerId]
-  const canBeResized = layerCanBeResized(state.currentSelectedLayerId)
+// o su steps dal coworker
+export const addLayerHistoryContentChangedStep = async(layerId = state.currentSelectedLayerId) => {
+  await updateLayerRealCoords(layerId)
+  const layer = state.layers[layerId]
+  const canBeResized = layerCanBeResized(layerId)
   layer.updateTimestamp = Date.now()
   layer.modified = true
-  const step = await getLayerCurrentData()
-  addGlobalLayersHistoryAction({
-    layerId: state.currentSelectedLayerId,
+  const step = await getLayerCurrentData(layerId)
+  addGlobalLayersHistoryAction({ // TODO if from coworker, history del coworker
+    layerId,
     type: HISTORY_STEP_LAYER_CONTENT,
   })
   layer.history.add(step)
-  updateLayerPreview(state.currentSelectedLayerId)
-  updateResizeMode(state.resizeMode && canBeResized, canBeResized)
-  updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
+  updateLayerPreview(layerId)
+  if (layerIsYours(layerId)) {
+    updateResizeMode(state.resizeMode && canBeResized, canBeResized)
+    updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
+  }
 }
 
 const addLayerHistoryOpacityStep = async(layerId, newValue, oldValue) => {
