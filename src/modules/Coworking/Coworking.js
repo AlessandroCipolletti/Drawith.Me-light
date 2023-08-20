@@ -5,7 +5,7 @@ import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
 import { deepCopy, delay } from 'utils/jsUtils'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
-import { addNewLayerFromCoworker } from 'pages/Editor/components/Layers'
+import { addNewLayerFromCoworker, selectCoworkerLayer } from 'pages/Editor/components/Layers'
 import { closeCoworkingPopup } from 'pages/Folder'
 import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -64,6 +64,8 @@ const handlePeerMessage = (message) => {
     receiveCoworkerLayer(message.data.layer)
   } else if (message.event === editorEvents.clientEnvironment) {
     checkCoworkerEnvironment(message.data)
+  } else if (message.event === editorEvents.selectedLayer) {
+    receiveSelectedLayer(message.data.layerId)
   }
 }
 
@@ -90,6 +92,21 @@ export const sendNewLayer = (layer) => {
     event: editorEvents.newLayer,
     data: {
       layer,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveSelectedLayer = (layerId) => {
+  selectCoworkerLayer(layerId)
+}
+
+export const sendSelectedLayer = (layerId) => {
+  const message = {
+    event: editorEvents.selectedLayer,
+    data: {
+      layerId,
     },
   }
 

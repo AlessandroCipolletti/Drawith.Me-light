@@ -58,14 +58,14 @@ import { spacing } from 'main/Theme'
       Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
-        - Azione per selezionare un layer.
         - Su step dell'altro utente, aggiornare la sua preview layer.
         - Undo/redo non funziona più se sono in coworking.
         - Creare il global history dell'altro utente (N/s max step se sono in coworking).
         - Ogni step dell'altro utente, viene aggiunto al suo global history.
         - Azione di coworking per trasferire un undo/redo.
         - Step dell'altro utente disegnati su offscreen canvas.
-        - Test di tutti i vari strumenti di disegnoin coworking.
+        - Test di tutti i vari strumenti di disegno in coworking.
+        - Prevenire merge down con layer del coworker
         - Azioni di coworking per tutte le varie modifiche possibili ai layer.
 
 

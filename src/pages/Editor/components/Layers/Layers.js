@@ -689,6 +689,17 @@ const createNewLayerCanvas = () => {
   return canvas
 }
 
+export const selectCoworkerLayer = (layerId) => {
+  if (state?.layers[layerId] && !layerIsYours(layerId)) {
+    Object.values(state.layers).forEach(l => {
+      if (!layerIsYours(l.id)) {
+        l.selected = (l.id === layerId)
+        refs.layersList.querySelector(`div[data-id="${l.id}"]`).classList.toggle('editor-layers__layer-selected', l.selected)
+      }
+    })
+  }
+}
+
 export const addNewLayerFromCoworker = async(layer) => {
   // to intercept the first layer from coworker when just started
   if (Object.values(state.layers).length === 1 && layer.order === state.layers[state.currentSelectedLayerId].order) {
@@ -717,7 +728,7 @@ export const addNewLayerFromCoworker = async(layer) => {
     }
   })
 
-  // addLayerHistoryNewStep(layer.id, state.currentSelectedLayerId) // TODO forse con l'id del coworker
+  // addLayerHistoryNewStep(layer.id, state. prev coworker selected layer id) // TODO forse con l'id del coworker
 }
 
 const addNewLayer = (e) => {
@@ -782,6 +793,10 @@ const selectLayer = async(layerId, showParams = true) => {
       startResizeMode()
     } else if (wasInResizeMode) {
       endResizeMode()
+    }
+
+    if (Coworking.isOpen()) {
+      Coworking.sendSelectedLayer(layerId)
     }
   }
 }
