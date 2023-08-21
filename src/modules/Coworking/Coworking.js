@@ -58,6 +58,7 @@ export const getCoworkerUserId = () => state.connectedUsersId
 export const isHostingCoworking = () => state.isOpen && !state.iAskedForCoworking
 
 const handlePeerMessage = (message) => {
+  console.log(`coworking message: ${message.event}`)
   if (message.event === editorEvents.coworkingSteps) {
     drawCoworkingMultipleStepsData(message.data)
   } else if (message.event === editorEvents.newLayer) {
