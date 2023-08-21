@@ -88,7 +88,7 @@ const labels = {
   changeLayerName: 'Insert new name for layer',
 }
 
-const LayersHistory = new History(config.stepHistoryMaxLength)
+let LayersHistory
 
 const layerCanBeResized = (layerId) => state.layers[layerId].active && Number.isFinite(state.layers[layerId].minX) && state.layers[layerId].opacity > 0
 
@@ -734,8 +734,8 @@ export const addNewLayerFromCoworker = async(layer) => {
   // addLayerHistoryNewStep(layer.id, state. prev coworker selected layer id) // TODO forse con l'id del coworker
 }
 
-const addNewLayer = (e) => {
-  preventDefault(e)
+const addNewLayer = (event) => {
+  preventDefault(event)
   if (Object.keys(state.layers).length >= config.maxLayersNumber) {
     return
   }
@@ -744,9 +744,11 @@ const addNewLayer = (e) => {
   newLayerData.canvas = createNewLayerCanvas()
 
   state.layers[newLayerData.id] = newLayerData
+  if (event) { // if event is undefined, it means that the layer is created during the initialization
+    addLayerHistoryNewStep(newLayerData.id, state.currentSelectedLayerId)
+  }
   createNewLayerDom(newLayerData.id, true)
   reorderLayersList()
-  addLayerHistoryNewStep(newLayerData.id, state.currentSelectedLayerId)
   selectLayer(newLayerData.id, false)
   refs.layersList.scrollTop = 0
 
@@ -1417,6 +1419,7 @@ const initDom = async(moduleContainer) => {
 }
 
 export const init = async(moduleContainer, initialLayers, canvasWidth, canvasHeight, withCoworking = false, isHostingCoworking = false) => {
+  LayersHistory = new History(config.stepHistoryMaxLength)
   config.maxLayersNumber = config.maxLayersNumberHighPerf
   if (Params.isTablet && Params.ios) {
     const screenMaxSize = getRealScreenMaxSize()
@@ -1461,6 +1464,7 @@ export const remove = (isSavingLayers = false) => {
   Object.values(state.layers).forEach(layer => hardDeleteLayer(layer.id, !isSavingLayers))
   Object.values(state.deletedLayers).forEach(layer => hardDeleteLayer(layer.id, true))
   LayersHistory.clear()
+  LayersHistory = undefined
   cleanRefs(refs)
   state = {}
 }
