@@ -145,6 +145,7 @@ const startCoworkingSession = async(userId) => {
   // il canvas li resterà alle sue dimensioni attuali, ma chi ha lo schermo più piccolo deve ricevere una notifica
   Messages.info(labels.coworkingStarted)
   const editorOptions = {
+    coworkerId: userId,
     withCoworking: true,
     isHostingCoworking: !state.iAskedForCoworking,
     coworkingCanvasWidth: state.coworkingData.minCanvasWidth,

@@ -58,13 +58,12 @@ import { spacing } from 'main/Theme'
       Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
-        - Creare il global history dell'altro utente (N/s max step se sono in coworking).
-        - Ogni step dell'altro utente, viene aggiunto al suo global history.
         - Azione di coworking per trasferire un undo/redo.
         - Step dell'altro utente disegnati su offscreen canvas.
         - Test di tutti i vari strumenti di disegno in coworking.
         - Prevenire merge down con layer del coworker
         - Azioni di coworking per tutte le varie modifiche possibili ai layer.
+        - Ogni azione di coworking per tutte le modifiche possibili, devono creare uno step nell'history del coworker
 
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
@@ -1363,8 +1362,8 @@ const initDom = async () => {
     onGestureStart,
     onGestureChange,
     onGestureEnd,
-    onTwoFingersSingleTap: Layers.undoLayers,
-    onThreeFingersSingleTap: Layers.redoLayers,
+    onTwoFingersSingleTap: () => Layers.undoLayers(),
+    onThreeFingersSingleTap: () => Layers.redoLayers(),
     onFourFingersSingleTap: toggleFullscreen,
   })
 }
@@ -1377,8 +1376,7 @@ const initSubModules = async (preloadedDrawing = {}, options = {}) => {
     preloadedDrawing.layers || [],
     state.canvas.width,
     state.canvas.height,
-    options.withCoworking,
-    options.isHostingCoworking
+    [options.coworkerId]
   )
   await Promise.all([
     Tools.init(
@@ -1408,7 +1406,7 @@ export const open = async (preloadedDrawindId, options = {}) => {
   Header.hide()
   addRotationHandler(onRotate)
   addGlobalStatus('drawith__EDITOR-OPEN')
-  toggleGlobalStatus('drawith__EDITOR-COWORKING', options.withCoworking)
+  toggleGlobalStatus('drawith__EDITOR-COWORKING', !!options.withCoworking)
 
   let preloadedDrawing = {}
   if (preloadedDrawindId) {
