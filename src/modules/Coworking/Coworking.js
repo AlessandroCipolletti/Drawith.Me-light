@@ -71,8 +71,154 @@ const handlePeerMessage = (message) => {
     receiveUndo(message.data.userId)
   } else if (message.event === editorEvents.redo) {
     receiveRedo(message.data.userId)
+  } else if (message.event === editorEvents.deleteLayer) {
+    receiveDeleteLayer(message.data.layerId)
+  } else if (message.event === editorEvents.renameLayer) {
+    receiveRenameLayer(message.data.layerId, message.data.newName)
+  } else if (message.event === editorEvents.duplicateLayer) {
+    receiveDuplicateLayer(message.data.layerId, message.data.newId)
+  } else if (message.event === editorEvents.mergeLayers) {
+    receiveMergeLayers(message.data.newLayerId, message.data.layerOneId, message.data.layerTwoId)
+  } else if (message.event === editorEvents.opacityLayer) {
+    receiveOpacityLayer(message.data.layerId, message.data.opacity)
+  } else if (message.event === editorEvents.showLayer) {
+    receiveShowLayer(message.data.layerId)
+  } else if (message.event === editorEvents.hideLayer) {
+    receiveHideLayer(message.data.layerId)
+  } else if (message.event === editorEvents.orderDragLayer) {
+    receiveOrderDragLayer(message.data.layerId, message.data.newOrder, message.data.oldOrder)
   }
 }
+
+export const sendDeleteLayer = (layerId) => {
+  const message = {
+    event: editorEvents.deleteLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveDeleteLayer = (layerId) => {
+
+}
+
+export const sendRenameLayer = (layerId, newName) => {
+  const message = {
+    event: editorEvents.renameLayer,
+    data: {
+      layerId,
+      newName,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveRenameLayer = (layerId, newName) => {
+
+}
+
+export const sendDuplicateLayer = (layerId, newId) => {
+  const message = {
+    event: editorEvents.duplicateLayer,
+    data: {
+      layerId,
+      newId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveDuplicateLayer = (layerId, newId) => {
+
+}
+
+export const sendMergeLayers = (newLayerId, layerOneId, layerTwoId) => {
+  const message = {
+    event: editorEvents.mergeLayers,
+    data: {
+      newLayerId,
+      layerOneId,
+      layerTwoId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveMergeLayers = (newLayerId, layerOneId, layerTwoId) => {
+
+}
+
+export const sendOpacityLayer = (layerId, opacity) => {
+  const message = {
+    event: editorEvents.opacityLayer,
+    data: {
+      layerId,
+      opacity,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveOpacityLayer = (layerId, opacity) => {
+
+}
+
+export const sendShowLayer = (layerId) => {
+  const message = {
+    event: editorEvents.showLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveShowLayer = (layerId) => {
+
+}
+
+export const sendHideLayer = (layerId) => {
+  const message = {
+    event: editorEvents.hideLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveHideLayer = (layerId) => {
+
+}
+
+export const sendOrderDragLayer = (layerId, newOrder, oldOrder) => {
+  const message = {
+    event: editorEvents.orderDragLayer,
+    data: {
+      layerId,
+      newOrder,
+      oldOrder,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveOrderDragLayer = (layerId, newOrder, oldOrder) => {
+
+}
+
+
+
 
 const receiveCoworkerLayer = async(layer) => {
   await waitForEditorToBeReady()
