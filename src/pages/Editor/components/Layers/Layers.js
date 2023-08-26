@@ -177,6 +177,24 @@ const restoreLayerContentStep = async(layerId, step) => {
   updateLayerPreview(layerId)
 }
 
+const findSelectedLayerIdForUser = (userId) => {
+  let result =
+    Object.values(state.layers)
+      .find((layer) =>
+        layer.owner === userId && layer.selected
+      )?.id
+
+  if (!result) {
+    result =
+      Object.values(state.layers)
+        .find((layer) =>
+          layer.owner === userId
+        )?.id
+  }
+
+  return result
+}
+
 // funzione chiamata da editor ad ogni fine tratto, o su fine resize / flip
 // o su steps dal coworker
 export const addLayerHistoryContentChangedStep = async(layerId = state.currentSelectedLayerId) => {
@@ -243,13 +261,16 @@ const addLayerHistoryDuplicateStep = async(layerId, newLayerId) => {
   }, layer.owner)
 }
 
-const addLayerHistoryNewStep = async(layerId, prevSelectedId) => {
+const addLayerHistoryNewStep = async(layerId) => {
   const layer = state.layers[layerId] || state.deletedLayers[layerId]
+  const layerOwner = layer.owner
+  const prevSelectedLayerIdForOwner = findSelectedLayerIdForUser(layerOwner)
+
   addGlobalLayersHistoryAction({
     layerId,
     type: HISTORY_STEP_LAYER_NEW,
-    prevSelectedId,
-  }, layer.owner)
+    prevSelectedId: prevSelectedLayerIdForOwner,
+  }, layerOwner)
 }
 
 const addLayerHistoryDeleteStep = async(layerId, nextSelectedId) => {
@@ -347,7 +368,7 @@ export const doUndoForUser = async(userId) => {
           selectedLayerId = action.layerOneId
         }
 
-        await selectLayer(selectedLayerId, !Coworking.isOpen())
+        await selectLayer(selectedLayerId)
       }
     }
   }
@@ -401,6 +422,7 @@ export const doRedoForUser = async(userId) => {
         ])
         selectedLayerId = action.newLayerId
       }
+
       await selectLayer(selectedLayerId)
     }
   }
@@ -760,14 +782,13 @@ export const addNewLayerFromCoworker = async(layer) => {
   state.layers[layer.id] = layer
   createNewLayerDom(layer.id, true)
   reorderLayersList()
+  addLayerHistoryNewStep(layer.id)
   Object.values(state.layers).forEach(l => {
     if (!layerIsYours(l.id)) {
       l.selected = (l.id === layer.id)
       refs.layersList.querySelector(`div[data-id="${l.id}"]`).classList.toggle('editor-layers__layer-selected', l.selected)
     }
   })
-
-  // addLayerHistoryNewStep(layer.id, state. prev coworker selected layer id) // TODO forse con l'id del coworker
 }
 
 const addNewLayer = (event) => {
@@ -781,7 +802,7 @@ const addNewLayer = (event) => {
 
   state.layers[newLayerData.id] = newLayerData
   if (event) { // if event is undefined, it means that the layer is created during the initialization
-    addLayerHistoryNewStep(newLayerData.id, state.currentSelectedLayerId)
+    addLayerHistoryNewStep(newLayerData.id)
   }
   createNewLayerDom(newLayerData.id, true)
   reorderLayersList()
@@ -1480,6 +1501,7 @@ export const init = async(moduleContainer, initialLayers, canvasWidth, canvasHei
   setTimeout(() => {
     refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected')?.offsetTop || 0
   }, 200)
+  window.STATE = state
 }
 
 // chiamata da history.onDelete
