@@ -5,7 +5,7 @@ import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
 import { deepCopy, delay } from 'utils/jsUtils'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
-import { addNewLayerFromCoworker, selectCoworkerLayer } from 'pages/Editor/components/Layers'
+import { addNewLayerFromCoworker, selectCoworkerLayer, doUndoForUser, doRedoForUser } from 'pages/Editor/components/Layers'
 import { closeCoworkingPopup } from 'pages/Folder'
 import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -67,6 +67,10 @@ const handlePeerMessage = (message) => {
     checkCoworkerEnvironment(message.data)
   } else if (message.event === editorEvents.selectedLayer) {
     receiveSelectedLayer(message.data.layerId)
+  } else if (message.event === editorEvents.undo) {
+    receiveUndo(message.data.userId)
+  } else if (message.event === editorEvents.redo) {
+    receiveRedo(message.data.userId)
   }
 }
 
@@ -97,6 +101,36 @@ export const sendNewLayer = (layer) => {
   }
 
   peerClient.sendMessage(message)
+}
+
+export const sendUndo = () => {
+  const message = {
+    event: editorEvents.undo,
+    data: {
+      userId: state.userId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveUndo = (userId) => {
+  doUndoForUser(userId)
+}
+
+export const sendRedo = () => {
+  const message = {
+    event: editorEvents.redo,
+    data: {
+      userId: state.userId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveRedo = (userId) => {
+  doRedoForUser(userId)
 }
 
 const receiveSelectedLayer = (layerId) => {

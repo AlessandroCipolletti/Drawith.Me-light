@@ -58,13 +58,11 @@ import { spacing } from 'main/Theme'
       Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
-        - Azione di coworking per trasferire un undo/redo.
         - Step dell'altro utente disegnati su offscreen canvas.
         - Test di tutti i vari strumenti di disegno in coworking.
         - Prevenire merge down con layer del coworker
         - Azioni di coworking per tutte le varie modifiche possibili ai layer.
         - Ogni azione di coworking per tutte le modifiche possibili, devono creare uno step nell'history del coworker
-
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
     - Non avendo più un server in mezzo, i due utenti devono essere connessi allo stesso momento. Quindi l'url è sempre uno solo per ogni utente: quello col suo peerId.
@@ -1362,8 +1360,8 @@ const initDom = async () => {
     onGestureStart,
     onGestureChange,
     onGestureEnd,
-    onTwoFingersSingleTap: () => Layers.undoLayers(),
-    onThreeFingersSingleTap: () => Layers.redoLayers(),
+    onTwoFingersSingleTap: Layers.undoLayers,
+    onThreeFingersSingleTap: Layers.redoLayers,
     onFourFingersSingleTap: toggleFullscreen,
   })
 }
