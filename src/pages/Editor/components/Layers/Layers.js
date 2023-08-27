@@ -1372,19 +1372,14 @@ const updateParamsByLayer = (layerId = state.currentSelectedLayerId) => {
   }
 }
 
-const onListDragChange = (draggedElement, domOrder, inProgress = true) => {
+export const layerDragChangeFromCoworker = (layerId, newOrder, oldOrder) => {
+  addLayerHistoryOrderStep(layerId, newOrder, oldOrder)
+  updateLayerOrger(layerId, newOrder)
+}
+
+const updateLayerOrger = (layerId, newOrder) => {
   const layers = Object.values(state.layers)
-  const currentLayerOrder = state.layers[draggedElement.getAttribute('data-id')].order
-  const newOrder = layers.length - 1 - domOrder
-
-  if (!inProgress) {
-    addLayerHistoryOrderStep(draggedElement.getAttribute('data-id'), newOrder, state.listDragStartIndex)
-    state.listDragStartIndex = -1
-  }
-
-  if (currentLayerOrder === newOrder) {
-    return
-  }
+  const currentLayerOrder = state.layers[layerId].order
 
   if (currentLayerOrder > newOrder) {
     layers.forEach(layer => {
@@ -1392,16 +1387,32 @@ const onListDragChange = (draggedElement, domOrder, inProgress = true) => {
         layer.order++
       }
     })
-    state.layers[draggedElement.getAttribute('data-id')].order = newOrder
+    state.layers[layerId].order = newOrder
   } else {
     layers.forEach(layer => {
       if (layer.order > newOrder) {
         layer.order++
       }
     })
-    state.layers[draggedElement.getAttribute('data-id')].order = newOrder + 1
+    state.layers[layerId].order = newOrder + 1
   }
   reorderLayersList()
+}
+
+const onListDragChange = (draggedElement, domOrder, inProgress = true) => {
+  const layerId = draggedElement.getAttribute('data-id')
+  const layers = Object.values(state.layers)
+  const newOrder = layers.length - 1 - domOrder
+
+  if (!inProgress) {
+    addLayerHistoryOrderStep(layerId, newOrder, state.listDragStartIndex)
+    if (Coworking.isOpen()) {
+      Coworking.sendOrderDragLayer(layerId, newOrder, state.listDragStartIndex)
+    }
+    state.listDragStartIndex = -1
+  }
+
+  updateLayerOrger(layerId, newOrder)
 }
 
 const startDragLayer = (e, layerListDom) => {

@@ -216,7 +216,7 @@ export const sendOrderDragLayer = (layerId, newOrder, oldOrder) => {
 }
 
 const receiveOrderDragLayer = (layerId, newOrder, oldOrder) => {
-
+  Layers.layerDragChangeFromCoworker(layerId, newOrder, oldOrder)
 }
 
 const receiveNewLayer = async(layer) => {

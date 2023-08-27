@@ -59,7 +59,7 @@ import { spacing } from 'main/Theme'
 
       TODO:
         - Prevenire merge down con layer del coworker
-        - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD, RENAME, DELETE, ENABLE, DISABLE, DUPLICATE, OPACITY - merge, (flipV, flipH, resize, bucket), drag)
+        - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD, RENAME, DELETE, ENABLE, DISABLE, DUPLICATE, OPACITY, DRAG - merge, (flipV, flipH, resize, bucket),)
         - Ogni azione di coworking per tutte le modifiche possibili, devono creare uno step nell'history del coworker
         - Step dell'altro utente disegnati su offscreen canvas.
         - Test di tutti i vari strumenti di disegno in coworking.
@@ -77,6 +77,7 @@ import { spacing } from 'main/Theme'
 
   ----- BUGS -----
     - Log.fps() su iPad assente
+    - auto scroll on list drag change on desktop
     - undo button sempre attivo in resize mode, anche dopo che hai resettato il resize con un undo.
     - la preview del size ed alpha del tool, deve funzionare con requestAnimationFrame o qualcosa del genere. Altrimenti è troppo lento
     - Quando modifico un disegno e salvo, la fase 1 viene salvata con spinner. Poi il folder si apre con il disegno senza spinner. E poi parte la fase due del salvataggio
