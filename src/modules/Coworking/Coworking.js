@@ -5,7 +5,7 @@ import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
 import { deepCopy, delay } from 'utils/jsUtils'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
-import { addNewLayerFromCoworker, selectCoworkerLayer, doUndoForUser, doRedoForUser } from 'pages/Editor/components/Layers'
+import { addNewLayerFromCoworker, selectCoworkerLayer, doUndoForUser, doRedoForUser, saveLayerName } from 'pages/Editor/components/Layers'
 import { closeCoworkingPopup } from 'pages/Folder'
 import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -118,7 +118,7 @@ export const sendRenameLayer = (layerId, newName) => {
 }
 
 const receiveRenameLayer = (layerId, newName) => {
-
+  saveLayerName(layerId, newName)
 }
 
 export const sendDuplicateLayer = (layerId, newId) => {

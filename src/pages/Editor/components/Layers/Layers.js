@@ -945,12 +945,15 @@ const renameLayer = async(e, layerId = state.currentSelectedLayerId) => {
   } // params are closed
   openParams()
   const newName = await Messages.input(`${labels.changeLayerName}: ${state.layers[layerId].name}`, state.layers[layerId].name)
-  if (newName) {
+  if (newName && newName !== state.layers[layerId].name) {
+    if (Coworking.isOpen()) {
+      Coworking.sendRenameLayer(layerId, newName)
+    }
     saveLayerName(layerId, newName)
   }
 }
 
-const saveLayerName = (layerId, newName, updateDom = true, saveHistoryStep = true) => {
+export const saveLayerName = (layerId, newName, updateDom = true, saveHistoryStep = true) => {
   if (layerId && newName) {
     if (saveHistoryStep) {
       addLayerHistoryRenameStep(layerId, newName, state.layers[layerId].name)
