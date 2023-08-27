@@ -979,23 +979,13 @@ const saveLayerName = (layerId, newName) => {
   refs.layersList.querySelector(`div[data-id="${layerId}"] input`).value = newName
 }
 
-const duplicateSelectedLayer = async(e) => {
-  preventDefault(e)
-  if (state.paramsTimeout === false) {
-    return
-  } // params are closed
-  openParams()
-  if (
-    refs.duplicateLayerButton.classList.contains('disabled') ||
-    !Number.isFinite(state.layers[state.currentSelectedLayerId].maxX) ||
-    Object.keys(state.layers).length >= config.maxLayersNumber
-  ) {
-    return
-  }
+export const duplicateLayerFromCoworker = (layerId, newId) => {
+  addLayerHistoryDuplicateStep(layerId, newId)
+  duplicateLayer(layerId, newId)
+}
 
-  await saveResizeModeIfNeeded()
-  const newId = uuidv4()
-  const newLayer = layerDeepCopy(state.layers[state.currentSelectedLayerId])
+const duplicateLayer = (layerId, newId) => {
+  const newLayer = layerDeepCopy(state.layers[layerId])
   newLayer.canvas.context = getNewContextForCanvas(newLayer.canvas)
   const now = Date.now()
   newLayer.id = newId
@@ -1014,10 +1004,32 @@ const duplicateSelectedLayer = async(e) => {
   state.layers[newId] = newLayer
   createNewLayerDom(newId, true)
   reorderLayersList()
+}
+
+const duplicateSelectedLayer = async(e) => {
+  preventDefault(e)
+  if (paramsAreClosed()) {
+    return
+  }
+  openParams()
+  if (
+    refs.duplicateLayerButton.classList.contains('disabled') ||
+    !Number.isFinite(state.layers[state.currentSelectedLayerId].maxX) ||
+    Object.keys(state.layers).length >= config.maxLayersNumber
+  ) {
+    return
+  }
+
+  await saveResizeModeIfNeeded()
+  const newId = uuidv4()
+  duplicateLayer(state.currentSelectedLayerId, newId)
   refs.mergeDownLayerButton.classList.remove('disabled')
   addLayerHistoryDuplicateStep(state.currentSelectedLayerId, newId)
   if (state.resizeMode) {
     startResizeMode()
+  }
+  if (Coworking.isOpen()) {
+    Coworking.sendDuplicateLayer(state.currentSelectedLayerId, newId)
   }
 }
 

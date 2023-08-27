@@ -135,7 +135,7 @@ export const sendDuplicateLayer = (layerId, newId) => {
 }
 
 const receiveDuplicateLayer = (layerId, newId) => {
-
+  Layers.duplicateLayerFromCoworker(layerId, newId)
 }
 
 export const sendMergeLayers = (newLayerId, layerOneId, layerTwoId) => {
