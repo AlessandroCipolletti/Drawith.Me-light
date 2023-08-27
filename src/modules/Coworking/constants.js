@@ -10,8 +10,8 @@ export const editorEvents = {
   duplicateLayer: 'EDITOR_DUPLICATE_LAYER',
   mergeLayers: 'EDITOR_MERGE_LAYERS',
   opacityLayer: 'EDITOR_OPACITY_LAYER',
-  showLayer: 'EDITOR_SHOW_LAYER',
-  hideLayer: 'EDITOR_HIDE_LAYER',
+  enableLayer: 'EDITOR_ENABLE_LAYER',
+  disableLayer: 'EDITOR_DISABLE_LAYER',
   orderDragLayer: 'EDITOR_ORDER_DRAG_LAYER',
 }
 

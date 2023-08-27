@@ -5,7 +5,7 @@ import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
 import { deepCopy, delay } from 'utils/jsUtils'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
-import { addNewLayerFromCoworker, selectCoworkerLayer, doUndoForUser, doRedoForUser, saveLayerName, deleteLayerFromCoworker } from 'pages/Editor/components/Layers'
+import * as Layers from 'pages/Editor/components/Layers'
 import { closeCoworkingPopup } from 'pages/Folder'
 import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -81,10 +81,10 @@ const handlePeerMessage = (message) => {
     receiveMergeLayers(message.data.newLayerId, message.data.layerOneId, message.data.layerTwoId)
   } else if (message.event === editorEvents.opacityLayer) {
     receiveOpacityLayer(message.data.layerId, message.data.opacity)
-  } else if (message.event === editorEvents.showLayer) {
-    receiveShowLayer(message.data.layerId)
-  } else if (message.event === editorEvents.hideLayer) {
-    receiveHideLayer(message.data.layerId)
+  } else if (message.event === editorEvents.enableLayer) {
+    receiveEnableLayer(message.data.layerId)
+  } else if (message.event === editorEvents.disableLayer) {
+    receiveDisableLayer(message.data.layerId)
   } else if (message.event === editorEvents.orderDragLayer) {
     receiveOrderDragLayer(message.data.layerId, message.data.newOrder, message.data.oldOrder)
   }
@@ -103,7 +103,7 @@ export const sendDeleteLayer = (layerId, nextSelectedId) => {
 }
 
 const receiveDeleteLayer = (layerId, nextSelectedId) => {
-  deleteLayerFromCoworker(layerId, nextSelectedId)
+  Layers.deleteLayerFromCoworker(layerId, nextSelectedId)
 }
 
 export const sendRenameLayer = (layerId, newName) => {
@@ -119,7 +119,7 @@ export const sendRenameLayer = (layerId, newName) => {
 }
 
 const receiveRenameLayer = (layerId, newName) => {
-  saveLayerName(layerId, newName)
+  Layers.renameLayerFromCoworker(layerId, newName)
 }
 
 export const sendDuplicateLayer = (layerId, newId) => {
@@ -171,9 +171,9 @@ const receiveOpacityLayer = (layerId, opacity) => {
 
 }
 
-export const sendShowLayer = (layerId) => {
+export const sendEnableLayer = (layerId) => {
   const message = {
-    event: editorEvents.showLayer,
+    event: editorEvents.enableLayer,
     data: {
       layerId,
     },
@@ -182,13 +182,13 @@ export const sendShowLayer = (layerId) => {
   peerClient.sendMessage(message)
 }
 
-const receiveShowLayer = (layerId) => {
-
+const receiveEnableLayer = (layerId) => {
+  Layers.enableLayerFromCoworker(layerId)
 }
 
-export const sendHideLayer = (layerId) => {
+export const sendDisableLayer = (layerId) => {
   const message = {
-    event: editorEvents.hideLayer,
+    event: editorEvents.disableLayer,
     data: {
       layerId,
     },
@@ -197,8 +197,8 @@ export const sendHideLayer = (layerId) => {
   peerClient.sendMessage(message)
 }
 
-const receiveHideLayer = (layerId) => {
-
+const receiveDisableLayer = (layerId) => {
+  Layers.disableLayerFromCoworker(layerId)
 }
 
 export const sendOrderDragLayer = (layerId, newOrder, oldOrder) => {
@@ -224,7 +224,7 @@ const receiveNewLayer = async(layer) => {
   layer.minY = Infinity
   layer.maxX = -Infinity
   layer.maxY = -Infinity
-  addNewLayerFromCoworker(layer)
+  Layers.addNewLayerFromCoworker(layer)
 }
 
 export const sendNewLayer = (layer) => {
@@ -259,7 +259,7 @@ export const sendUndo = () => {
 }
 
 const receiveUndo = (userId) => {
-  doUndoForUser(userId)
+  Layers.doUndoForUser(userId)
 }
 
 export const sendRedo = () => {
@@ -274,11 +274,11 @@ export const sendRedo = () => {
 }
 
 const receiveRedo = (userId) => {
-  doRedoForUser(userId)
+  Layers.doRedoForUser(userId)
 }
 
 const receiveSelectedLayer = (layerId) => {
-  selectCoworkerLayer(layerId)
+  Layers.selectCoworkerLayer(layerId)
 }
 
 export const sendSelectedLayer = (layerId) => {

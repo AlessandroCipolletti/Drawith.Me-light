@@ -226,7 +226,7 @@ const addLayerHistoryOpacityStep = async(layerId, newValue, oldValue) => {
   }, layer.owner)
 }
 
-const addLayerHistoryShowStep = async(layerId) => {
+const addLayerHistoryEnableStep = async(layerId) => {
   const layer = state.layers[layerId] || state.deletedLayers[layerId]
   addGlobalLayersHistoryAction({
     layerId,
@@ -234,7 +234,7 @@ const addLayerHistoryShowStep = async(layerId) => {
   }, layer.owner)
 }
 
-const addLayerHistoryHideStep = async(layerId) => {
+const addLayerHistoryDisableStep = async(layerId) => {
   const layer = state.layers[layerId] || state.deletedLayers[layerId]
   addGlobalLayersHistoryAction({
     layerId,
@@ -377,7 +377,7 @@ export const doUndoForUser = async(userId) => {
           await _deleteLayer(action.newLayerId, action.layerOneId)
           selectedLayerId = action.layerOneId
         } else if (action.type === HISTORY_STEP_LAYER_RENAME) {
-          saveLayerName(action.layerId, action.oldName, true, false)
+          saveLayerName(action.layerId, action.oldName)
         }
 
         await selectLayer(selectedLayerId)
@@ -434,7 +434,7 @@ export const doRedoForUser = async(userId) => {
         ])
         selectedLayerId = action.newLayerId
       } else if (action.type === HISTORY_STEP_LAYER_RENAME) {
-        saveLayerName(action.layerId, action.newName, true, false)
+        saveLayerName(action.layerId, action.newName)
       }
 
       await selectLayer(selectedLayerId)
@@ -659,6 +659,8 @@ const getMaxOrder = () => {
   const max = Math.max(...Object.values(state.layers).map(l => l.order))
   return isFinite(max) ? max : 0
 }
+
+const paramsAreClosed = () => (state.paramsTimeout === false)
 
 const toggleParams = () => {
   if (refs.paramsContainer.classList.contains('params-container-visible')) {
@@ -932,9 +934,9 @@ const _deleteLayer = async(layerId, nextSelectedId = 0, withAnimation = true) =>
 }
 const deleteLayer = async(e, layerId = state.currentSelectedLayerId) => {
   preventDefault(e)
-  if (state.paramsTimeout === false) {
+  if (paramsAreClosed()) {
     return
-  } // params are closed
+  }
   openParams()
   let yoursLayers = filterYoursLayers()
   if (!layerIsYours(layerId) || yoursLayers.length <= 1) {
@@ -951,31 +953,30 @@ const deleteLayer = async(e, layerId = state.currentSelectedLayerId) => {
   await _deleteLayer(layerId, nextSelectedId)
 }
 
+export const renameLayerFromCoworker = (layerId, newName) => {
+  addLayerHistoryRenameStep(layerId, newName, state.layers[layerId].name)
+  saveLayerName(layerId, newName)
+}
+
 const renameLayer = async(e, layerId = state.currentSelectedLayerId) => {
   preventDefault(e)
-  if (state.paramsTimeout === false) {
+  if (!layerId || paramsAreClosed() || !layerIsYours(layerId)) {
     return
-  } // params are closed
+  }
   openParams()
   const newName = await Messages.input(`${labels.changeLayerName}: ${state.layers[layerId].name}`, state.layers[layerId].name)
   if (newName && newName !== state.layers[layerId].name) {
     if (Coworking.isOpen()) {
       Coworking.sendRenameLayer(layerId, newName)
     }
+    addLayerHistoryRenameStep(layerId, newName, state.layers[layerId].name)
     saveLayerName(layerId, newName)
   }
 }
 
-export const saveLayerName = (layerId, newName, updateDom = true, saveHistoryStep = true) => {
-  if (layerId && newName) {
-    if (saveHistoryStep) {
-      addLayerHistoryRenameStep(layerId, newName, state.layers[layerId].name)
-    }
-    state.layers[layerId].name = newName
-    if (updateDom) {
-      refs.layersList.querySelector(`div[data-id="${layerId}"] input`).value = newName
-    }
-  }
+const saveLayerName = (layerId, newName) => {
+  state.layers[layerId].name = newName
+  refs.layersList.querySelector(`div[data-id="${layerId}"] input`).value = newName
 }
 
 const duplicateSelectedLayer = async(e) => {
@@ -1079,6 +1080,11 @@ const mergeDownSelectedLayer = async(e) => {
   }
 }
 
+export const enableLayerFromCoworker = (layerId) => {
+  enableLayer(layerId)
+  addLayerHistoryEnableStep(layerId)
+}
+
 const enableLayer = (layerId = state.currentSelectedLayerId) => {
   const layer = state.layers[layerId]
   layer.active = true
@@ -1096,6 +1102,11 @@ const enableLayer = (layerId = state.currentSelectedLayerId) => {
     refs.visibilityLayerButton.classList.toggle('svg-icon-visible', layer.active)
     refs.visibilityLayerButton.classList.toggle('svg-icon-hidden', !layer.active)
   }
+}
+
+export const disableLayerFromCoworker = (layerId) => {
+  disableLayer(layerId)
+  addLayerHistoryDisableStep(layerId)
 }
 
 const disableLayer = (layerId = state.currentSelectedLayerId) => {
@@ -1118,21 +1129,25 @@ const disableLayer = (layerId = state.currentSelectedLayerId) => {
 
 const toggleEnableLayer = (e, layerId = state.currentSelectedLayerId, clickedByList = false) => {
   preventDefault(e)
-  if (!layerIsYours(layerId)) {
-    return
-  }
-  if (!clickedByList && state.paramsTimeout === false) {
-    return
-  } // params are closed
-  if (layerId === state.currentSelectedLayerId && state.resizeMode) {
+  if (
+    !layerIsYours(layerId) ||
+    (!clickedByList && paramsAreClosed()) ||
+    (layerId === state.currentSelectedLayerId && state.resizeMode)
+  ) {
     return
   }
   if (state.layers[layerId].active) {
     disableLayer(layerId)
-    addLayerHistoryHideStep(layerId)
+    addLayerHistoryDisableStep(layerId)
+    if (Coworking.isOpen()) {
+      Coworking.sendDisableLayer(layerId)
+    }
   } else {
     enableLayer(layerId)
-    addLayerHistoryShowStep(layerId)
+    addLayerHistoryEnableStep(layerId)
+    if (Coworking.isOpen()) {
+      Coworking.sendEnableLayer(layerId)
+    }
   }
   if (state.resizeMode) {
     updateMagnetismCoords(state.currentSelectedLayerId)
