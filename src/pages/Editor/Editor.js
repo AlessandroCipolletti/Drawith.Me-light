@@ -806,7 +806,7 @@ const drawStepEnd = (context, stepData, tool) => {
   let doneSomething = false
   context.globalCompositeOperation = tool.globalCompositeOperation
 
-  if (tool.frameType) {
+  if (tool.frameType && typeof(stepData.x) !== 'undefined') {
     doneSomething = drawCurvedFunctionLine(context, stepData, tool)
   }
 
@@ -874,21 +874,20 @@ const handleTouchEndStep = (context) => {
   state.currentTouch.isDown = state.currentTouch.isNearRuler = false
   refs.toolCursor.classList.add('displayNone')
 
+  let stepData = { type: 'end' }
+
   if (
     state.currentToolProps.size < state.currentToolProps.maxSizeThatNeedsToAdaptLine ||
     (state.currentTouch.x !== state.lastStep.x && state.currentTouch.y !== state.lastStep.y)
   ) {
-    const stepData = getStepData(state.currentToolProps, state.currentTouch, state.lastStep)
+    stepData = getStepData(state.currentToolProps, state.currentTouch, state.lastStep)
     const thisStepHasDoneSomething = drawStepEnd(context, stepData, state.currentToolProps)
     state.currentTouch.drewSomething = state.currentTouch.drewSomething || (thisStepHasDoneSomething && coordsAreInsideLayer(stepData.x, stepData.y))
-    if (thisStepHasDoneSomething && Coworking.isOpen()) {
-      sendCoworkingStep(stepData)
-    }
   }
 
   if (Coworking.isOpen()) {
     if (state.currentTouch.drewSomething) {
-      sendCoworkingStep(false, true)
+      sendCoworkingStep(stepData, true)
     } else {
       Coworking.clearSteps()
       state.stepsSinceLastCoworkingUpdate = 0
