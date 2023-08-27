@@ -1306,9 +1306,16 @@ const updateGcoMode = (selected, active) => {
   }
 }
 
-const _updateLayerOpacity = (layerId, opacity, inProgress) => {
+export const updateLayerOpacityFromCoworker = (layerId, opacity, oldValue) => {
+  addLayerHistoryOpacityStep(layerId, opacity, oldValue)
+  opacity = round(opacity / 100, 2)
+  state.layers[layerId].opacity = opacity
+  state.layers[layerId].canvas.style.opacity = opacity
+}
+
+const _updateLayerOpacity = (layerId, opacity, inProgress = false) => {
   refs.opacityCursor.style.bottom = `${opacity}%`
-  refs.opacityLabel.innerHTML = `${opacity}`
+  refs.opacityLabel.innerHTML = `${round(opacity, 0)}`
   refs.opacitySlider.style.background = `linear-gradient(0deg, var(--palette-green-1) ${opacity}%, var(--palette-white) ${opacity}%)`
   opacity = round(opacity / 100, 2)
   state.layers[layerId].opacity = opacity
@@ -1328,9 +1335,9 @@ const _updateLayerOpacity = (layerId, opacity, inProgress) => {
 const updateLayerOpacity = (() => {
   let startValue = 0
   return (opacity, inProgress, changed) => {
-    if (state.paramsTimeout === false) {
+    if (paramsAreClosed()) {
       return
-    } // params are closed
+    }
     if (!changed) { // just touchDown without drag yet
       startValue = state.layers[state.currentSelectedLayerId].opacity * 100
     }
@@ -1338,6 +1345,9 @@ const updateLayerOpacity = (() => {
     _updateLayerOpacity(state.currentSelectedLayerId, opacity, inProgress)
     if (!inProgress) {
       addLayerHistoryOpacityStep(state.currentSelectedLayerId, opacity, startValue)
+      if (Coworking.isOpen()) {
+        Coworking.sendOpacityLayer(state.currentSelectedLayerId, opacity, startValue)
+      }
     }
   }
 })()
@@ -1348,7 +1358,7 @@ const updateParamsByLayer = (layerId = state.currentSelectedLayerId) => {
     const layerIsEmpty = !Number.isFinite(layer.minX)
     const canBeResized = layerCanBeResized(layerId)
     const opacity = round(layer.opacity * 100, 0)
-    refs.opacityLabel.innerHTML = opacity
+    refs.opacityLabel.innerHTML = `${round(opacity, 0)}`
     refs.opacityCursor.style.bottom = `${opacity}%`
     refs.opacitySlider.style.background = `linear-gradient(0deg, var(--palette-green-1) ${opacity}%, var(--palette-white) ${opacity}%)`
     refs.duplicateLayerButton.classList.toggle('disabled', layerIsEmpty)

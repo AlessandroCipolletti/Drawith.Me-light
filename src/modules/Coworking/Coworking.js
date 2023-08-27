@@ -80,7 +80,7 @@ const handlePeerMessage = (message) => {
   } else if (message.event === editorEvents.mergeLayers) {
     receiveMergeLayers(message.data.newLayerId, message.data.layerOneId, message.data.layerTwoId)
   } else if (message.event === editorEvents.opacityLayer) {
-    receiveOpacityLayer(message.data.layerId, message.data.opacity)
+    receiveOpacityLayer(message.data.layerId, message.data.newValue, message.data.oldValue)
   } else if (message.event === editorEvents.enableLayer) {
     receiveEnableLayer(message.data.layerId)
   } else if (message.event === editorEvents.disableLayer) {
@@ -155,20 +155,21 @@ const receiveMergeLayers = (newLayerId, layerOneId, layerTwoId) => {
 
 }
 
-export const sendOpacityLayer = (layerId, opacity) => {
+export const sendOpacityLayer = (layerId, newValue, oldValue) => {
   const message = {
     event: editorEvents.opacityLayer,
     data: {
       layerId,
-      opacity,
+      newValue,
+      oldValue,
     },
   }
 
   peerClient.sendMessage(message)
 }
 
-const receiveOpacityLayer = (layerId, opacity) => {
-
+const receiveOpacityLayer = (layerId, newValue, oldValue) => {
+  Layers.updateLayerOpacityFromCoworker(layerId, newValue, oldValue)
 }
 
 export const sendEnableLayer = (layerId) => {
