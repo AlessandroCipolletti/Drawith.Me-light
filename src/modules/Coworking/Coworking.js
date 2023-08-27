@@ -217,9 +217,6 @@ const receiveOrderDragLayer = (layerId, newOrder, oldOrder) => {
 
 }
 
-
-
-
 const receiveCoworkerLayer = async(layer) => {
   await waitForEditorToBeReady()
   layer.minX = Infinity

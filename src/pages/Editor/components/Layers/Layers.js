@@ -23,7 +23,7 @@ import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 import { deepCopy, delay, parallelize } from 'utils/jsUtils'
 import { timing } from 'main/Theme'
 
-import { HISTORY_STEP_LAYER_CONTENT, HISTORY_STEP_LAYER_OPACITY, HISTORY_STEP_LAYER_SHOW, HISTORY_STEP_LAYER_HIDE, HISTORY_STEP_LAYER_ORDER, HISTORY_STEP_LAYER_DUPLICATE, HISTORY_STEP_LAYER_NEW, HISTORY_STEP_LAYER_DELETE, HISTORY_STEP_LAYERS_MERGE } from './constants'
+import { HISTORY_STEP_LAYER_CONTENT, HISTORY_STEP_LAYER_OPACITY, HISTORY_STEP_LAYER_SHOW, HISTORY_STEP_LAYER_HIDE, HISTORY_STEP_LAYER_ORDER, HISTORY_STEP_LAYER_DUPLICATE, HISTORY_STEP_LAYER_NEW, HISTORY_STEP_LAYER_DELETE, HISTORY_STEP_LAYERS_MERGE, HISTORY_STEP_LAYER_RENAME } from './constants'
 const MAX_LAYER_NAME_LENGTH = 12
 const PREVIEW_SIZE = 300
 const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
@@ -252,6 +252,16 @@ const addLayerHistoryOrderStep = async(layerId, newValue, oldValue) => {
   }, layer.owner)
 }
 
+const addLayerHistoryRenameStep = async(layerId, newName, oldName) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
+  addGlobalLayersHistoryAction({
+    layerId,
+    type: HISTORY_STEP_LAYER_RENAME,
+    newName,
+    oldName,
+  }, layer.owner)
+}
+
 const addLayerHistoryDuplicateStep = async(layerId, newLayerId) => {
   const layer = state.layers[layerId] || state.deletedLayers[layerId]
   addGlobalLayersHistoryAction({
@@ -366,6 +376,8 @@ export const doUndoForUser = async(userId) => {
           ])
           await _deleteLayer(action.newLayerId, action.layerOneId)
           selectedLayerId = action.layerOneId
+        } else if (action.type === HISTORY_STEP_LAYER_RENAME) {
+          saveLayerName(action.layerId, action.oldName, true, false)
         }
 
         await selectLayer(selectedLayerId)
@@ -421,6 +433,8 @@ export const doRedoForUser = async(userId) => {
           _deleteLayer(action.layerTwoId),
         ])
         selectedLayerId = action.newLayerId
+      } else if (action.type === HISTORY_STEP_LAYER_RENAME) {
+        saveLayerName(action.layerId, action.newName, true, false)
       }
 
       await selectLayer(selectedLayerId)
@@ -705,11 +719,6 @@ const createNewLayerListElementDom = (layerId, withAnimation = true) => {
   layerListDom.querySelector('input').addEventListener(Params.eventStart, (e) => {
     e.preventDefault()
   })
-  if (Params.isDesktop) {
-    layerListDom.querySelector('input').onchange = (e) => {
-      saveLayerName(layerId, e.target.value)
-    }
-  }
 
   refs.layersList.appendChild(layerListDom)
   if (withAnimation) {
@@ -929,23 +938,26 @@ const deleteLayer = async(e, layerId = state.currentSelectedLayerId) => {
   await _deleteLayer(layerId, nextSelectedId)
 }
 
-const renameLayer = async(e, id = state.currentSelectedLayerId) => {
+const renameLayer = async(e, layerId = state.currentSelectedLayerId) => {
   preventDefault(e)
   if (state.paramsTimeout === false) {
     return
   } // params are closed
   openParams()
-  const newName = await Messages.input(`${labels.changeLayerName}: ${state.layers[id].name}`, state.layers[id].name)
+  const newName = await Messages.input(`${labels.changeLayerName}: ${state.layers[layerId].name}`, state.layers[layerId].name)
   if (newName) {
-    saveLayerName(id, newName, true)
+    saveLayerName(layerId, newName)
   }
 }
 
-const saveLayerName = (id, name, updateDom = false) => {
-  if (id && name) {
-    state.layers[id].name = name
+const saveLayerName = (layerId, newName, updateDom = true, saveHistoryStep = true) => {
+  if (layerId && newName) {
+    if (saveHistoryStep) {
+      addLayerHistoryRenameStep(layerId, newName, state.layers[layerId].name)
+    }
+    state.layers[layerId].name = newName
     if (updateDom) {
-      refs.layersList.querySelector(`div[data-id="${id}"] input`).value = name
+      refs.layersList.querySelector(`div[data-id="${layerId}"] input`).value = newName
     }
   }
 }

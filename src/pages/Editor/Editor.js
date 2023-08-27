@@ -59,7 +59,6 @@ import { spacing } from 'main/Theme'
 
       TODO:
         - Prevenire merge down con layer del coworker
-        - history step per layer rename
         - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD - delete, rename, duplicate, merge, (flipV, flipH, resize), opacity, show, hide, drag)
         - Ogni azione di coworking per tutte le modifiche possibili, devono creare uno step nell'history del coworker
         - Step dell'altro utente disegnati su offscreen canvas.
