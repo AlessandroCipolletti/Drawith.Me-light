@@ -5,7 +5,7 @@ import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
 import { deepCopy, delay } from 'utils/jsUtils'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
-import { addNewLayerFromCoworker, selectCoworkerLayer, doUndoForUser, doRedoForUser, saveLayerName } from 'pages/Editor/components/Layers'
+import { addNewLayerFromCoworker, selectCoworkerLayer, doUndoForUser, doRedoForUser, saveLayerName, deleteLayerFromCoworker } from 'pages/Editor/components/Layers'
 import { closeCoworkingPopup } from 'pages/Folder'
 import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -62,7 +62,7 @@ const handlePeerMessage = (message) => {
   if (message.event === editorEvents.coworkingSteps) {
     drawCoworkingMultipleStepsData(message.data)
   } else if (message.event === editorEvents.newLayer) {
-    receiveCoworkerLayer(message.data.layer)
+    receiveNewLayer(message.data.layer)
   } else if (message.event === editorEvents.clientEnvironment) {
     checkCoworkerEnvironment(message.data)
   } else if (message.event === editorEvents.selectedLayer) {
@@ -72,7 +72,7 @@ const handlePeerMessage = (message) => {
   } else if (message.event === editorEvents.redo) {
     receiveRedo(message.data.userId)
   } else if (message.event === editorEvents.deleteLayer) {
-    receiveDeleteLayer(message.data.layerId)
+    receiveDeleteLayer(message.data.layerId, message.data.nextSelectedId)
   } else if (message.event === editorEvents.renameLayer) {
     receiveRenameLayer(message.data.layerId, message.data.newName)
   } else if (message.event === editorEvents.duplicateLayer) {
@@ -90,19 +90,20 @@ const handlePeerMessage = (message) => {
   }
 }
 
-export const sendDeleteLayer = (layerId) => {
+export const sendDeleteLayer = (layerId, nextSelectedId) => {
   const message = {
     event: editorEvents.deleteLayer,
     data: {
       layerId,
+      nextSelectedId,
     },
   }
 
   peerClient.sendMessage(message)
 }
 
-const receiveDeleteLayer = (layerId) => {
-
+const receiveDeleteLayer = (layerId, nextSelectedId) => {
+  deleteLayerFromCoworker(layerId, nextSelectedId)
 }
 
 export const sendRenameLayer = (layerId, newName) => {
@@ -217,7 +218,7 @@ const receiveOrderDragLayer = (layerId, newOrder, oldOrder) => {
 
 }
 
-const receiveCoworkerLayer = async(layer) => {
+const receiveNewLayer = async(layer) => {
   await waitForEditorToBeReady()
   layer.minX = Infinity
   layer.minY = Infinity

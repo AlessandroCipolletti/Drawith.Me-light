@@ -835,7 +835,12 @@ const updateEditorCanvas = () => {
 }
 
 const selectLayer = async(layerId) => {
-  if (layerIsYours(layerId) && layerId !== state.currentSelectedLayerId) {
+  if (!layerIsYours(layerId)) {
+    selectCoworkerLayer(layerId)
+    return
+  }
+
+  if (layerId !== state.currentSelectedLayerId) {
     const wasInResizeMode = state.resizeMode
 
     if (state.currentSelectedLayerId) {
@@ -898,6 +903,11 @@ const filterYoursLayers = () => {
   return Object.values(state.layers).filter(l => l.owner === Coworking.getUserId())
 }
 
+export const deleteLayerFromCoworker = (layerId, nextSelectedId) => {
+  addLayerHistoryDeleteStep(layerId, nextSelectedId)
+  _deleteLayer(layerId, nextSelectedId)
+}
+
 const _deleteLayer = async(layerId, nextSelectedId = 0, withAnimation = true) => {
   refs.imageForResize = null
   if (nextSelectedId) {
@@ -934,6 +944,9 @@ const deleteLayer = async(e, layerId = state.currentSelectedLayerId) => {
   yoursLayers = yoursLayers.filter(l => l.id !== layerId)
   const maxOrder = Math.max(...yoursLayers.map(l => l.order))
   const nextSelectedId = yoursLayers.filter(l => l.order === maxOrder)[0].id
+  if (Coworking.isOpen()) {
+    Coworking.sendDeleteLayer(layerId, nextSelectedId)
+  }
   addLayerHistoryDeleteStep(layerId, nextSelectedId)
   await _deleteLayer(layerId, nextSelectedId)
 }
