@@ -517,7 +517,7 @@ export const exportLayers = async({
   let layerData = []
   let currentLayers = Object.values(state.layers)
   let layers = currentLayers
-    .filter(layer => !currentLayerIsEmpty(layer.id))
+    .filter(layer => !layerIsEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
     .map(l => layerDeepCopy(l, {
       exportBitmap: !exportJustModifiedLayers || l.modified,
@@ -611,7 +611,7 @@ export const exportDrawing = async({
   return currentDrawingData
 }
 
-export const currentLayerIsEmpty = (layerId = state.currentSelectedLayerId) => {
+export const layerIsEmpty = (layerId = state.currentSelectedLayerId) => {
   return Number.isFinite(state.layers[layerId].maxX) === false ||
   state.layers[layerId].minX === null ||
   state.layers[layerId].maxX === null ||
@@ -1600,6 +1600,7 @@ export const init = async(moduleContainer, initialLayers, canvasWidth, canvasHei
     refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected')?.offsetTop || 0
   }, 200)
   window.STATE = state
+  window.HIS = UsersLayersHistory
 }
 
 // chiamata da history.onDelete

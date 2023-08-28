@@ -7,6 +7,7 @@ import { getEventCoordX, getEventCoordY } from 'utils/domUtils'
 import { setImageShapeIfNeeded, getNewContextForCanvas } from 'utils/canvasUtils'
 import { cleanRefs } from 'utils/moduleUtils'
 import * as Ruler from './components/Ruler'
+import * as Layers from './components/Layers'
 import { spacing } from 'main/Theme'
 import { TOUCH_TYPE_STYLUS } from 'main/constants'
 import { getOneToolVersionCompleteProps } from 'pages/Editor/components/Tools'
@@ -33,7 +34,9 @@ export const drawMultipleCoworkingSteps = (() => {
   let currentCoworkingToolVersion = -1
   let currentCoworkingToolProps = {}
 
-  return async(destinationContext, steps, tool, fns) => {
+  return async(layerId, steps, tool, fns) => {
+    const destinationContext = Layers.getLayerContext(layerId)
+
     // Recupero lo strumento usato da questi step, se è diverso dal precedente
     if (currentCoworkingToolName !== tool.name || currentCoworkingToolVersion !== tool.version) {
       currentCoworkingToolProps = getOneToolVersionCompleteProps(tool.name, tool.version, {
@@ -56,7 +59,7 @@ export const drawMultipleCoworkingSteps = (() => {
     // Per esempio la gomma per funzionare deve avere un disegno da cancellare, se no non apporta alcuna differenza.
     // Anche il bucket ha bisogno del resto del disegno per funzionare bene.
     if (currentCoworkingToolProps.name === 'bucket') {
-      await fns.bucket(destinationContext, steps[0].x, steps[0].y, currentCoworkingToolProps.color, destinationContext.canvas.width, destinationContext.canvas.height, false)
+      await fns.bucket(layerId, steps[0].x, steps[0].y, currentCoworkingToolProps.color)
     } else { // normal steps
       if (currentCoworkingToolProps.globalCompositeOperation !== 'source-over') {
         refs.coworkingContext.globalCompositeOperation = 'source-over'

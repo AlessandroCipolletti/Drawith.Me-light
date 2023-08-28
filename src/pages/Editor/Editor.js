@@ -58,20 +58,17 @@ import { spacing } from 'main/Theme'
       Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
-        - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD, RENAME, DELETE, ENABLE, DISABLE, DUPLICATE, OPACITY, DRAG - merge, (flipV, flipH, resize, bucket))
+        - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD, RENAME, DELETE, ENABLE, DISABLE, DUPLICATE, OPACITY, DRAG, MERGE, BUCKET - flipV, flipH, resize)
         - Step dell'altro utente disegnati su offscreen canvas.
         - Test di tutti i vari strumenti di disegno in coworking.
         - Check layers history length diviso per coworking
+        - Check why il coworker all'inizio ha due step nell'history
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
     - Non avendo più un server in mezzo, i due utenti devono essere connessi allo stesso momento. Quindi l'url è sempre uno solo per ogni utente: quello col suo peerId.
         Al momento di ricevere una connessione dall'esterno, se sei già nell'editor con un disegno aperto, lo sincronizzi con l'altro utente e gli mandi tutti i layers.
         Al massimo potrei fare che all'apertura dell'app la prima volta, ti chiedo come ti chiami. E quando si riceve una connessione, compare il messaggio "picopllino vuole connettersi con te, accetti?"
         Da Folder puoi copiare il link, ma anche da dentro l'editor ci dev'essere un pulsante per aprire o chiudere la connessione.
-
-  ----- TESTS PERFORMANCE -----
-    - Un solo Worker, a cui passo N OffscreenCanvas, e vedo quanti ne supporta
-    - Un grosso lavoro di canvas eseguito sia in main thread che worker
 
   ----- BUGS -----
     - Log.fps() su iPad assente
@@ -269,13 +266,13 @@ const removeToolDataKeys = (toolData) => [toolData.name, toolData.version, toolD
 export const drawCoworkingMultipleStepsData = (data) => {
   if (state?.pageOpened) {
     requestAnimationFrame(() => {
-      drawMultipleCoworkingSteps(Layers.getLayerContext(data.layerId), data.steps.map(addTouchStepDataKeys), addToolDataKeys(data.tool), {
+      drawMultipleCoworkingSteps(data.layerId, data.steps.map(addTouchStepDataKeys), addToolDataKeys(data.tool), {
         start: drawStepStart,
         move: drawStepMove,
         end: drawStepEnd,
-        bucket: useBucket,
+        bucket: receiveBucketFromCoworker,
       })
-      if (data.steps.find(step => step[0] === 'end')) {
+      if (data.steps.find(step => step[0] === 'end' || data.tool[0] === 'bucket')) {
         requestAnimationFrame(() => Layers.addLayerHistoryContentChangedStep(data.layerId)) // qui chiedo a Layers.js di aggiornare le coordinate del contenuto del layer
       }
     })
@@ -307,27 +304,40 @@ export const clear = async () => {
   console.clear()
 }
 
-const useBucket = async (context, x, y, color, canvasWidth, canvasHeight, sendForCoworking = true) => {
+const receiveBucketFromCoworker = (layerId, x, y, color) => {
+  const context = Layers.getLayerContext(layerId)
+  if (Layers.layerIsEmpty()) {
+    fillCompletely(context, color, context.canvas.width, context.canvas.height)
+  } else {
+    fillWithBucket(context, x, y, color, context.canvas.width, context.canvas.height)
+  }
+}
+
+const useBucket = async (context, x, y, color, sendForCoworking = true) => {
   if (coordsAreInsideLayer(x, y)) {
-    if (Layers.currentLayerIsEmpty()) {
+    let hasBeenUsed = false
+    if (Layers.layerIsEmpty()) {
       // this layer is empty, we can fill it all
       // TODO or entirely colored with just one color
-      fillCompletely(context, color, canvasWidth, canvasHeight)
+      fillCompletely(context, color, context.canvas.width, context.canvas.height)
+      hasBeenUsed = true
       saveStepHistory()
     } else { // this layer has already been used, so bucket must be fully processed
-      const res = fillWithBucket(context, x, y, color, canvasWidth, canvasHeight)
+      const res = fillWithBucket(context, x, y, color, context.canvas.width, context.canvas.height)
       // qui ho diviso fillWithBucket in due comportamenti diversi.
+      // se i colori sono uguali, non faccio niente e ritorno false.
       // Ho bisogno di sapere subito (senza await) se il bucket è andato a buon fine per poterlo inviare immediatamente al coworking,
       // ma devo anche poter salvare lo step solo dopo che il bucket ha finito.
       // quindi ritorna false | Promise
       if (res) {
+        hasBeenUsed = true
         // nel caso del bucket lo step lo salvo sempre qui, perché il bucket è asynchrono e
         // currentTouch.drewSomething è sempre false
         res.then(saveStepHistory)
         // stesso ragionamento per il coworking che va fatto qui
       }
     }
-    if (Coworking.isOpen() && sendForCoworking) {
+    if (hasBeenUsed && Coworking.isOpen() && sendForCoworking) {
       sendCoworkingStep({ type: 'start', x, y }, true)
     }
   }
@@ -830,7 +840,7 @@ const handleTouchStartStep = (context) => {
   ColorPicker.confirmLastAddedColorIfNeeded()
 
   if (state.currentToolProps.name === 'bucket') {
-    useBucket(context, stepData.x, stepData.y, state.currentToolProps.color, state.canvas.width, state.canvas.height)
+    useBucket(context, stepData.x, stepData.y, state.currentToolProps.color)
   } else {
     state.currentTouch.isDown = true
     const thisStepHasDoneSomething = drawStepStart(context, stepData, state.currentToolProps)
