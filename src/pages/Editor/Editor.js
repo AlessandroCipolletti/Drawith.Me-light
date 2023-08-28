@@ -58,11 +58,12 @@ import { spacing } from 'main/Theme'
       Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
-        - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD, RENAME, DELETE, ENABLE, DISABLE, DUPLICATE, OPACITY, DRAG, MERGE, BUCKET - flipV, flipH, resize)
+        - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD, RENAME, DELETE, ENABLE, DISABLE, DUPLICATE, OPACITY, DRAG, MERGE, BUCKET, FLIP - resize)
         - Step dell'altro utente disegnati su offscreen canvas.
         - Test di tutti i vari strumenti di disegno in coworking.
         - Check layers history length diviso per coworking
         - Check why il coworker all'inizio ha due step nell'history
+        - Se ricevo un undo ma ho l'history vuoto, meglio prevenire e non fare un cazzo.
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
     - Non avendo più un server in mezzo, i due utenti devono essere connessi allo stesso momento. Quindi l'url è sempre uno solo per ogni utente: quello col suo peerId.
@@ -72,7 +73,7 @@ import { spacing } from 'main/Theme'
 
   ----- BUGS -----
     - Log.fps() su iPad assente
-    - auto scroll on list drag change on desktop
+    - auto scroll on list drag change on desktop, to test on ipad.
     - undo button sempre attivo in resize mode, anche dopo che hai resettato il resize con un undo.
     - la preview del size ed alpha del tool, deve funzionare con requestAnimationFrame o qualcosa del genere. Altrimenti è troppo lento
     - Quando modifico un disegno e salvo, la fase 1 viene salvata con spinner. Poi il folder si apre con il disegno senza spinner. E poi parte la fase due del salvataggio

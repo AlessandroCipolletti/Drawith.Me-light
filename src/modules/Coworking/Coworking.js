@@ -87,6 +87,8 @@ const handlePeerMessage = (message) => {
     receiveDisableLayer(message.data.layerId)
   } else if (message.event === editorEvents.orderDragLayer) {
     receiveOrderDragLayer(message.data.layerId, message.data.newOrder, message.data.oldOrder)
+  } else if (message.event === editorEvents.flipLayer) {
+    receiveFlipLayer(message.data.layerId, message.data.horizontally)
   }
 }
 
@@ -217,6 +219,22 @@ export const sendOrderDragLayer = (layerId, newOrder, oldOrder) => {
 
 const receiveOrderDragLayer = (layerId, newOrder, oldOrder) => {
   Layers.layerDragChangeFromCoworker(layerId, newOrder, oldOrder)
+}
+
+export const sendFlipLayer = (layerId, horizontally) => {
+  const message = {
+    event: editorEvents.flipLayer,
+    data: {
+      layerId,
+      horizontally,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveFlipLayer = (layerId, horizontally) => {
+  Layers.receiveFlipLayerFromCoworker(layerId, horizontally)
 }
 
 const receiveNewLayer = async(layer) => {

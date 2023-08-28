@@ -13,6 +13,7 @@ export const editorEvents = {
   enableLayer: 'EDITOR_ENABLE_LAYER',
   disableLayer: 'EDITOR_DISABLE_LAYER',
   orderDragLayer: 'EDITOR_ORDER_DRAG_LAYER',
+  flipLayer: 'EDITOR_FLIP_LAYER',
 }
 
 export const SOCKET_CONNECTED_STATUS = 'drawith__SOCKET_CONNECTED'

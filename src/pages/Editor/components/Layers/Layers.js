@@ -1262,6 +1262,13 @@ export const updateCurrentTool = (isUsingEraser) => {
   }
 }
 
+export const receiveFlipLayerFromCoworker = (layerId, horizontally) => {
+  const layer = state.layers[layerId]
+  const [content, x, y] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY)
+  fillCanvasWithImage(layer.canvas.context, flipImage(content, horizontally), x, y)
+  addLayerHistoryContentChangedStep(layerId)
+}
+
 const flipLayer = async(e, layerId, horizontally) => {
   preventDefault(e)
   if (paramsAreClosed()) {
@@ -1280,6 +1287,9 @@ const flipLayer = async(e, layerId, horizontally) => {
       fillCanvasWithImage(layer.canvas.context, flipImage(content, horizontally), x, y)
     }
     addLayerHistoryContentChangedStep()
+    if (Coworking.isOpen()) {
+      Coworking.sendFlipLayer(layerId, horizontally)
+    }
   }
 }
 const flipVertically = (e, layerId = state.currentSelectedLayerId) => flipLayer(e, layerId, false)
