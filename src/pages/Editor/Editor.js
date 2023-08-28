@@ -58,9 +58,7 @@ import { spacing } from 'main/Theme'
       Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
-        - Prevenire merge down con layer del coworker
-        - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD, RENAME, DELETE, ENABLE, DISABLE, DUPLICATE, OPACITY, DRAG - merge, (flipV, flipH, resize, bucket),)
-        - Ogni azione di coworking per tutte le modifiche possibili, devono creare uno step nell'history del coworker
+        - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD, RENAME, DELETE, ENABLE, DISABLE, DUPLICATE, OPACITY, DRAG - merge, (flipV, flipH, resize, bucket))
         - Step dell'altro utente disegnati su offscreen canvas.
         - Test di tutti i vari strumenti di disegno in coworking.
         - Check layers history length diviso per coworking

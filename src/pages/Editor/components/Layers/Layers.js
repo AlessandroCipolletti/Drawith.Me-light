@@ -1033,62 +1033,82 @@ const duplicateSelectedLayer = async(e) => {
   }
 }
 
+export const mergeLayersFromCoworker = (layerOneId, layerTwoId, newLayerId) => {
+  addLayerHistoryMergeStep(layerOneId, layerTwoId, newLayerId)
+  mergeLayers(layerOneId, layerTwoId, newLayerId, Coworking.getCoworkerUserId())
+}
+
+const mergeLayers = async(layerOneId, layerTwoId, newLayerId, ownerId = Coworking.getUserId()) => {
+  const layerOne = state.layers[layerOneId]
+  const layerTwo = state.layers[layerTwoId]
+
+  // create a new layer
+  const newLayerData = createNewLayerData()
+  newLayerData.id = newLayerId
+  newLayerData.owner = ownerId
+  newLayerData.order = layerTwo.order
+  newLayerData.modified = true
+  newLayerData.canvas = mergeImages([ // merge the two source layers
+    [layerTwo.canvas, layerTwo.opacity],
+    [layerOne.canvas, layerOne.opacity],
+  ])
+  newLayerData.canvas.context = getNewContextForCanvas(newLayerData.canvas)
+  state.layers[newLayerData.id] = newLayerData
+
+  await Promise.all([ // animate in and out new and old list dom
+    fadeOutElements([state.layers[layerOne.id].canvas, state.layers[layerTwo.id].canvas]),
+    removeOutElement(refs.layersList.querySelector(`div[data-id="${layerOne.id}"]`)),
+    removeOutElement(refs.layersList.querySelector(`div[data-id="${layerTwo.id}"]`)),
+  ])
+  await updateLayerRealCoords(newLayerData.id)
+  await createNewLayerDom(newLayerData.id, true)
+
+  // delete the two source layers
+  state.layers[layerOne.id].previewRef = null
+  state.layers[layerTwo.id].previewRef = null
+  state.layers[layerOne.id].canvas.remove()
+  state.layers[layerTwo.id].canvas.remove()
+  state.deletedLayers[layerOne.id] = state.layers[layerOne.id]
+  state.deletedLayers[layerTwo.id] = state.layers[layerTwo.id]
+  delete state.layers[layerOne.id]
+  delete state.layers[layerTwo.id]
+
+  await selectLayer(newLayerData.id)
+  reorderLayersList()
+}
+
 const mergeDownSelectedLayer = async(e) => {
   preventDefault(e)
-  if (state.paramsTimeout === false) {
+  if (paramsAreClosed()) {
     return
-  } // params are closed
+  }
   openParams()
+
+  const selectedLayer = state.layers[state.currentSelectedLayerId]
+  const layerIsEmpty = !Number.isFinite(selectedLayer.minX)
+  const canMergeDown = !layerIsEmpty && selectedLayer.order > 0 && Object.values(state.layers).find(l => l.order === selectedLayer.order - 1)?.owner === Coworking.getUserId()
+
   if (
     refs.mergeDownLayerButton.classList.contains('disabled') ||
-    !Number.isFinite(state.layers[state.currentSelectedLayerId].maxX) ||
+    !canMergeDown ||
     Object.keys(state.layers).length === 1
   ) {
     return
   }
 
   await saveResizeModeIfNeeded()
-  const selectedLayer = state.layers[state.currentSelectedLayerId]
   const lowerLayer = Object.values(state.layers).find(layer => layer.order === selectedLayer.order - 1)
 
   if (lowerLayer) {
-    // create a new layer
-    const newLayerData = createNewLayerData()
-    newLayerData.order = lowerLayer.order
-    newLayerData.modified = true
-    newLayerData.canvas = mergeImages([ // merge the two source layers
-      [lowerLayer.canvas, lowerLayer.opacity],
-      [selectedLayer.canvas, selectedLayer.opacity],
-    ])
-    newLayerData.canvas.context = getNewContextForCanvas(newLayerData.canvas)
-    state.layers[newLayerData.id] = newLayerData
-
     closeParams()
-    await Promise.all([ // animate in and out new and old list dom
-      fadeOutElements([state.layers[selectedLayer.id].canvas, state.layers[lowerLayer.id].canvas]),
-      removeOutElement(refs.layersList.querySelector(`div[data-id="${selectedLayer.id}"]`)),
-      removeOutElement(refs.layersList.querySelector(`div[data-id="${lowerLayer.id}"]`)),
-    ])
-    await createNewLayerDom(newLayerData.id, true)
-    await updateLayerRealCoords(newLayerData.id)
-
-    // delete the two source layers
-    state.layers[selectedLayer.id].previewRef = null
-    state.layers[lowerLayer.id].previewRef = null
-    state.layers[selectedLayer.id].canvas.remove()
-    state.layers[lowerLayer.id].canvas.remove()
-    state.deletedLayers[selectedLayer.id] = state.layers[selectedLayer.id]
-    state.deletedLayers[lowerLayer.id] = state.layers[lowerLayer.id]
-    delete state.layers[selectedLayer.id]
-    delete state.layers[lowerLayer.id]
-    addLayerHistoryMergeStep(selectedLayer.id, lowerLayer.id, newLayerData.id)
+    const newLayerId = uuidv4()
+    await mergeLayers(state.currentSelectedLayerId, lowerLayer.id, newLayerId)
+    addLayerHistoryMergeStep(selectedLayer.id, lowerLayer.id, newLayerId)
+    if (Coworking.isOpen()) {
+      Coworking.sendMergeDownLayer(selectedLayer.id, lowerLayer.id, newLayerId)
+    }
     updateUndoRedoButtons()
-
-    // select the new one
-    state.currentSelectedLayerId = false
-    await selectLayer(newLayerData.id)
     openParams()
-    reorderLayersList()
   }
 }
 
@@ -1244,7 +1264,7 @@ export const updateCurrentTool = (isUsingEraser) => {
 
 const flipLayer = async(e, layerId, horizontally) => {
   preventDefault(e)
-  if (state.paramsTimeout === false) { // params are closed
+  if (paramsAreClosed()) {
     return
   }
   openParams()
@@ -1358,11 +1378,13 @@ const updateParamsByLayer = (layerId = state.currentSelectedLayerId) => {
     const layerIsEmpty = !Number.isFinite(layer.minX)
     const canBeResized = layerCanBeResized(layerId)
     const opacity = round(layer.opacity * 100, 0)
+    const canMergeDown = !layerIsEmpty && layer.order > 0 && Object.values(state.layers).find(l => l.order === layer.order - 1)?.owner === Coworking.getUserId()
+
     refs.opacityLabel.innerHTML = `${round(opacity, 0)}`
     refs.opacityCursor.style.bottom = `${opacity}%`
     refs.opacitySlider.style.background = `linear-gradient(0deg, var(--palette-green-1) ${opacity}%, var(--palette-white) ${opacity}%)`
     refs.duplicateLayerButton.classList.toggle('disabled', layerIsEmpty)
-    refs.mergeDownLayerButton.classList.toggle('disabled', layerIsEmpty || layer.order === 0)
+    refs.mergeDownLayerButton.classList.toggle('disabled', !canMergeDown)
     refs.flipVerticalButton.classList.toggle('disabled', layerIsEmpty)
     refs.flipHorizontalButton.classList.toggle('disabled', layerIsEmpty)
     updateResizeMode(state.resizeMode && canBeResized, canBeResized)

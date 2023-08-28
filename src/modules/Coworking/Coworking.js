@@ -18,7 +18,7 @@ const config = {
 export const state = {
   userId: uuidv4(),
   isOpen: false,
-  connectedUsersId: '',
+  connectedUserId: '',
   iAskedForCoworking: false, // true if I'm connecting to someone else
   clientData: {
     userId: '',
@@ -54,7 +54,7 @@ export const isConnectedWithSomeone = () => !!peerClient.connected
 export const isOpen = () => !!state.isOpen
 export const getSocketId = () => peerClient.id
 export const getUserId = () => state.userId
-export const getCoworkerUserId = () => state.connectedUsersId
+export const getCoworkerUserId = () => state.connectedUserId
 export const isHostingCoworking = () => state.isOpen && !state.iAskedForCoworking
 
 const handlePeerMessage = (message) => {
@@ -78,7 +78,7 @@ const handlePeerMessage = (message) => {
   } else if (message.event === editorEvents.duplicateLayer) {
     receiveDuplicateLayer(message.data.layerId, message.data.newId)
   } else if (message.event === editorEvents.mergeLayers) {
-    receiveMergeLayers(message.data.newLayerId, message.data.layerOneId, message.data.layerTwoId)
+    receiveMergeLayers(message.data.layerOneId, message.data.layerTwoId, message.data.newLayerId)
   } else if (message.event === editorEvents.opacityLayer) {
     receiveOpacityLayer(message.data.layerId, message.data.newValue, message.data.oldValue)
   } else if (message.event === editorEvents.enableLayer) {
@@ -138,21 +138,21 @@ const receiveDuplicateLayer = (layerId, newId) => {
   Layers.duplicateLayerFromCoworker(layerId, newId)
 }
 
-export const sendMergeLayers = (newLayerId, layerOneId, layerTwoId) => {
+export const sendMergeDownLayer = (layerOneId, layerTwoId, newLayerId) => {
   const message = {
     event: editorEvents.mergeLayers,
     data: {
-      newLayerId,
       layerOneId,
       layerTwoId,
+      newLayerId,
     },
   }
 
   peerClient.sendMessage(message)
 }
 
-const receiveMergeLayers = (newLayerId, layerOneId, layerTwoId) => {
-
+const receiveMergeLayers = (layerOneId, layerTwoId, newLayerId) => {
+  Layers.mergeLayersFromCoworker(layerOneId, layerTwoId, newLayerId)
 }
 
 export const sendOpacityLayer = (layerId, newValue, oldValue) => {
@@ -318,7 +318,7 @@ export const sendSteps = (layerId, tool) => {
 
 const startCoworkingSession = async(userId) => {
   state.isOpen = true
-  state.connectedUsersId = userId
+  state.connectedUserId = userId
   // qui passo la dimensione dello schermo piú piccolo tra i due per farli disegnare sullo stesso foglio
   // ma questa cosa dovrà essere modificata quando sarà possibile anche aprire un coworking da dentro l'editor con un disegno già esistente
   // il canvas li resterà alle sue dimensioni attuali, ma chi ha lo schermo più piccolo deve ricevere una notifica
@@ -441,7 +441,7 @@ const handleConnectionRefused = () => {
 const handleConnectionClosed = () => {
   console.log('Coworking connectionClosed')
   Messages.info(labels.coworkingClosed)
-  state.connectedUsersId = ''
+  state.connectedUserId = ''
   state.isOpen = false
   state.iAskedForCoworking = false
 }
