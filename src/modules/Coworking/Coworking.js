@@ -91,6 +91,8 @@ const handlePeerMessage = (message) => {
     receiveFlipLayer(message.data.layerId, message.data.horizontally)
   } else if (message.event === editorEvents.resizeLayer) {
     receiveResizeLayer(message.data.layerId, message.data.x, message.data.y, message.data.w, message.data.h, message.data.r)
+  } else if (message.event === editorEvents.clearLayer) {
+    receiveClearLayer(message.data.layerId)
   }
 }
 
@@ -257,6 +259,21 @@ export const sendResizeLayer = (layerId, x, y, w, h, r) => {
 
 const receiveResizeLayer = (layerId, x, y, w, h, r) => {
   Layers.receiveResizeLayerFromCoworker(layerId, x, y, w, h, r)
+}
+
+export const sendClearLayer = (layerId) => {
+  const message = {
+    event: editorEvents.clearLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveClearLayer = (layerId) => {
+  Layers.clearLayerFromCoworker(layerId)
 }
 
 const receiveNewLayer = async(layer) => {

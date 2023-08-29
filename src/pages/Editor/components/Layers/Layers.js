@@ -626,16 +626,29 @@ export const layerIsEmpty = (layerId = state.currentSelectedLayerId) => {
   state.layers[layerId].maxY === null
 }
 
+const clearLayer = (layerId) => {
+  const layer = state.layers[layerId]
+  layer.canvas.context.clearRect(0, 0, state.canvases.width, state.canvases.height)
+  layer.minX = Infinity
+  layer.minY = Infinity
+  layer.maxY = -Infinity
+  layer.maxX = -Infinity
+}
+
+export const clearLayerFromCoworker = (layerId) => {
+  clearLayer(layerId)
+  addLayerHistoryContentChangedStep(layerId)
+}
+
 export const clearCurrentLayer = async () => {
-  const layer = state.layers[state.currentSelectedLayerId]
   closeParams()
   updateGcoMode(false, false)
-  if (Number.isFinite(layer.maxX)) {
-    layer.canvas.context.clearRect(0, 0, state.canvases.width, state.canvases.height)
-    layer.minX = Infinity
-    layer.minY = Infinity
-    layer.maxY = -Infinity
-    layer.maxX = -Infinity
+  if (Number.isFinite(state.layers[state.currentSelectedLayerId].maxX)) {
+    clearLayer(state.currentSelectedLayerId)
+    addLayerHistoryContentChangedStep(state.currentSelectedLayerId)
+    if (Coworking.isOpen()) {
+      Coworking.sendClearLayer(state.currentSelectedLayerId)
+    }
     return true
   } else {
     return false
@@ -1566,7 +1579,7 @@ const initLayers = async(initialLayers, canvasWidth, canvasHeight, coworkersId) 
 
 const initHistories = (coworkersId = []) => {
   const usersId = [Coworking.getUserId(), ...coworkersId]
-  const maxHistorySteps = Math.trunc(config.stepHistoryMaxLength / 2) + 1
+  const maxHistorySteps = Math.trunc(config.stepHistoryMaxLength / usersId.length) + 1
 
   UsersLayersHistory = Object.fromEntries(usersId.map(userId => {
     const userHistory = new History(maxHistorySteps)

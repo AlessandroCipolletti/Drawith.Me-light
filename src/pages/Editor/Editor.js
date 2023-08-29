@@ -35,30 +35,15 @@ import { spacing } from 'main/Theme'
     - Qui si che potrei usare un offscreenCanvas. Tutto ciò che l'altro utente fa, viene disegnato in un offscreenCanvas, e poi printato sul suo layer.
         Quindi dovrei creare una versione di drawStepStart/Move/End che usa il WorkersBufferManager
 
-    - Non si può selezionare il layer dell'altro utente.
     - Quando arrivano degli step da un utente, uso un offscreenCanvas per disegnare tutti i suoi step, e su stepEnd li disegno sul suo layer.
-    - Devo creare tante nuove azioni di coworking per trasmettere le modifiche al layer (opacità, visibilità, duplica, emilina, rinomica, ordine, undo, redo).
     - Undo / Redo: dentro ad un layer mentre ce l'ho ancora selezionato non dovrebbero creare problemi.
-      Ognuno si crea i propri layer e non si possono modificare quelli dell'altro utente.
       Volendo posso trasferire la proprietà di un layer ad un altro utente.
       Tutte le mie azioni sui miei layers e tutti i miei step devono entrare nell'history come al solito.
-
-      Ogni step crea sempre un history, anche nei layer dell'altra persona. Cosi quando l'altra persona fa undo, basta che io faccia undo sul suo layer.
-      In più se l'altra persona mi trasferisce quel layer, io posso fare undo degli step fatti da lei.
-      L'azione di "trasferire un layer" non lascia step nell'history e non può essere undato.
-      Quando io faccio undo/redo, cerco l'ultima azione del global history fatta davvero da me, ed ignoro le altre.
-      Quando ricevo un'azione di undo/redo dal coworking, cerco l'ultima azione del global history fatta dall'altra persona, ed ignoro le altre.
-      I pulsanti di undo/redo devono essere attivi controllando quante azioni mie sono ancora disponibili, perché avendo una sola lista di history globale,
-        l'aggiunta di un nuovo step del coworker potrebbe cancellare un mio vecchio step precedente.
-
-      Se salvo insieme i miei step e quelli dell'altro utente, se poi mi trasferisce un layer mi va a puttane il mio history.
-        Magari voglio fare un undo dell'ultimo tratto che ho disegnato, e mi ritrovo in mezzo ai coglioni N tratti fatti da lui sul layer che mi ha appena trasferito (se i suoi tratti sono più recenti del mio ultimo tratto).
       Quindi o faccio che al momento del trasferimento di un layer, l'history di quel layer viene svuotata, e tutti i suoi step rimossi dall'history globale.
-      Oppure che ogni utente ha il suo global history (duplicato in entrambi i dispositivi), e quando trasferisce un layer, rimuovo gli step di quel layer dal suo history globale (da entrambi i dispositivi).
-      Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
         - Test di tutti i vari strumenti di disegno in coworking.
+        - Trasferire un layer all'altro utente
         - Step dell'altro utente disegnati su offscreen canvas.
         - Check layers history length diviso per coworking
         - Check why il coworker all'inizio ha due step nell'history
@@ -71,7 +56,8 @@ import { spacing } from 'main/Theme'
         Da Folder puoi copiare il link, ma anche da dentro l'editor ci dev'essere un pulsante per aprire o chiudere la connessione.
 
   ----- BUGS -----
-    - Log.fps() su iPad assente
+    - bug coworking con più buckets di seguito
+    - non si raggiungono più i 120fps manco da solo
     - auto scroll on list drag change on desktop, to test on ipad.
     - undo button sempre attivo in resize mode, anche dopo che hai resettato il resize con un undo.
     - la preview del size ed alpha del tool, deve funzionare con requestAnimationFrame o qualcosa del genere. Altrimenti è troppo lento
@@ -297,10 +283,8 @@ export const setDrawingModified = () => {
   }
 }
 
-export const clear = async () => {
-  if (await Layers.clearCurrentLayer()) {
-    saveStepHistory()
-  }
+export const clear = () => {
+  Layers.clearCurrentLayer()
   console.clear()
 }
 
@@ -1384,7 +1368,7 @@ const initSubModules = async (preloadedDrawing = {}, options = {}) => {
     preloadedDrawing.layers || [],
     state.canvas.width,
     state.canvas.height,
-    [options.coworkerId]
+    options.coworkerId ? [options.coworkerId] : []
   )
   await Promise.all([
     Tools.init(
