@@ -42,7 +42,6 @@ import { spacing } from 'main/Theme'
       Quindi o faccio che al momento del trasferimento di un layer, l'history di quel layer viene svuotata, e tutti i suoi step rimossi dall'history globale.
 
       TODO:
-        - Test di tutti i vari strumenti di disegno in coworking.
         - Trasferire un layer all'altro utente
         - Step dell'altro utente disegnati su offscreen canvas.
         - Check layers history length diviso per coworking
@@ -290,7 +289,7 @@ export const clear = () => {
 
 const receiveBucketFromCoworker = (layerId, x, y, color) => {
   const context = Layers.getLayerContext(layerId)
-  if (Layers.layerIsEmpty()) {
+  if (Layers.layerIsEmpty(layerId)) {
     fillCompletely(context, color, context.canvas.width, context.canvas.height)
   } else {
     fillWithBucket(context, x, y, color, context.canvas.width, context.canvas.height)
