@@ -58,9 +58,8 @@ import { spacing } from 'main/Theme'
       Cosi quando io faccio undo di qualcosa, all'altro utente basta fare un undo dal mio global history.
 
       TODO:
-        - Azioni di coworking per tutte le varie modifiche possibili ai layer. (ADD, RENAME, DELETE, ENABLE, DISABLE, DUPLICATE, OPACITY, DRAG, MERGE, BUCKET, FLIP - resize)
-        - Step dell'altro utente disegnati su offscreen canvas.
         - Test di tutti i vari strumenti di disegno in coworking.
+        - Step dell'altro utente disegnati su offscreen canvas.
         - Check layers history length diviso per coworking
         - Check why il coworker all'inizio ha due step nell'history
         - Se ricevo un undo ma ho l'history vuoto, meglio prevenire e non fare un cazzo.
@@ -603,7 +602,7 @@ const updateDragBox = (madeChanges, x, y, w, h, r = 0) => {
     x, y, w, h, r,
   }
   updateDragBoxHandlersPosition()
-  Layers.updateCanvasContent(madeChanges, round(x - w / 2, 1), round(y - h / 2, 1), w, h, r)
+  Layers.updateCanvasContent(madeChanges, x, y, w, h, r)
 }
 
 const updateDragBoxHandlersPosition = () => {

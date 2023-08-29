@@ -62,6 +62,13 @@ const initialState = {
     r: [],
     b: [],
   },
+  lastResizeCoords: {
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    r: 0,
+  },
 }
 const refs = {
   layersContainer: null,
@@ -849,7 +856,7 @@ const selectLayer = async(layerId) => {
       if (state.resizeMode) {
         await saveResizeModeIfNeeded()
         const layerOptionButton = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"] .editor-layers__layer-options-button`)
-        layerOptionButton.classList.remove('disabled')
+        layerOptionButton && layerOptionButton.classList.remove('disabled')
       }
     }
 
@@ -1186,8 +1193,12 @@ const toggleEnableLayer = (e, layerId = state.currentSelectedLayerId, clickedByL
   }
 }
 
-export const updateCanvasContent = (madeChanges, minX, minY, w, h, rotation) => {
-  fillCanvasWithImage(state.layers[state.currentSelectedLayerId].canvas.context, refs.imageForResize, minX, minY, w, h, convertAngleDegToRad(rotation))
+export const updateCanvasContent = (madeChanges, x, y, w, h, r) => {
+  state.lastResizeCoords = { x, y, w, h, r }
+  const minX = round(x - w / 2, 1)
+  const minY = round(y - h / 2, 1)
+  const rotation = convertAngleDegToRad(r)
+  fillCanvasWithImage(state.layers[state.currentSelectedLayerId].canvas.context, refs.imageForResize, minX, minY, w, h, rotation)
   if (madeChanges) {
     Tools.toggleButton('undo', true)
     state.resizeModeMadeChanges = true
@@ -1208,6 +1219,15 @@ export const updateMagnetismCoords = (layerId = state.currentSelectedLayerId, ha
 }
 export const getMagnetismCoords = () => state.magnetismCoords
 
+export const receiveResizeLayerFromCoworker = (layerId, x, y, w, h, r) => {
+  const layer = state.layers[layerId]
+  const [image] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY, 0)
+  const minX = round(x - w / 2, 1)
+  const minY = round(y - h / 2, 1)
+  const rotation = convertAngleDegToRad(r)
+  fillCanvasWithImage(layer.canvas.context, image, minX, minY, w, h, rotation)
+  addLayerHistoryContentChangedStep(layerId)
+}
 const startResizeMode = () => {
   const layerOptionButton = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"] .editor-layers__layer-options-button`)
   layerOptionButton.classList.add('disabled')
@@ -1230,6 +1250,9 @@ const saveResizeModeIfNeeded = async() => {
   if (state.resizeModeMadeChanges) {
     await addLayerHistoryContentChangedStep()
     updateUndoRedoButtons()
+    if (Coworking.isOpen()) {
+      Coworking.sendResizeLayer(state.currentSelectedLayerId, state.lastResizeCoords.x, state.lastResizeCoords.y, state.lastResizeCoords.w, state.lastResizeCoords.h, state.lastResizeCoords.r)
+    }
   }
   state.resizeModeMadeChanges = false
   refs.imageForResize = null
@@ -1244,6 +1267,13 @@ const endResizeMode = async() => {
   await saveResizeModeIfNeeded()
   refs.visibilityLayerButton.classList.remove('disabled')
   refs.resizeButton.classList.toggle('selected', state.resizeMode)
+  state.lastResizeCoords = {
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    r: 0,
+  }
   Editor.hideDragBox()
   updateUndoRedoButtons()
 }

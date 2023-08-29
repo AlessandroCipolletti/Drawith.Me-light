@@ -89,6 +89,8 @@ const handlePeerMessage = (message) => {
     receiveOrderDragLayer(message.data.layerId, message.data.newOrder, message.data.oldOrder)
   } else if (message.event === editorEvents.flipLayer) {
     receiveFlipLayer(message.data.layerId, message.data.horizontally)
+  } else if (message.event === editorEvents.resizeLayer) {
+    receiveResizeLayer(message.data.layerId, message.data.x, message.data.y, message.data.w, message.data.h, message.data.r)
   }
 }
 
@@ -235,6 +237,26 @@ export const sendFlipLayer = (layerId, horizontally) => {
 
 const receiveFlipLayer = (layerId, horizontally) => {
   Layers.receiveFlipLayerFromCoworker(layerId, horizontally)
+}
+
+export const sendResizeLayer = (layerId, x, y, w, h, r) => {
+  const message = {
+    event: editorEvents.resizeLayer,
+    data: {
+      layerId,
+      x,
+      y,
+      w,
+      h,
+      r,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveResizeLayer = (layerId, x, y, w, h, r) => {
+  Layers.receiveResizeLayerFromCoworker(layerId, x, y, w, h, r)
 }
 
 const receiveNewLayer = async(layer) => {
