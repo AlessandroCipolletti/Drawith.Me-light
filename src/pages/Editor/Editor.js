@@ -257,7 +257,7 @@ export const drawCoworkingMultipleStepsData = (data) => {
         end: drawStepEnd,
         bucket: receiveBucketFromCoworker,
       })
-      if (data.steps.find(step => step[0] === 'end' || data.tool[0] === 'bucket')) {
+      if (data.steps.find(step => step[0] === 'end')) {
         requestAnimationFrame(() => Layers.addLayerHistoryContentChangedStep(data.layerId)) // qui chiedo a Layers.js di aggiornare le coordinate del contenuto del layer
       }
     })
@@ -287,16 +287,17 @@ export const clear = () => {
   console.clear()
 }
 
-const receiveBucketFromCoworker = (layerId, x, y, color) => {
+const receiveBucketFromCoworker = async(layerId, x, y, color) => {
   const context = Layers.getLayerContext(layerId)
   if (Layers.layerIsEmpty(layerId)) {
     fillCompletely(context, color, context.canvas.width, context.canvas.height)
   } else {
-    fillWithBucket(context, x, y, color, context.canvas.width, context.canvas.height)
+    await fillWithBucket(context, x, y, color, context.canvas.width, context.canvas.height)
   }
+  await Layers.addLayerHistoryContentChangedStep(layerId)
 }
 
-const useBucket = async (context, x, y, color, sendForCoworking = true) => {
+const useBucket = async(context, x, y, color, sendForCoworking = true) => {
   if (coordsAreInsideLayer(x, y)) {
     let hasBeenUsed = false
     if (Layers.layerIsEmpty()) {
