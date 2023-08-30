@@ -24,7 +24,7 @@
 
 <div class="editor-layers__params-container params-container">
   <div class="editor-layers__params-visibility svg-icon-dark"></div>
-  <div class="editor-layers__params-name svg-icon-edit svg-icon-dark"></div>
+  <div class="editor-layers__params-name svg-icon-rename svg-icon-dark"></div>
   <div class="editor-layers__params-flip-horizontal svg-icon-flip-horizontal svg-icon-dark"></div>
   <div class="editor-layers__params-flip-vertical svg-icon-flip-vertical svg-icon-dark"></div>
   <div class="editor-layers__params-duplicate svg-icon-duplicate svg-icon-dark"></div>
