@@ -1039,7 +1039,7 @@ const deleteLayer = async(e, layerId = state.currentSelectedLayerId) => {
 }
 
 const findFirstLayerForUser = (userId = Coworking.getUserId()) => {
-  Object.values(state.layers).filter(l => l.owner === userId).sort((a, b) => b.order - a.order)[0].id
+  return Object.values(state.layers).filter(l => l.owner === userId).sort((a, b) => b.order - a.order)[0].id
 }
 
 export const receiveLayerFromCoworker = (layerId) => {
@@ -1048,7 +1048,7 @@ export const receiveLayerFromCoworker = (layerId) => {
   cleanGlobalLayersHistoryForLayer(layerId)
   layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
   layer.owner = Coworking.getUserId()
-  const layerListElement = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"]`)
+  const layerListElement = refs.layersList.querySelector(`div[data-id="${layerId}"]`)
   layerListElement.classList.remove('editor-layers__layer-coworker')
   layerListElement.classList.add('editor-layers__layer-yours')
   layerListElement.classList.remove('editor-layers__layer-selected')
