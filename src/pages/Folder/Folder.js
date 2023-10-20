@@ -123,7 +123,7 @@ const openCoworkingPopup = (e) => {
   preventDefault(e)
   if (Coworking.isOnline()) {
     state.coworkingPopupOpened = true
-    refs.coworkingId.innerHTML = `${document.location.origin}/E/${Coworking.getClientId()}`
+    refs.coworkingId.innerHTML = `${document.location.origin}/E/${Coworking.getSocketId()}`
     Messages.panel(refs.coworkingPopup, {
       onClose: onCloseCoworkingPopup,
     })
@@ -232,7 +232,7 @@ const deleteButtonClick = async() => {
   if (refs.deleteButton.classList.contains('disabled')) {
     return
   }
-  if (await Messages.confirm(labels.areYouSure, true)) {
+  if (await Messages.confirm(labels.areYouSure)) {
     deleteSelectedDrawings()
   }
 }

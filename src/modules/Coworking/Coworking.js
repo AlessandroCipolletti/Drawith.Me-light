@@ -1,9 +1,11 @@
+import { v4 as uuidv4 } from 'uuid'
 import Params from 'main/Params'
 import PeerSocket from 'modules/PeerSocket'
 import { goToPage, openPageFolder, getCurrentPage } from 'modules/Router'
 import * as Messages from 'modules/Messages'
-import { deepCopy } from 'utils/jsUtils'
+import { deepCopy, delay } from 'utils/jsUtils'
 import { drawCoworkingMultipleStepsData, getCanvasPxSizes } from 'pages/Editor'
+import * as Layers from 'pages/Editor/components/Layers'
 import { closeCoworkingPopup } from 'pages/Folder'
 import { editorEvents, SOCKET_CONNECTED_STATUS } from './constants'
 import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
@@ -13,13 +15,17 @@ let peerClient = {}
 const config = {
   maxConcurrentConnections: 1,
 }
-const state = {
+export const state = {
+  userId: uuidv4(),
   isOpen: false,
+  connectedUserId: '',
+  iAskedForCoworking: false, // true if I'm connecting to someone else
   clientData: {
+    userId: '',
     codeVersion: 0,
+    deviceType: '',
     screenWidth: 0,
     screenHeight: 0,
-    deviceType: '',
     canvasWidth: 0,
     canvasHeight: 0,
   },
@@ -27,8 +33,8 @@ const state = {
     minCanvasWidth: 0,
     minCanvasHeight: 0,
   },
-  isWaitingConnection: false,
-  waitingToConnectToCliendId: false, // false or coworkerClientId. If coworkerClientId, onConnect we try to open coworking with that coworkerClientId
+  isWaitingPeerConnection: false,
+  waitingToConnectToSocketId: false, // false or coworkerSocketId. If coworkerSocketId, onConnect we try to open coworking with that coworkerSocketId
   stepsBuffer: [],
 }
 const labels = {
@@ -46,24 +52,328 @@ const labels = {
 export const isOnline = () => !!peerClient.online
 export const isConnectedWithSomeone = () => !!peerClient.connected
 export const isOpen = () => !!state.isOpen
-export const getClientId = () => peerClient.id
-
+export const getSocketId = () => peerClient.id
+export const getUserId = () => state.userId
+export const getCoworkerUserId = () => state.connectedUserId
+export const isHostingCoworking = () => state.isOpen && !state.iAskedForCoworking
 
 const handlePeerMessage = (message) => {
+  console.log(`coworking message: ${message.event}`)
   if (message.event === editorEvents.coworkingSteps) {
     drawCoworkingMultipleStepsData(message.data)
+  } else if (message.event === editorEvents.newLayer) {
+    receiveNewLayer(message.data.layer)
   } else if (message.event === editorEvents.clientEnvironment) {
     checkCoworkerEnvironment(message.data)
+  } else if (message.event === editorEvents.selectedLayer) {
+    receiveSelectedLayer(message.data.layerId)
+  } else if (message.event === editorEvents.undo) {
+    receiveUndo(message.data.userId)
+  } else if (message.event === editorEvents.redo) {
+    receiveRedo(message.data.userId)
+  } else if (message.event === editorEvents.deleteLayer) {
+    receiveDeleteLayer(message.data.layerId, message.data.nextSelectedId)
+  } else if (message.event === editorEvents.renameLayer) {
+    receiveRenameLayer(message.data.layerId, message.data.newName)
+  } else if (message.event === editorEvents.duplicateLayer) {
+    receiveDuplicateLayer(message.data.layerId, message.data.newId)
+  } else if (message.event === editorEvents.mergeLayers) {
+    receiveMergeLayers(message.data.layerOneId, message.data.layerTwoId, message.data.newLayerId)
+  } else if (message.event === editorEvents.opacityLayer) {
+    receiveOpacityLayer(message.data.layerId, message.data.newValue, message.data.oldValue)
+  } else if (message.event === editorEvents.enableLayer) {
+    receiveEnableLayer(message.data.layerId)
+  } else if (message.event === editorEvents.disableLayer) {
+    receiveDisableLayer(message.data.layerId)
+  } else if (message.event === editorEvents.orderDragLayer) {
+    receiveOrderDragLayer(message.data.layerId, message.data.newOrder, message.data.oldOrder)
+  } else if (message.event === editorEvents.flipLayer) {
+    receiveFlipLayer(message.data.layerId, message.data.horizontally)
+  } else if (message.event === editorEvents.resizeLayer) {
+    receiveResizeLayer(message.data.layerId, message.data.x, message.data.y, message.data.w, message.data.h, message.data.r)
+  } else if (message.event === editorEvents.clearLayer) {
+    receiveClearLayer(message.data.layerId)
+  } else if (message.event === editorEvents.transferLayer) {
+    receiveTransferLayer(message.data.layerId)
   }
 }
 
-export const addStep = (step, tool = false) => {
+export const sendDeleteLayer = (layerId, nextSelectedId) => {
+  const message = {
+    event: editorEvents.deleteLayer,
+    data: {
+      layerId,
+      nextSelectedId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveDeleteLayer = (layerId, nextSelectedId) => {
+  Layers.deleteLayerFromCoworker(layerId, nextSelectedId)
+}
+
+export const sendRenameLayer = (layerId, newName) => {
+  const message = {
+    event: editorEvents.renameLayer,
+    data: {
+      layerId,
+      newName,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveRenameLayer = (layerId, newName) => {
+  Layers.renameLayerFromCoworker(layerId, newName)
+}
+
+export const sendDuplicateLayer = (layerId, newId) => {
+  const message = {
+    event: editorEvents.duplicateLayer,
+    data: {
+      layerId,
+      newId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveDuplicateLayer = (layerId, newId) => {
+  Layers.duplicateLayerFromCoworker(layerId, newId)
+}
+
+export const sendMergeDownLayer = (layerOneId, layerTwoId, newLayerId) => {
+  const message = {
+    event: editorEvents.mergeLayers,
+    data: {
+      layerOneId,
+      layerTwoId,
+      newLayerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveMergeLayers = (layerOneId, layerTwoId, newLayerId) => {
+  Layers.mergeLayersFromCoworker(layerOneId, layerTwoId, newLayerId)
+}
+
+export const sendOpacityLayer = (layerId, newValue, oldValue) => {
+  const message = {
+    event: editorEvents.opacityLayer,
+    data: {
+      layerId,
+      newValue,
+      oldValue,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveOpacityLayer = (layerId, newValue, oldValue) => {
+  Layers.updateLayerOpacityFromCoworker(layerId, newValue, oldValue)
+}
+
+export const sendEnableLayer = (layerId) => {
+  const message = {
+    event: editorEvents.enableLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveEnableLayer = (layerId) => {
+  Layers.enableLayerFromCoworker(layerId)
+}
+
+export const sendDisableLayer = (layerId) => {
+  const message = {
+    event: editorEvents.disableLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveDisableLayer = (layerId) => {
+  Layers.disableLayerFromCoworker(layerId)
+}
+
+export const sendOrderDragLayer = (layerId, newOrder, oldOrder) => {
+  const message = {
+    event: editorEvents.orderDragLayer,
+    data: {
+      layerId,
+      newOrder,
+      oldOrder,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveOrderDragLayer = (layerId, newOrder, oldOrder) => {
+  Layers.layerDragChangeFromCoworker(layerId, newOrder, oldOrder)
+}
+
+export const sendFlipLayer = (layerId, horizontally) => {
+  const message = {
+    event: editorEvents.flipLayer,
+    data: {
+      layerId,
+      horizontally,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveFlipLayer = (layerId, horizontally) => {
+  Layers.receiveFlipLayerFromCoworker(layerId, horizontally)
+}
+
+export const sendResizeLayer = (layerId, x, y, w, h, r) => {
+  const message = {
+    event: editorEvents.resizeLayer,
+    data: {
+      layerId,
+      x,
+      y,
+      w,
+      h,
+      r,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveResizeLayer = (layerId, x, y, w, h, r) => {
+  Layers.receiveResizeLayerFromCoworker(layerId, x, y, w, h, r)
+}
+
+export const sendClearLayer = (layerId) => {
+  const message = {
+    event: editorEvents.clearLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveClearLayer = (layerId) => {
+  Layers.clearLayerFromCoworker(layerId)
+}
+
+export const sendTransferLayer = (layerId) => {
+  const message = {
+    event: editorEvents.transferLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveTransferLayer = (layerId) => {
+  Layers.receiveLayerFromCoworker(layerId)
+}
+
+const receiveNewLayer = async(layer) => {
+  await waitForEditorToBeReady()
+  layer.minX = Infinity
+  layer.minY = Infinity
+  layer.maxX = -Infinity
+  layer.maxY = -Infinity
+  Layers.addNewLayerFromCoworker(layer)
+}
+
+export const sendNewLayer = (layer) => {
+  layer = JSON.parse(JSON.stringify(layer))
+  delete layer.minX
+  delete layer.minY
+  delete layer.maxX
+  delete layer.maxY
+  delete layer.canvas
+  delete layer.history
+  delete layer.previewRef
+
+  const message = {
+    event: editorEvents.newLayer,
+    data: {
+      layer,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+export const sendUndo = () => {
+  const message = {
+    event: editorEvents.undo,
+    data: {
+      userId: state.userId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveUndo = (userId) => {
+  Layers.doUndoForUser(userId)
+}
+
+export const sendRedo = () => {
+  const message = {
+    event: editorEvents.redo,
+    data: {
+      userId: state.userId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveRedo = (userId) => {
+  Layers.doRedoForUser(userId)
+}
+
+const receiveSelectedLayer = (layerId) => {
+  Layers.selectCoworkerLayer(layerId)
+}
+
+export const sendSelectedLayer = (layerId) => {
+  const message = {
+    event: editorEvents.selectedLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+export const addStep = (step) => {
   state.stepsBuffer.push(step)
 }
 
 export const clearSteps = () => state.stepsBuffer = []
 
-export const sendSteps = (tool) => {
+export const sendSteps = (layerId, tool) => {
   tool = deepCopy(tool)
   delete tool.frameImageFile
 
@@ -71,6 +381,7 @@ export const sendSteps = (tool) => {
     event: editorEvents.coworkingSteps,
     data: {
       steps: state.stepsBuffer,
+      layerId,
       tool,
     },
   }
@@ -79,24 +390,34 @@ export const sendSteps = (tool) => {
   clearSteps()
 }
 
-const startCoworkingSession = () => {
+const startCoworkingSession = async(userId) => {
   state.isOpen = true
+  state.connectedUserId = userId
   // qui passo la dimensione dello schermo piú piccolo tra i due per farli disegnare sullo stesso foglio
   // ma questa cosa dovrà essere modificata quando sarà possibile anche aprire un coworking da dentro l'editor con un disegno già esistente
   // il canvas li resterà alle sue dimensioni attuali, ma chi ha lo schermo più piccolo deve ricevere una notifica
   Messages.info(labels.coworkingStarted)
-  goToPage(`/editor/open/false/true/${state.coworkingData.minCanvasWidth}/${state.coworkingData.minCanvasHeight}`)
+  const editorOptions = {
+    coworkerId: userId,
+    withCoworking: true,
+    isHostingCoworking: !state.iAskedForCoworking,
+    coworkingCanvasWidth: state.coworkingData.minCanvasWidth,
+    coworkingCanvasHeight: state.coworkingData.minCanvasHeight,
+  }
+
+  goToPage(`/editor/open/false/${JSON.stringify(editorOptions)}`)
 }
 
 export const updateClientEnvironment = () => {
   if (isOnline()) {
     const [canvasWidth, canvasHeight] = getCanvasPxSizes(true)
+    state.clientData.userId = state.userId
+    state.clientData.codeVersion = Params.appVersion
+    state.clientData.deviceType = Params.deviceType
     state.clientData.canvasWidth = canvasWidth
     state.clientData.canvasHeight = canvasHeight
-    state.clientData.codeVersion = Params.appVersion
     state.clientData.screenWidth = Params.width
     state.clientData.screenHeight = Params.height
-    state.clientData.deviceType = Params.deviceType
   }
 }
 
@@ -120,50 +441,50 @@ const checkCoworkerEnvironment = (coworkerEnvironment) => {
   state.coworkingData.minCanvasWidth = Math.min(coworkerEnvironment.canvasWidth, state.clientData.canvasWidth)
   state.coworkingData.minCanvasHeight = Math.min(coworkerEnvironment.canvasHeight, state.clientData.canvasHeight)
 
-  startCoworkingSession()
+  startCoworkingSession(coworkerEnvironment.userId)
 }
 
 // to call from module Editor, when url drawith.me/editor/coworking/abc123 is open
-export const requestSession = (coworkerClientId) => {
-  console.log('requestSession', coworkerClientId)
-  if (!coworkerClientId) {
+export const requestSession = (coworkerSocketId) => {
+  console.log('Coworking requestSession', coworkerSocketId)
+  state.iAskedForCoworking = true
+  if (!coworkerSocketId) {
     return
   }
   if (!isOnline()) {
-    state.waitingToConnectToCliendId = coworkerClientId
+    state.waitingToConnectToSocketId = coworkerSocketId
     return
   }
   if (isOpen()) {
     Messages.error(labels.alreadyConnected)
     return
   }
-  if (coworkerClientId === peerClient.id) {
+  if (coworkerSocketId === peerClient.id) {
     Messages.error(labels.errorHimself)
     return
   }
 
-  peerClient.connectTo(coworkerClientId)
+  peerClient.connectTo(coworkerSocketId)
 }
 
 export const stop = () => {
   if (isOpen()) {
     peerClient.disconnectFrom()
-    Messages.info(labels.coworkingClosed)
   }
 }
 
-const handlePeerClientConnect = async(id) => {
+const handlePeerClientOnline = async(id) => {
   console.log('Peer client online', id)
-  state.isWaitingConnection = false
+  state.isWaitingPeerConnection = false
   addGlobalStatus(SOCKET_CONNECTED_STATUS)
   updateClientEnvironment()
-  if (state.waitingToConnectToCliendId) {
-    requestSession(state.waitingToConnectToCliendId)
-    state.waitingToConnectToCliendId = false
+  if (state.waitingToConnectToSocketId) {
+    requestSession(state.waitingToConnectToSocketId)
+    state.waitingToConnectToSocketId = false
   }
 }
 
-const handlePeerClientDisonnect = (duringCoworkingSession) => {
+const handlePeerClientOffline = (duringCoworkingSession) => {
   console.log('Peer client offline')
   removeGlobalStatus(SOCKET_CONNECTED_STATUS)
   if (duringCoworkingSession) {
@@ -194,20 +515,35 @@ const handleConnectionRefused = () => {
 const handleConnectionClosed = () => {
   console.log('Coworking connectionClosed')
   Messages.info(labels.coworkingClosed)
+  state.connectedUserId = ''
   state.isOpen = false
+  state.iAskedForCoworking = false
+}
+
+const waitForEditorToBeReady = async() => {
+  let attempts = 0
+  const maxAttempts = 10
+
+  while (getCurrentPage() !== 'editor') {
+    if (attempts > maxAttempts) {
+      throw new Error('waitForEditorToBeReady timeout')
+    }
+    attempts++
+    await delay(100)
+  }
 }
 
 export const init = () => {
   return new Promise((resolve, reject) => {
-    if (!isOnline() && !state.isWaitingConnection) {
-      state.isWaitingConnection = true
+    if (!isOnline() && !state.isWaitingPeerConnection) {
+      state.isWaitingPeerConnection = true
 
       peerClient = new PeerSocket({
         maxConcurrentConnections: config.maxConcurrentConnections,
       })
 
-      peerClient.on('online', handlePeerClientConnect)
-      peerClient.on('offline', handlePeerClientDisonnect)
+      peerClient.on('online', handlePeerClientOnline)
+      peerClient.on('offline', handlePeerClientOffline)
       peerClient.on('newConnection', handleNewConnection)
       peerClient.on('message', handlePeerMessage)
       peerClient.on('newConnectionFailed', handleConnectionFailed)

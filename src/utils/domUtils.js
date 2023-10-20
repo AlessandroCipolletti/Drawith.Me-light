@@ -9,7 +9,6 @@ import { fadeInElements, fadeOutElements } from 'utils/animationsUtils'
 const refs = {
   overlaySpinner: null,
   popupContainer: null,
-  garbage: document.createElement('div'),
 }
 const state = {
   popupIsOpen: false,
@@ -85,7 +84,6 @@ export const preventMoveDefaultIfNeeded = (e) => {
       target.scrollLeft = (target.scrollWidth = target.clientWidth) - 1
     }
   }
-
 
   const onTouchMove = (e) => {
     if (!hasVerticalScroll && !hasHorizontalScroll) {
@@ -291,9 +289,10 @@ export const loadTemplate = async(templatePath, props = {}, container = false) =
   let tpl = await fetch(templatePath)
   tpl = await tpl.text()
   tpl = Handlebars.compile(tpl)
-  refs.garbage.insertAdjacentHTML('beforeend', tpl(props))
-  tpl = Array.prototype.filter.call(refs.garbage.childNodes, filterChildNodes)
-  refs.garbage.innerHTML = ''
+  const garbage = document.createElement('div')
+  garbage.insertAdjacentHTML('beforeend', tpl(props))
+  tpl = Array.prototype.filter.call(garbage.childNodes, filterChildNodes)
+  garbage.innerHTML = ''
 
   if (container) {
     appendChilds(container, tpl)

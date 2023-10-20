@@ -1,5 +1,5 @@
 import { isAndroid, osName, isMobileOnly, isMobile, isTablet, isBrowser, isIOS, isMacOs, isIPad13, browserName } from 'mobile-device-detect'
-import { getRealScreenWidth, getRealScreenHeight } from 'main/main'
+import { getRealScreenWidth, getRealScreenHeight } from 'utils/moduleUtils'
 
 const Params = {}
 
@@ -12,7 +12,6 @@ Params.init = (appState) => {
   Params.isProdEnv = document.location.hostname.includes('app.drawith.me')
   Params.debugMode = Params.isLocal && appState.DEBUG
   Params.supportTouch = ('ontouchstart' in window)
-  Params.showAdsOnPhones = false
   // Params.supportGesture = ('ongesturechange' in window)
 
   if (Params.supportTouch) {

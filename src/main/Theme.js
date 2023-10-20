@@ -6,7 +6,6 @@ export const spacing = {
   ONE_REM: 10,
   ONE_CM_SIZE: '1.375',
   PHONE_LANDSCAPE_PADDING: 3,
-  PHONE_ADS_HEIGHT: 5,
   APP_MARGIN_BOTTOM: 2.5,
 
   // HEADER
@@ -50,7 +49,6 @@ export const init = () => {
   spacing.COLORPICKER_HEIGHT *= spacing.ONE_REM
   spacing.RULER_HEIGHT *= spacing.ONE_REM
   spacing.HEADER_HEIGHT *= spacing.ONE_REM
-  spacing.PHONE_ADS_HEIGHT *= spacing.ONE_REM
 
   if (Params.ipad || (Params.ios && Params.isInstalledWebapp)) {
     spacing.APP_MARGIN_BOTTOM *= spacing.ONE_REM

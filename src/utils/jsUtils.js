@@ -2,7 +2,6 @@
 const isEqual = require('lodash.isequal')
 import { v4 as uuidv4 } from 'uuid'
 
-import * as Messages from 'modules/Messages'
 import { setSpinner } from 'utils/domUtils'
 
 
@@ -80,7 +79,7 @@ const handleJsError = (fn, error, errorMsg, fnName, showErrorMsg = true) => {
   `)
   setSpinner(false)
   if (showErrorMsg) {
-    Messages.error(errorMsg)
+    window.Messages.error(errorMsg)
   }
 }
 
@@ -270,4 +269,22 @@ export const testDeviceSupported = async() => {
   // }
   //
   // return supported
+}
+
+export const parallelize = async(data, fn, maxParallel = 8) => {
+  const results = []
+  const promises = []
+  let i = 0
+
+  while (i < data.length) {
+    promises.push(fn(data[i], i))
+    if (promises.length >= maxParallel) {
+      results.push(...(await Promise.all(promises)))
+      promises.length = 0
+    }
+    i++
+  }
+  results.push(...(await Promise.all(promises)))
+
+  return results
 }

@@ -316,6 +316,3 @@ const initDom = async() => {
 export const init = async() => {
   await initDom()
 }
-
-window.Alert = alert
-window.info = info

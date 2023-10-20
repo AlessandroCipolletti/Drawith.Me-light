@@ -18,7 +18,6 @@ const config = {
   tools: ['marker', 'pencil', 'highlighter', 'brush', 'hardBrush', 'spray', 'bucket', 'eraser', 'ruler', 'undo', 'redo', 'paper', 'clear'],
   writingTools: ['pencil', 'marker', 'highlighter', 'brush', 'hardBrush', 'spray'],
   toolsDisabledByDefault: ['undo', 'redo'],
-  hiddenToolsForCoworking: ['undo', 'redo', 'clear'],
   versionsCloseDelay: 7 * 1000,
   papers: ['white', 'squares', 'lines', 'points'],
   initialSelectedVersions: {
@@ -181,7 +180,7 @@ export const closeVersions = () => {
   }
 }
 
-const selectInitialTools = (selectedTool = false, hideToolsForCoworking = false) => {
+const selectInitialTools = (selectedTool = false) => {
   for (let tool in refs.toolsVersions) {
     const selectedVersion = refs.toolsVersions[tool].querySelector('.editor-tools__versions-button-selected')
     if (selectedVersion) {
@@ -204,11 +203,6 @@ const selectInitialTools = (selectedTool = false, hideToolsForCoworking = false)
   refs.toolsButtons.paper.classList.add(`paper-${config.papers[1]}`)
   Editor.changePaper(state.currentPaper)
   setTimeout(onRotate, 100)
-
-  Object.values(refs.toolsButtons).forEach(t => t.classList.remove('editor-tools__tool-hidden'))
-  if (hideToolsForCoworking) {
-    config.hiddenToolsForCoworking.forEach(t => refs.toolsButtons[t].classList.add('editor-tools__tool-hidden'))
-  }
 }
 
 const toggleVersions = (tool) => {
@@ -494,12 +488,12 @@ const initDom = async(moduleContainer) => {
   dom = undefined
 }
 
-export const init = async(moduleContainer, toolsCustomProps, selectedTool, hideToolsForCoworking = false) => {
+export const init = async(moduleContainer, toolsCustomProps, selectedTool) => {
   toolsConfig = toolsConfigInit()
   mergeCustomProps(toolsCustomProps)
   await initDom(moduleContainer)
   state = deepCopy(initialState)
-  selectInitialTools(selectedTool, hideToolsForCoworking)
+  selectInitialTools(selectedTool)
   addRotationHandler(onRotate)
 }
 

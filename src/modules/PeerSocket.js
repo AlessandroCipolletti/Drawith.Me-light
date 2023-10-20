@@ -1,6 +1,6 @@
 import { Peer } from 'peerjs'
 import Params from 'main/Params'
-import { throttle, exponentialTimeout } from 'utils/jsUtils'
+import { throttle, exponentialTimeout, deepCopy } from 'utils/jsUtils'
 
 const CONFIRMED = 'confirmed'
 const REFUSED = 'refused'

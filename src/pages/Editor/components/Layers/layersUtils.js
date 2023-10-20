@@ -163,7 +163,3 @@ export const getMagnetismCoordBottomForLayer = (state, layerId = state.currentSe
 }
 
 
-export const getTotalHistoryUsedMemory = (layers) => {
-  layers = layers.map(layer => layer.history.getAllData().reduce((tot, step) => tot + (step.data?.length || 0), 0))
-  return layers.reduce((tot, layerHistorySize) => tot + layerHistorySize, 0)
-}

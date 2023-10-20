@@ -129,7 +129,6 @@ const initDom = () => {
 }
 
 const openPeer = () => {
-  console.log('openPeer')
   window.removeEventListener('online', openPeer)
 
   peer = new Peer({
@@ -138,7 +137,7 @@ const openPeer = () => {
     path: '/',
     pingInterval: 5000,
     secure: true,
-    // debug: 3,
+    debug: 0,
   })
   window.peer = peer
   peer.on('open', (id) => {

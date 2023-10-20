@@ -1,8 +1,10 @@
-import { arrayOrderNumberUp } from './jsUtils'
-
 const MATH = Math
 const PI = MATH.PI
 const PI2 = PI / 2
+
+export const arrayOrderNumberUp = (a, b) => a - b
+export const arrayOrderNumberDown = (a, b) => b - a
+
 
 export const getNumberInBetween = (a, b, c, decimals = 4) => round([a, b, c].sort(arrayOrderNumberUp)[1], decimals)
 export const getRandomNumber = (n, float = false) => float ? MATH.random() * n : MATH.random() * n | 0
@@ -10,7 +12,7 @@ export const getRandomNumber = (n, float = false) => float ? MATH.random() * n :
 export const getInverseNumber = (num) => MATH.pow(num, -1)
 export const getAngleDegBetweenTwoPoints = (x1, y1, x2, y2) => convertAngleRadToDeg(getAngleRadBetweenTwoPoints(x1, y1, x2, y2))
 export const getPerc = (value, total, decimals = 4) => round(!total ? value : value * 100 / total, decimals)
-export const getFactorial = (n)=> n <= 1 ? 1 : n * getFactorial(n - 1)
+export const getFactorial = (n) => n <= 1 ? 1 : n * getFactorial(n - 1)
 export const percToValue = (perc, total, decimals = 4) => round(!total ? perc : perc * total / 100, decimals)
 export const getDistanceBetweenTwoPoints = (x1, y1, x2, y2, decimals = 0) => round(MATH.sqrt(MATH.pow(x2 - x1, 2) + MATH.pow(y2 - y1, 2)), decimals)
 export const distanceBetweenTwoPointsGreaterThan = (x1, y1, x2, y2, distance) => (MATH.pow(x2 - x1, 2) + MATH.pow(y2 - y1, 2) >= MATH.pow(distance, 2))
@@ -254,6 +256,18 @@ export const getQuadraticFunctioRoots = (a, b, c) => {
   return [(-b + d) / (2 * a), (-b - d) / (2 * a)]
 }
 
+export const getQuadraticExpressionX = (a, b, c) => {
+  // ax^2 + bx + c = 0
+  return [(-b + Math.sqrt(b*b - 4*a*c)) / (2 * a), (-b - Math.sqrt(b*b - 4*a*c)) / (2 * a)]
+}
+
+export const getDigitalRoot = (n) => {
+  return n - 9 * Math.floor((n - 1) / 9)
+  // while (n > 9) {
+  //   n = [...`${n}`].map(e => parseInt(e)).reduce((t, e) => t + e, 0)
+  // }
+  // return n
+}
 
 // const logSlider = (position) => {
 //   // position will be between 0 and 100
@@ -269,3 +283,21 @@ export const getQuadraticFunctioRoots = (a, b, c) => {
 //
 //   return Math.exp(minv + scale*(position-minp))
 // }
+export const getGreatCommonDivisor = (a, b) => {
+  if (a === 0) {
+    return b
+  }
+  return getGreatCommonDivisor(b % a, a)
+}
+
+// how many integers are relatively prime to the given number
+export const getTotient = (n) => {
+  let result = 1
+  for (let i = 2; i < n; i++) {
+    if (getGreatCommonDivisor(i, n) === 1) {
+      result++
+    }
+  }
+  return result
+}
+
