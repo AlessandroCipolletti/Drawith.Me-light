@@ -378,6 +378,14 @@ iframe {
   mask-image: url("../static/icons/svg/info.svg");
   -webkit-mask-image: url("../static/icons/svg/info.svg");
 }
+.svg-icon-send {
+  mask-image: url("../static/icons/svg/send.svg");
+  -webkit-mask-image: url("../static/icons/svg/send.svg");
+}
+.svg-icon-rename {
+  mask-image: url("../static/icons/svg/rename.svg");
+  -webkit-mask-image: url("../static/icons/svg/rename.svg");
+}
 .svg-icon-copy {
   mask-image: url("../static/icons/svg/copy.svg");
   -webkit-mask-image: url("../static/icons/svg/copy.svg");

@@ -29,6 +29,7 @@
   <div class="editor-layers__params-flip-vertical svg-icon-flip-vertical svg-icon-dark"></div>
   <div class="editor-layers__params-duplicate svg-icon-duplicate svg-icon-dark"></div>
   <div class="editor-layers__params-merge-down svg-icon-merge-down svg-icon-dark"></div>
+  <div class="editor-layers__params-send svg-icon-send svg-icon-dark"></div>
   <div class="editor-layers__params-delete svg-icon-delete svg-icon-dark"></div>
   <div class="vertical-slider editor-layers__opacity-slider">
     <div><span></span></div>

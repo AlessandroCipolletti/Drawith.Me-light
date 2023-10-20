@@ -232,7 +232,7 @@ const deleteButtonClick = async() => {
   if (refs.deleteButton.classList.contains('disabled')) {
     return
   }
-  if (await Messages.confirm(labels.areYouSure, true)) {
+  if (await Messages.confirm(labels.areYouSure)) {
     deleteSelectedDrawings()
   }
 }

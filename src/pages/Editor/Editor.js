@@ -32,30 +32,19 @@ import { spacing } from 'main/Theme'
 
 /*
   ----- COWORKING MULTI-LAYERS -----
-    - Qui si che potrei usare un offscreenCanvas. Tutto ciò che l'altro utente fa, viene disegnato in un offscreenCanvas, e poi printato sul suo layer.
-        Quindi dovrei creare una versione di drawStepStart/Move/End che usa il WorkersBufferManager
-
-    - Quando arrivano degli step da un utente, uso un offscreenCanvas per disegnare tutti i suoi step, e su stepEnd li disegno sul suo layer.
-    - Undo / Redo: dentro ad un layer mentre ce l'ho ancora selezionato non dovrebbero creare problemi.
-      Volendo posso trasferire la proprietà di un layer ad un altro utente.
-      Tutte le mie azioni sui miei layers e tutti i miei step devono entrare nell'history come al solito.
-      Quindi o faccio che al momento del trasferimento di un layer, l'history di quel layer viene svuotata, e tutti i suoi step rimossi dall'history globale.
-
-      TODO:
-        - Trasferire un layer all'altro utente
-        - Step dell'altro utente disegnati su offscreen canvas.
-        - Check layers history length diviso per coworking
-        - Check why il coworker all'inizio ha due step nell'history
-        - Se ricevo un undo ma ho l'history vuoto, meglio prevenire e non fare un cazzo.
+    - Trasferire un layer all'altro utente
+    - Step dell'altro utente disegnati su offscreen canvas.
+    - Check layers history length diviso per coworking
+    - Check why il coworker all'inizio ha due step nell'history
+    - Se ricevo un undo ma ho l'history vuoto, meglio prevenire e non fare un cazzo.
 
   ----- COWORKING DA DISEGNO ESISTENTE -----
     - Non avendo più un server in mezzo, i due utenti devono essere connessi allo stesso momento. Quindi l'url è sempre uno solo per ogni utente: quello col suo peerId.
-        Al momento di ricevere una connessione dall'esterno, se sei già nell'editor con un disegno aperto, lo sincronizzi con l'altro utente e gli mandi tutti i layers.
-        Al massimo potrei fare che all'apertura dell'app la prima volta, ti chiedo come ti chiami. E quando si riceve una connessione, compare il messaggio "picopllino vuole connettersi con te, accetti?"
-        Da Folder puoi copiare il link, ma anche da dentro l'editor ci dev'essere un pulsante per aprire o chiudere la connessione.
+      Al momento di ricevere una connessione dall'esterno, se sei già nell'editor con un disegno aperto, lo sincronizzi con l'altro utente e gli mandi tutti i layers.
+      Al massimo potrei fare che all'apertura dell'app la prima volta, ti chiedo come ti chiami. E quando si riceve una connessione, compare il messaggio "picopllino vuole connettersi con te, accetti?"
+      Da Folder puoi copiare il link, ma anche da dentro l'editor ci dev'essere un pulsante per aprire o chiudere la connessione.
 
   ----- BUGS -----
-    - bug coworking con più buckets di seguito
     - non si raggiungono più i 120fps manco da solo
     - auto scroll on list drag change on desktop, to test on ipad.
     - undo button sempre attivo in resize mode, anche dopo che hai resettato il resize con un undo.

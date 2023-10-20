@@ -12,16 +12,18 @@ class History {
   }
 
   add(value) {
-    // const newValue = JSON.stringify(value)
-    let deletedItems = []
-    if (this.#data.length === 0 || value !== this.#data[this.#pointer]) {
-      deletedItems.push(...this.#data.splice(this.#pointer + 1, this.#data.length))
-      this.#data.push(value)
-      deletedItems.push(...this.#data.splice(0, this.#data.length - this.maxLength))
-      this.#pointer = this.#data.length - 1
+    if (typeof value !== 'undefined') {
+      // const newValue = JSON.stringify(value)
+      let deletedItems = []
+      if (this.#data.length === 0 || value !== this.#data[this.#pointer]) {
+        deletedItems.push(...this.#data.splice(this.#pointer + 1, this.#data.length))
+        this.#data.push(value)
+        deletedItems.push(...this.#data.splice(0, this.#data.length - this.maxLength))
+        this.#pointer = this.#data.length - 1
+      }
+      deletedItems.forEach(this.#onDeleteHandler)
+      return deletedItems
     }
-    deletedItems.forEach(this.#onDeleteHandler)
-    return deletedItems
   }
 
   getCurrent() {
@@ -61,6 +63,18 @@ class History {
       return deletedItem
     }
     return false
+  }
+
+  filterBackwards(filterFn) {
+    if (typeof filterFn === 'function') {
+      this.filter((e) => this.#data.indexOf(e) > this.#pointer || filterFn(e))
+    }
+  }
+
+  filterForwards(filterFn) {
+    if (typeof filterFn === 'function') {
+      this.filter((e) => this.#data.indexOf(e) <= this.#pointer || filterFn(e))
+    }
   }
 
   filter(filterFn) {

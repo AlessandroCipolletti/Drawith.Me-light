@@ -16,6 +16,7 @@ export const editorEvents = {
   flipLayer: 'EDITOR_FLIP_LAYER',
   resizeLayer: 'EDITOR_RESIZE_LAYER',
   clearLayer: 'EDITOR_CLEAR_LAYER',
+  transferLayer: 'EDITOR_TRANSFER_LAYER',
 }
 
 export const SOCKET_CONNECTED_STATUS = 'drawith__SOCKET_CONNECTED'

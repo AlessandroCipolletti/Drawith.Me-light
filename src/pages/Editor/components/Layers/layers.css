@@ -263,6 +263,7 @@
 .editor-layers__params-delete,
 .editor-layers__params-merge-down,
 .editor-layers__params-resize,
+.editor-layers__params-send,
 .editor-layers__params-flip-horizontal,
 .editor-layers__params-flip-vertical {
   width: 3rem;
@@ -282,13 +283,13 @@
 .editor-layers__opacity-slider {
   margin: 2rem;
 }
-
-.drawith__LAYERS_FULL .editor-layers__params-duplicate {
-  opacity: 0.5;
-  cursor: auto;
+.editor-layers__params-send {
+  display: none;
 }
-.drawith__LAYERS_EMPTY .editor-layers__params-delete,
-.drawith__LAYERS_EMPTY .editor-layers__params-merge-down {
+.drawith__EDITOR-COWORKING .editor-layers__params-send {
+  display: block;
+}
+.drawith__LAYERS_FULL .editor-layers__params-duplicate {
   opacity: 0.5;
   cursor: auto;
 }

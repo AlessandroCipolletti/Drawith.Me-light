@@ -93,6 +93,8 @@ const handlePeerMessage = (message) => {
     receiveResizeLayer(message.data.layerId, message.data.x, message.data.y, message.data.w, message.data.h, message.data.r)
   } else if (message.event === editorEvents.clearLayer) {
     receiveClearLayer(message.data.layerId)
+  } else if (message.event === editorEvents.transferLayer) {
+    receiveTransferLayer(message.data.layerId)
   }
 }
 
@@ -274,6 +276,21 @@ export const sendClearLayer = (layerId) => {
 
 const receiveClearLayer = (layerId) => {
   Layers.clearLayerFromCoworker(layerId)
+}
+
+export const sendTransferLayer = (layerId) => {
+  const message = {
+    event: editorEvents.transferLayer,
+    data: {
+      layerId,
+    },
+  }
+
+  peerClient.sendMessage(message)
+}
+
+const receiveTransferLayer = (layerId) => {
+  Layers.receiveLayerFromCoworker(layerId)
 }
 
 const receiveNewLayer = async(layer) => {
