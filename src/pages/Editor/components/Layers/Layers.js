@@ -23,7 +23,7 @@ import { addGlobalStatus, removeGlobalStatus } from 'utils/moduleUtils'
 import { deepCopy, delay, parallelize } from 'utils/jsUtils'
 import { timing } from 'main/Theme'
 
-import { HISTORY_STEP_LAYER_CONTENT, HISTORY_STEP_LAYER_OPACITY, HISTORY_STEP_LAYER_SHOW, HISTORY_STEP_LAYER_HIDE, HISTORY_STEP_LAYER_ORDER, HISTORY_STEP_LAYER_DUPLICATE, HISTORY_STEP_LAYER_NEW, HISTORY_STEP_LAYER_DELETE, HISTORY_STEP_LAYERS_MERGE } from './constants'
+import { HISTORY_STEP_LAYER_CONTENT, HISTORY_STEP_LAYER_OPACITY, HISTORY_STEP_LAYER_SHOW, HISTORY_STEP_LAYER_HIDE, HISTORY_STEP_LAYER_ORDER, HISTORY_STEP_LAYER_DUPLICATE, HISTORY_STEP_LAYER_NEW, HISTORY_STEP_LAYER_DELETE, HISTORY_STEP_LAYERS_MERGE, HISTORY_STEP_LAYER_RENAME } from './constants'
 const MAX_LAYER_NAME_LENGTH = 12
 const PREVIEW_SIZE = 300
 const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
@@ -31,7 +31,7 @@ const EMPTY_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQA
 
 const config = {
   maxConcurrentThreads: 8,
-  stepHistoryMaxLength: 20 + 1,
+  stepHistoryMaxLength: 50 + 1,
   maxLayersNumber: 30,
   maxLayersNumberLowPerf: 20,
   maxLayersNumberMediumPerf: 30,
@@ -48,7 +48,6 @@ const initialState = {
   gcoMode: false,
   editorIsUsingEraser: false,
   paramsTimeout: false,
-  maxLayerCount: 0,
   resizeModeMadeChanges: false,
   listDragStartIndex: -1,
   canvases: {
@@ -62,6 +61,13 @@ const initialState = {
     t: [],
     r: [],
     b: [],
+  },
+  lastResizeCoords: {
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    r: 0,
   },
 }
 const refs = {
@@ -87,18 +93,22 @@ const refs = {
 const labels = {
   areYouSureToDeleteLayer: 'Are you sure ?',
   changeLayerName: 'Insert new name for layer',
+  areYouSureToSendLayer: 'Do you want to send this layer to your friend ?',
 }
 
-const LayersHistory = new History(config.stepHistoryMaxLength)
+let UsersLayersHistory = {}
 
 const layerCanBeResized = (layerId) => state.layers[layerId].active && Number.isFinite(state.layers[layerId].minX) && state.layers[layerId].opacity > 0
 
 const updateUndoRedoButtons = () => {
-  Tools.toggleButton('undo', LayersHistory.canGoBack)
-  Tools.toggleButton('redo', LayersHistory.canGoForward)
+  Tools.toggleButton('undo', UsersLayersHistory[Coworking.getUserId()].canGoBack)
+  Tools.toggleButton('redo', UsersLayersHistory[Coworking.getUserId()].canGoForward)
 }
 
-const cleanLayersHistoryOldActionIfNeeded = (action) => {
+export const getCurrentSelectedLayerId = () => state.currentSelectedLayerId
+export const getLayerContext = (layerId = state.currentSelectedLayerId) => state.layers[layerId].canvas.context
+
+const cleanGlobalLayersHistoryOldActionIfNeeded = (action) => {
   if (action.type === HISTORY_STEP_LAYER_CONTENT) {
     const layer = state.layers[action.layerId] || state.deletedLayers[action.layerId]
     if (layer) {
@@ -112,7 +122,7 @@ const cleanLayersHistoryOldActionIfNeeded = (action) => {
   }
 }
 
-const cleanLayersHistoryOverwrittenActionIfNeeded = (action) => {
+const cleanGlobalLayersHistoryOverwrittenActionIfNeeded = (action) => {
   if (action.type === HISTORY_STEP_LAYER_CONTENT) {
     const layer = state.layers[action.layerId] || state.deletedLayers[action.layerId]
     if (layer) {
@@ -127,17 +137,72 @@ const cleanLayersHistoryOverwrittenActionIfNeeded = (action) => {
   }
 }
 
-const addGlobalLayersHistoryAction = (action) => {
+const cleanGlobalLayersHistoryForLayer = (layerId) => {
+  /*
+    Sta cosa del filtro fatta cosi non sta funzionando perché non basta eliminare solo gli step che involvono direttamente il layer trasferito.
+    Per esempio se il layer trasferito è il risultato di un merge, dovrei eliminare anche tuuuutti gli step dei due layers che lo hanno generato con un merge, e così via.
+    Perché non potendo più undare quel merge, saranno irrecuperabili.
+    Con il Redo è ancora più difficile da pensare.
+    Se faccio tanti merge di layers, poi gli undo tutti, e trasferisco uno dei primi layer mergiati per primi, tutti quei merge in cascata non potranno più essere fatti nel futuro con dei redo.
+    Quindi dovrei eliminare tutti gli step che hanno a che fare con quei layers mergiati nei redo.
+  */
+  const userHistory = UsersLayersHistory[state.layers[layerId].owner]
+  userHistory.clear()
+  // TODO
+
+  // const deletedLayerActions = []
+
+  // 1 - delete every normal history action about this layer
+  // deletedLayerActions.push(...(userHistory.filter(action => action.layerId !== layerId)))
+
+  // 2 - delete every past action that can't be redone anymore because of the deleted layer
+  //     - two layers merged into this now deleted layer
+  //     - a layer duplicated from this now deleted layer
+  //     - the duplicate action that created this now deleted layer
+  // deletedLayerActions.push(...(userHistory.filter(action => {
+  //   if (action.type === HISTORY_STEP_LAYERS_MERGE) {
+  //     return action.newLayerId !== layerId && action.layerOneId !== layerId && action.layerTwoId !== layerId
+  //   } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
+  //     return action.newLayerId !== layerId && action.layerId !== layerId
+  //   }
+  // })))
+
+  // 3 - delete every future action that can't be re-done anymore because of the deleted layer
+  //     - merge actions that will merge this now deleted layer with another layer
+  //     - duplicate actions that will duplicate this now deleted layer
+
+  // 4 - ricorsivamente rifare tutto per i layer che non possono più essere recuperati dalle azioni cancellate
+
+  // for (const action of deletedLayerActions) {
+  //   if (action.type === HISTORY_STEP_LAYERS_MERGE) {
+  //     if (action.newLayerId === layerId) {
+  //       hardDeleteLayer(action.layerOneId)
+  //       hardDeleteLayer(action.layerTwoId)
+  //     } else {
+  //       hardDeleteLayer(action.newLayerId)
+  //     }
+  //   } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
+  //     if (action.layerId === layerId && state.deletedLayers[action.newLayerId]) {
+  //       hardDeleteLayer(action.newLayerId)
+  //     }
+  //   }
+  // }
+
+  updateUndoRedoButtons()
+}
+
+const addGlobalLayersHistoryAction = (action, userId = Coworking.getUserId()) => {
   // Adding a new action may result in deleting some others actions from the history
   // We need to clean memory for those actions, if they kept in memory a deleted layer or a layer drawing step
-  if (LayersHistory.isFull) {
-    const deletedAction = LayersHistory.deleteFarest()
+  const userHistory = UsersLayersHistory[userId]
+  if (userHistory.isFull) {
+    const deletedAction = userHistory.deleteFarest()
     if (deletedAction) {
-      cleanLayersHistoryOldActionIfNeeded(deletedAction)
+      cleanGlobalLayersHistoryOldActionIfNeeded(deletedAction)
     }
   }
-  const deletedActions = LayersHistory.add(action)
-  deletedActions.forEach(cleanLayersHistoryOverwrittenActionIfNeeded)
+  const deletedActions = userHistory.add(action)
+  deletedActions.forEach(cleanGlobalLayersHistoryOverwrittenActionIfNeeded)
   updateUndoRedoButtons()
   Editor.setDrawingModified()
 }
@@ -166,95 +231,137 @@ const restoreLayerContentStep = async(layerId, step) => {
   }
   if (layerId === state.currentSelectedLayerId) {
     const canBeResized = layerCanBeResized(layerId)
-    updateLayerPreview(layerId)
     updateResizeMode(state.resizeMode && canBeResized, canBeResized)
     updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
   } else {
-    selectLayer(layerId, false)
+    selectLayer(layerId)
   }
+  updateLayerPreview(layerId)
+}
+
+const findSelectedLayerIdForUser = (userId) => {
+  let result =
+    Object.values(state.layers)
+      .find((layer) =>
+        layer.owner === userId && layer.selected
+      )?.id
+
+  if (!result) {
+    result =
+      Object.values(state.layers)
+        .find((layer) =>
+          layer.owner === userId
+        )?.id
+  }
+
+  return result
 }
 
 // funzione chiamata da editor ad ogni fine tratto, o su fine resize / flip
-export const addLayerHistoryContentChangedStep = async() => {
-  await updateLayerRealCoords(state.currentSelectedLayerId)
-  const layer = state.layers[state.currentSelectedLayerId]
-  const canBeResized = layerCanBeResized(state.currentSelectedLayerId)
+// o su steps dal coworker
+export const addLayerHistoryContentChangedStep = async(layerId = state.currentSelectedLayerId) => {
+  await updateLayerRealCoords(layerId)
+  const layer = state.layers[layerId]
+  const canBeResized = layerCanBeResized(layerId)
   layer.updateTimestamp = Date.now()
   layer.modified = true
-  const step = await getLayerCurrentData()
+  const step = await getLayerCurrentData(layerId)
   addGlobalLayersHistoryAction({
-    layerId: state.currentSelectedLayerId,
+    layerId,
     type: HISTORY_STEP_LAYER_CONTENT,
-  })
+  }, layer.owner)
   layer.history.add(step)
-  updateLayerPreview(state.currentSelectedLayerId)
-  updateResizeMode(state.resizeMode && canBeResized, canBeResized)
-  updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
+  updateLayerPreview(layerId)
+  if (isYourLayerYours(layerId)) {
+    updateResizeMode(state.resizeMode && canBeResized, canBeResized)
+    updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
+  }
 }
 
 const addLayerHistoryOpacityStep = async(layerId, newValue, oldValue) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
   addGlobalLayersHistoryAction({
     layerId,
     type: HISTORY_STEP_LAYER_OPACITY,
     newValue,
     oldValue,
-  })
+  }, layer.owner)
 }
 
-const addLayerHistoryShowStep = async(layerId) => {
+const addLayerHistoryEnableStep = async(layerId) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
   addGlobalLayersHistoryAction({
     layerId,
     type: HISTORY_STEP_LAYER_SHOW,
-  })
+  }, layer.owner)
 }
 
-const addLayerHistoryHideStep = async(layerId) => {
+const addLayerHistoryDisableStep = async(layerId) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
   addGlobalLayersHistoryAction({
     layerId,
     type: HISTORY_STEP_LAYER_HIDE,
-  })
+  }, layer.owner)
 }
 
 const addLayerHistoryOrderStep = async(layerId, newValue, oldValue) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
   addGlobalLayersHistoryAction({
     layerId,
     type: HISTORY_STEP_LAYER_ORDER,
     newValue,
     oldValue,
-  })
+  }, layer.owner)
+}
+
+const addLayerHistoryRenameStep = async(layerId, newName, oldName) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
+  addGlobalLayersHistoryAction({
+    layerId,
+    type: HISTORY_STEP_LAYER_RENAME,
+    newName,
+    oldName,
+  }, layer.owner)
 }
 
 const addLayerHistoryDuplicateStep = async(layerId, newLayerId) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
   addGlobalLayersHistoryAction({
     layerId,
     type: HISTORY_STEP_LAYER_DUPLICATE,
     newLayerId,
-  })
+  }, layer.owner)
 }
 
-const addLayerHistoryNewStep = async(layerId, prevSelectedId) => {
+const addLayerHistoryNewStep = async(layerId) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
+  const layerOwner = layer.owner
+  const prevSelectedLayerIdForOwner = findSelectedLayerIdForUser(layerOwner)
+
   addGlobalLayersHistoryAction({
     layerId,
     type: HISTORY_STEP_LAYER_NEW,
-    prevSelectedId,
-  })
+    prevSelectedId: prevSelectedLayerIdForOwner,
+  }, layerOwner)
 }
 
 const addLayerHistoryDeleteStep = async(layerId, nextSelectedId) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
   addGlobalLayersHistoryAction({
     layerId,
     type: HISTORY_STEP_LAYER_DELETE,
     nextSelectedId,
-  })
+  }, layer.owner)
 }
 
 const addLayerHistoryMergeStep = async(layerOneId, layerTwoId, newLayerId) => {
+  const layer = state.layers[layerOneId] || state.deletedLayers[layerOneId]
   addGlobalLayersHistoryAction({
     type: HISTORY_STEP_LAYERS_MERGE,
     layerOneId,
     layerTwoId,
     newLayerId,
-  })
+  }, layer.owner)
 }
 
 const updateLayerRealCoords = async(layerId = state.currentSelectedLayerId) => {
@@ -285,8 +392,10 @@ const updateLayerPreview = (layerId = state.currentSelectedLayerId) => {
   }
 }
 
-export const undoLayers = async() => {
-  if (state.resizeMode) {
+export const doUndoForUser = async(userId) => {
+  let hasDoneUndo = false
+
+  if (userId === Coworking.getUserId() && state.resizeMode) {
     // if I'm in resize mode, I just 'cancel' the changes made during this resize mode
     const step = state.layers[state.currentSelectedLayerId].history.getCurrent()
     if (step) {
@@ -295,13 +404,15 @@ export const undoLayers = async() => {
       Tools.toggleButton('undo', false)
       state.resizeModeMadeChanges = false
     }
-  } else if (!Coworking.isOpen()) {
-    if (LayersHistory.canGoBack) {
-      const action = LayersHistory.getCurrent()
-      LayersHistory.back()
-      updateUndoRedoButtons()
+  } else {
+    const userHistory = UsersLayersHistory[userId]
+    if (userHistory.canGoBack) {
+      const action = userHistory.getCurrent()
+      userHistory.back()
 
       if (action.layerId || action.newLayerId) {
+        console.log('redo', action)
+        hasDoneUndo = true
         let selectedLayerId = action.layerId
         if (action.type === HISTORY_STEP_LAYER_CONTENT) {
           const step = state.layers[action.layerId].history.back()
@@ -328,51 +439,89 @@ export const undoLayers = async() => {
           ])
           await _deleteLayer(action.newLayerId, action.layerOneId)
           selectedLayerId = action.layerOneId
+        } else if (action.type === HISTORY_STEP_LAYER_RENAME) {
+          saveLayerName(action.layerId, action.oldName)
         }
-        await selectLayer(selectedLayerId, false)
+
+        if (!isYourLayerYours(selectedLayerId)) {
+          selectedLayerId = findFirstLayerForUser()
+        }
+
+        await selectLayer(selectedLayerId)
       }
     }
   }
+
+  return hasDoneUndo
+}
+
+export const undoLayers = async() => {
+  const hasDoneUndo = await doUndoForUser(Coworking.getUserId())
+  updateUndoRedoButtons()
+
+  if (hasDoneUndo && Coworking.isOpen()) {
+    Coworking.sendUndo()
+  }
+}
+
+export const doRedoForUser = async(userId) => {
+  let hasDoneRedo = false
+
+  const userHistory = UsersLayersHistory[userId]
+  if ((userId !== Coworking.getUserId() || !state.resizeMode) && userHistory.canGoForward) {
+    const action = userHistory.forward()
+
+    if (action.layerId || action.newLayerId) {
+      console.log('undo', action)
+      hasDoneRedo = true
+      let selectedLayerId = action.layerId
+      if (action.type === HISTORY_STEP_LAYER_CONTENT) {
+        const step = state.layers[action.layerId].history.forward()
+        await restoreLayerContentStep(action.layerId, step)
+      } else if (action.type === HISTORY_STEP_LAYER_OPACITY) {
+        _updateLayerOpacity(action.layerId, action.newValue)
+      } else if (action.type === HISTORY_STEP_LAYER_SHOW) {
+        enableLayer(action.layerId)
+      } else if (action.type === HISTORY_STEP_LAYER_HIDE) {
+        disableLayer(action.layerId)
+      } else if (action.type === HISTORY_STEP_LAYER_ORDER) {
+        onListDragChange(refs.layersList.querySelector(`div[data-id="${action.layerId}"]`), Object.values(state.layers).length - 1 - action.newValue)
+      } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
+        await restoreDeletedLayer(action.newLayerId)
+        selectedLayerId = action.newLayerId
+      } else if (action.type === HISTORY_STEP_LAYER_NEW) {
+        await restoreDeletedLayer(action.layerId)
+      } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
+        await _deleteLayer(action.layerId, action.nextSelectedId)
+        selectedLayerId = action.nextSelectedId
+      } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
+        await Promise.all([
+          restoreDeletedLayer(action.newLayerId),
+          _deleteLayer(action.layerOneId),
+          _deleteLayer(action.layerTwoId),
+        ])
+        selectedLayerId = action.newLayerId
+      } else if (action.type === HISTORY_STEP_LAYER_RENAME) {
+        saveLayerName(action.layerId, action.newName)
+      }
+
+      if (!isYourLayerYours(selectedLayerId)) {
+        selectedLayerId = findFirstLayerForUser()
+      }
+
+      await selectLayer(selectedLayerId)
+    }
+  }
+
+  return hasDoneRedo
 }
 
 export const redoLayers = async() => {
-  if (!Coworking.isOpen()) {
-    if (LayersHistory.canGoForward && !state.resizeMode) {
-      const action = LayersHistory.forward()
-      updateUndoRedoButtons()
+  const hasDoneRedo = await doRedoForUser(Coworking.getUserId())
+  updateUndoRedoButtons()
 
-      if (action.layerId || action.newLayerId) {
-        let selectedLayerId = action.layerId
-        if (action.type === HISTORY_STEP_LAYER_CONTENT) {
-          const step = state.layers[action.layerId].history.forward()
-          await restoreLayerContentStep(action.layerId, step)
-        } else if (action.type === HISTORY_STEP_LAYER_OPACITY) {
-          _updateLayerOpacity(action.layerId, action.newValue)
-        } else if (action.type === HISTORY_STEP_LAYER_SHOW) {
-          enableLayer(action.layerId)
-        } else if (action.type === HISTORY_STEP_LAYER_HIDE) {
-          disableLayer(action.layerId)
-        } else if (action.type === HISTORY_STEP_LAYER_ORDER) {
-          onListDragChange(refs.layersList.querySelector(`div[data-id="${action.layerId}"]`), Object.values(state.layers).length - 1 - action.newValue)
-        } else if (action.type === HISTORY_STEP_LAYER_DUPLICATE) {
-          await restoreDeletedLayer(action.newLayerId)
-          selectedLayerId = action.newLayerId
-        } else if (action.type === HISTORY_STEP_LAYER_NEW) {
-          await restoreDeletedLayer(action.layerId)
-        } else if (action.type === HISTORY_STEP_LAYER_DELETE) {
-          await _deleteLayer(action.layerId, action.nextSelectedId)
-          selectedLayerId = action.nextSelectedId
-        } else if (action.type === HISTORY_STEP_LAYERS_MERGE) {
-          await Promise.all([
-            restoreDeletedLayer(action.newLayerId),
-            _deleteLayer(action.layerOneId),
-            _deleteLayer(action.layerTwoId),
-          ])
-          selectedLayerId = action.newLayerId
-        }
-        await selectLayer(selectedLayerId, false)
-      }
-    }
+  if (hasDoneRedo && Coworking.isOpen()) {
+    Coworking.sendRedo()
   }
 }
 
@@ -395,7 +544,7 @@ const layerDeepCopy = (layer, {
     selected: layer.selected,
     createTimestamp: layer.createTimestamp,
     updateTimestamp: layer.updateTimestamp,
-    selectedByCoworker: layer.selectedByCoworker,
+    owner: layer.owner,
   }
   if (deepCopyCanvas) {
     copy.canvas = duplicateCanvas(layer.canvas, usingOffscreen)
@@ -415,7 +564,7 @@ const prepareLayerDataToExport = async(layer) => {
     bitmap.close()
     bitmap = undefined
   }
-  delete layer.selectedByCoworker
+  delete layer.owner
   delete layer.resizeMode
   delete layer.modified
   delete layer.canvas
@@ -440,7 +589,7 @@ export const exportLayers = async({
   let layerData = []
   let currentLayers = Object.values(state.layers)
   let layers = currentLayers
-    .filter(layer => !currentLayerIsEmpty(layer.id))
+    .filter(layer => !isYourLayerEmpty(layer.id))
     .sort((l1, l2) => l1.order > l2.order ? 1 : -1)
     .map(l => layerDeepCopy(l, {
       exportBitmap: !exportJustModifiedLayers || l.modified,
@@ -511,8 +660,10 @@ export const exportWholeCanvasData = async(returnCanvasContext = false) => {
     tempCanvas = tempContext = null
   }
 
-  bitmap.close()
-  bitmap = null
+  if (bitmap) {
+    bitmap.close()
+    bitmap = null
+  }
 
   return data
 }
@@ -532,7 +683,7 @@ export const exportDrawing = async({
   return currentDrawingData
 }
 
-export const currentLayerIsEmpty = (layerId = state.currentSelectedLayerId) => {
+export const isYourLayerEmpty = (layerId = state.currentSelectedLayerId) => {
   return Number.isFinite(state.layers[layerId].maxX) === false ||
   state.layers[layerId].minX === null ||
   state.layers[layerId].maxX === null ||
@@ -540,29 +691,42 @@ export const currentLayerIsEmpty = (layerId = state.currentSelectedLayerId) => {
   state.layers[layerId].maxY === null
 }
 
+const clearLayer = (layerId) => {
+  const layer = state.layers[layerId]
+  layer.canvas.context.clearRect(0, 0, state.canvases.width, state.canvases.height)
+  layer.minX = Infinity
+  layer.minY = Infinity
+  layer.maxY = -Infinity
+  layer.maxX = -Infinity
+}
+
+export const clearLayerFromCoworker = (layerId) => {
+  clearLayer(layerId)
+  addLayerHistoryContentChangedStep(layerId)
+}
+
 export const clearCurrentLayer = async () => {
-  const layer = state.layers[state.currentSelectedLayerId]
   closeParams()
   updateGcoMode(false, false)
-  if (Number.isFinite(layer.maxX)) {
-    layer.canvas.context.clearRect(0, 0, state.canvases.width, state.canvases.height)
-    layer.minX = Infinity
-    layer.minY = Infinity
-    layer.maxY = -Infinity
-    layer.maxX = -Infinity
+  if (Number.isFinite(state.layers[state.currentSelectedLayerId].maxX)) {
+    clearLayer(state.currentSelectedLayerId)
+    addLayerHistoryContentChangedStep(state.currentSelectedLayerId)
+    if (Coworking.isOpen()) {
+      Coworking.sendClearLayer(state.currentSelectedLayerId)
+    }
     return true
   } else {
     return false
   }
 }
 
-const createNewLayerData = () => ({
+const createNewLayerData = (owner = false) => ({
   id: uuidv4(),
   minX: Infinity,
   minY: Infinity,
   maxX: -Infinity,
   maxY: -Infinity,
-  name: `Layer ${++state.maxLayerCount}`,
+  name: `Layer ${Object.keys(state.layers).length + 1}`,
   order: getMaxOrder() + 1,
   active: true,
   canvas: null,
@@ -573,10 +737,15 @@ const createNewLayerData = () => ({
   previewRef: null,
   createTimestamp: Date.now(),
   updateTimestamp: Date.now(),
-  selectedByCoworker: false,
+  owner: owner || Coworking.getUserId(),
 })
 
-const getMaxOrder = () => Math.max(...Object.values(state.layers).map(l => l.order))
+const getMaxOrder = () => {
+  const max = Math.max(...Object.values(state.layers).map(l => l.order))
+  return isFinite(max) ? max : 0
+}
+
+const paramsAreClosed = () => (state.paramsTimeout === false)
 
 const toggleParams = () => {
   if (refs.paramsContainer.classList.contains('params-container-visible')) {
@@ -628,19 +797,15 @@ const createNewLayerListElementDom = (layerId, withAnimation = true) => {
   layerListDom.setAttribute('data-id', layerId)
   state.layers[layerId].previewRef = layerListDom.querySelector('.editor-layers__layer-preview')
   state.layers[layerId].previewRef.context = state.layers[layerId].previewRef.getContext('2d')
-  if (state.layers[layerId].selected) {
-    layerListDom.classList.add('editor-layers__layer-selected')
-  }
+  layerListDom.classList.toggle('editor-layers__layer-selected', state.layers[layerId].selected)
+  layerListDom.classList.toggle('editor-layers__layer-yours', isYourLayerYours(layerId))
+  layerListDom.classList.toggle('editor-layers__layer-coworker', !isYourLayerYours(layerId))
   layerListDom.querySelector('input').value = state.layers[layerId].name
+  layerListDom.querySelector('.editor-layers__layer-options-button').classList.toggle('svg-icon-visible', !isYourLayerYours(layerId))
 
   layerListDom.querySelector('input').addEventListener(Params.eventStart, (e) => {
     e.preventDefault()
   })
-  if (Params.isDesktop) {
-    layerListDom.querySelector('input').onchange = (e) => {
-      saveLayerName(layerId, e.target.value)
-    }
-  }
 
   refs.layersList.appendChild(layerListDom)
   if (withAnimation) {
@@ -681,8 +846,49 @@ const createNewLayerCanvas = () => {
   return canvas
 }
 
-const addNewLayer = (e) => {
-  preventDefault(e)
+export const selectCoworkerLayer = (layerId) => {
+  if (state?.layers[layerId] && !isYourLayerYours(layerId)) {
+    Object.values(state.layers).forEach(l => {
+      if (!isYourLayerYours(l.id)) {
+        l.selected = (l.id === layerId)
+        refs.layersList.querySelector(`div[data-id="${l.id}"]`).classList.toggle('editor-layers__layer-selected', l.selected)
+      }
+    })
+  }
+}
+
+export const addNewLayerFromCoworker = async(layer) => {
+  // to intercept the first layer from coworker when just started
+  if (Object.values(state.layers).length === 1 && layer.order === state.layers[state.currentSelectedLayerId].order) {
+    if (Coworking.isHostingCoworking()) {
+      // if you are the host, your layer goes on top
+      state.layers[state.currentSelectedLayerId].order = state.layers[state.currentSelectedLayerId].order + 1
+      state.layers[state.currentSelectedLayerId].name = state.layers[state.currentSelectedLayerId].name.replace('1', '2')
+      const layerOptionNameInput = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"] .editor-layers__layer-options-name input`)
+      layerOptionNameInput.value = state.layers[state.currentSelectedLayerId].name
+    } else {
+      // if you are the coworker, the received layer goes on top
+      layer.order = layer.order + 1
+      layer.name = layer.name.replace('1', '2')
+    }
+  }
+
+  layer.canvas = createNewLayerCanvas()
+  layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap),
+  state.layers[layer.id] = layer
+  createNewLayerDom(layer.id, true)
+  reorderLayersList()
+  addLayerHistoryNewStep(layer.id)
+  Object.values(state.layers).forEach(l => {
+    if (!isYourLayerYours(l.id)) {
+      l.selected = (l.id === layer.id)
+      refs.layersList.querySelector(`div[data-id="${l.id}"]`).classList.toggle('editor-layers__layer-selected', l.selected)
+    }
+  })
+}
+
+const addNewLayer = (event) => {
+  preventDefault(event)
   if (Object.keys(state.layers).length >= config.maxLayersNumber) {
     return
   }
@@ -691,11 +897,17 @@ const addNewLayer = (e) => {
   newLayerData.canvas = createNewLayerCanvas()
 
   state.layers[newLayerData.id] = newLayerData
+  if (event) { // if event is undefined, it means that the layer is created during the initialization
+    addLayerHistoryNewStep(newLayerData.id)
+  }
   createNewLayerDom(newLayerData.id, true)
   reorderLayersList()
-  addLayerHistoryNewStep(newLayerData.id, state.currentSelectedLayerId)
-  selectLayer(newLayerData.id, false)
+  selectLayer(newLayerData.id)
   refs.layersList.scrollTop = 0
+
+  if (Coworking.isOpen()) {
+    Coworking.sendNewLayer(newLayerData)
+  }
 }
 
 const updateEditorCanvas = () => {
@@ -709,29 +921,30 @@ const updateEditorCanvas = () => {
   }
 }
 
-const selectLayer = async(layerId, showParams = true) => {
-  if (layerId !== state.currentSelectedLayerId && state.layers[layerId].selectedByCoworker === false) {
+const selectLayer = async(layerId) => {
+  if (!isYourLayerYours(layerId)) {
+    selectCoworkerLayer(layerId)
+    return
+  }
+
+  if (layerId !== state.currentSelectedLayerId) {
     const wasInResizeMode = state.resizeMode
 
     if (state.currentSelectedLayerId) {
       if (state.resizeMode) {
         await saveResizeModeIfNeeded()
         const layerOptionButton = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"] .editor-layers__layer-options-button`)
-        layerOptionButton.classList.remove('disabled')
+        layerOptionButton && layerOptionButton.classList.remove('disabled')
       }
     }
 
-    Object.values(state.layers).forEach(l => {
+    Object.values(filterYoursLayers()).forEach(l => {
       l.selected = (l.id === layerId)
       refs.layersList.querySelector(`div[data-id="${l.id}"]`).classList.toggle('editor-layers__layer-selected', l.selected)
     })
     state.currentSelectedLayerId = layerId
 
     updateParamsByLayer(layerId)
-    if (showParams) {
-      openParams()
-    }
-
     updateLayerPreview(layerId)
     updateEditorCanvas()
     Editor.setLayerContext(state.layers[layerId].canvas.context)
@@ -739,6 +952,10 @@ const selectLayer = async(layerId, showParams = true) => {
       startResizeMode()
     } else if (wasInResizeMode) {
       endResizeMode()
+    }
+
+    if (Coworking.isOpen()) {
+      Coworking.sendSelectedLayer(layerId)
     }
   }
 }
@@ -765,10 +982,23 @@ const reorderLayersList = () => {
   updateEditorCanvas()
 }
 
+const isYourLayerYours = (layerId) => {
+  return state.layers[layerId].owner === Coworking.getUserId()
+}
+
+const filterYoursLayers = () => {
+  return Object.values(state.layers).filter(l => l.owner === Coworking.getUserId())
+}
+
+export const deleteLayerFromCoworker = (layerId, nextSelectedId) => {
+  addLayerHistoryDeleteStep(layerId, nextSelectedId)
+  _deleteLayer(layerId, nextSelectedId)
+}
+
 const _deleteLayer = async(layerId, nextSelectedId = 0, withAnimation = true) => {
   refs.imageForResize = null
   if (nextSelectedId) {
-    await selectLayer(nextSelectedId, false)
+    await selectLayer(nextSelectedId)
   } else if (layerId === state.currentSelectedLayerId) {
     state.currentSelectedLayerId = false
   }
@@ -789,50 +1019,115 @@ const _deleteLayer = async(layerId, nextSelectedId = 0, withAnimation = true) =>
 }
 const deleteLayer = async(e, layerId = state.currentSelectedLayerId) => {
   preventDefault(e)
-  if (state.paramsTimeout === false) {
+  if (paramsAreClosed()) {
     return
-  } // params are closed
+  }
   openParams()
-  if (
-    state.layers[layerId].selectedByCoworker ||
-    Object.values(state.layers).filter(l => l.selectedByCoworker === false).length <= 1
-  ) {
+  let yoursLayers = filterYoursLayers()
+  if (!isYourLayerYours(layerId) || yoursLayers.length <= 1) {
     return
   }
 
-  const layers = Object.values(state.layers).filter(l => !l.selectedByCoworker && l.id !== layerId)
-  const maxOrder = Math.max(...layers.map(l => l.order))
-  const nextSelectedId = layers.filter(l => l.order === maxOrder)[0].id
+  yoursLayers = yoursLayers.filter(l => l.id !== layerId)
+  const maxOrder = Math.max(...yoursLayers.map(l => l.order))
+  const nextSelectedId = yoursLayers.filter(l => l.order === maxOrder)[0].id
+  if (Coworking.isOpen()) {
+    Coworking.sendDeleteLayer(layerId, nextSelectedId)
+  }
   addLayerHistoryDeleteStep(layerId, nextSelectedId)
   await _deleteLayer(layerId, nextSelectedId)
 }
 
-const renameLayer = async(e, id = state.currentSelectedLayerId) => {
-  preventDefault(e)
-  if (state.paramsTimeout === false) {
-    return
-  } // params are closed
-  openParams()
-  const newName = await Messages.input(`${labels.changeLayerName}: ${state.layers[id].name}`, state.layers[id].name)
-  if (newName) {
-    saveLayerName(id, newName, true)
+const findFirstLayerForUser = (userId = Coworking.getUserId()) => {
+  return Object.values(state.layers).filter(l => l.owner === userId).sort((a, b) => b.order - a.order)[0].id
+}
+
+export const receiveLayerFromCoworker = (layerId) => {
+  const layer = state.layers[layerId]
+  layer.history.clear()
+  cleanGlobalLayersHistoryForLayer(layerId)
+  layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
+  layer.owner = Coworking.getUserId()
+  const layerListElement = refs.layersList.querySelector(`div[data-id="${layerId}"]`)
+  layerListElement.classList.remove('editor-layers__layer-coworker')
+  layerListElement.classList.add('editor-layers__layer-yours')
+  layerListElement.classList.remove('editor-layers__layer-selected')
+}
+
+const sendCurrentLayerToCoworker = async() => {
+  if (Coworking.isOpen() && isYourLayerYours(state.currentSelectedLayerId) && state.layers[state.currentSelectedLayerId].active && await Messages.confirm(labels.areYouSureToSendLayer)) {
+    const layer = state.layers[state.currentSelectedLayerId]
+    layer.history.clear()
+    cleanGlobalLayersHistoryForLayer(state.currentSelectedLayerId)
+    layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
+    layer.owner = Coworking.getCoworkerUserId()
+    Coworking.sendTransferLayer(state.currentSelectedLayerId)
+    const layerListElement = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"]`)
+    layerListElement.classList.add('editor-layers__layer-coworker')
+    layerListElement.classList.remove('editor-layers__layer-yours')
+    layerListElement.classList.remove('editor-layers__layer-selected')
+    selectLayer(findFirstLayerForUser())
   }
 }
 
-const saveLayerName = (id, name, updateDom = false) => {
-  if (id && name) {
-    state.layers[id].name = name
-    if (updateDom) {
-      refs.layersList.querySelector(`div[data-id="${id}"] input`).value = name
-    }
+export const renameLayerFromCoworker = (layerId, newName) => {
+  addLayerHistoryRenameStep(layerId, newName, state.layers[layerId].name)
+  saveLayerName(layerId, newName)
+}
+
+const renameLayer = async(e, layerId = state.currentSelectedLayerId) => {
+  preventDefault(e)
+  if (!layerId || paramsAreClosed() || !isYourLayerYours(layerId)) {
+    return
   }
+  openParams()
+  const newName = await Messages.input(`${labels.changeLayerName}: ${state.layers[layerId].name}`, state.layers[layerId].name)
+  if (newName && newName !== state.layers[layerId].name) {
+    if (Coworking.isOpen()) {
+      Coworking.sendRenameLayer(layerId, newName)
+    }
+    addLayerHistoryRenameStep(layerId, newName, state.layers[layerId].name)
+    saveLayerName(layerId, newName)
+  }
+}
+
+const saveLayerName = (layerId, newName) => {
+  state.layers[layerId].name = newName
+  refs.layersList.querySelector(`div[data-id="${layerId}"] input`).value = newName
+}
+
+export const duplicateLayerFromCoworker = (layerId, newId) => {
+  addLayerHistoryDuplicateStep(layerId, newId)
+  duplicateLayer(layerId, newId)
+}
+
+const duplicateLayer = (layerId, newId) => {
+  const newLayer = layerDeepCopy(state.layers[layerId])
+  newLayer.canvas.context = getNewContextForCanvas(newLayer.canvas)
+  const now = Date.now()
+  newLayer.id = newId
+  newLayer.selected = false
+  newLayer.modified = true
+  newLayer.createTimestamp = now
+  newLayer.updateTimestamp = now
+  newLayer.name = `Layer ${Object.keys(state.layers).length + 1}`
+  newLayer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
+  newLayer.active = true
+  Object.keys(state.layers).forEach(id => {
+    if (state.layers[id].order >= newLayer.order) {
+      state.layers[id].order++
+    }
+  })
+  state.layers[newId] = newLayer
+  createNewLayerDom(newId, true)
+  reorderLayersList()
 }
 
 const duplicateSelectedLayer = async(e) => {
   preventDefault(e)
-  if (state.paramsTimeout === false) {
+  if (paramsAreClosed()) {
     return
-  } // params are closed
+  }
   openParams()
   if (
     refs.duplicateLayerButton.classList.contains('disabled') ||
@@ -844,88 +1139,99 @@ const duplicateSelectedLayer = async(e) => {
 
   await saveResizeModeIfNeeded()
   const newId = uuidv4()
-  const newLayer = layerDeepCopy(state.layers[state.currentSelectedLayerId])
-  newLayer.canvas.context = getNewContextForCanvas(newLayer.canvas)
-  const now = Date.now()
-  newLayer.id = newId
-  newLayer.selected = false
-  newLayer.modified = true
-  newLayer.createTimestamp = now
-  newLayer.updateTimestamp = now
-  newLayer.name = `Layer ${++state.maxLayerCount}`
-  newLayer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
-  newLayer.active = true
-  Object.keys(state.layers).forEach(id => {
-    if (state.layers[id].order >= newLayer.order) {
-      state.layers[id].order++
-    }
-  })
-  state.layers[newId] = newLayer
-  createNewLayerDom(newId, true)
-  reorderLayersList()
+  duplicateLayer(state.currentSelectedLayerId, newId)
   refs.mergeDownLayerButton.classList.remove('disabled')
   addLayerHistoryDuplicateStep(state.currentSelectedLayerId, newId)
   if (state.resizeMode) {
     startResizeMode()
   }
+  if (Coworking.isOpen()) {
+    Coworking.sendDuplicateLayer(state.currentSelectedLayerId, newId)
+  }
+}
+
+export const mergeLayersFromCoworker = (layerOneId, layerTwoId, newLayerId) => {
+  addLayerHistoryMergeStep(layerOneId, layerTwoId, newLayerId)
+  mergeLayers(layerOneId, layerTwoId, newLayerId, Coworking.getCoworkerUserId())
+}
+
+const mergeLayers = async(layerOneId, layerTwoId, newLayerId, ownerId = Coworking.getUserId()) => {
+  const layerOne = state.layers[layerOneId]
+  const layerTwo = state.layers[layerTwoId]
+
+  // create a new layer
+  const newLayerData = createNewLayerData()
+  newLayerData.id = newLayerId
+  newLayerData.owner = ownerId
+  newLayerData.order = layerTwo.order
+  newLayerData.modified = true
+  newLayerData.canvas = mergeImages([ // merge the two source layers
+    [layerTwo.canvas, layerTwo.opacity],
+    [layerOne.canvas, layerOne.opacity],
+  ])
+  newLayerData.canvas.context = getNewContextForCanvas(newLayerData.canvas)
+  state.layers[newLayerData.id] = newLayerData
+
+  await Promise.all([ // animate in and out new and old list dom
+    fadeOutElements([state.layers[layerOne.id].canvas, state.layers[layerTwo.id].canvas]),
+    removeOutElement(refs.layersList.querySelector(`div[data-id="${layerOne.id}"]`)),
+    removeOutElement(refs.layersList.querySelector(`div[data-id="${layerTwo.id}"]`)),
+  ])
+  await updateLayerRealCoords(newLayerData.id)
+  await createNewLayerDom(newLayerData.id, true)
+
+  // delete the two source layers
+  state.layers[layerOne.id].previewRef = null
+  state.layers[layerTwo.id].previewRef = null
+  state.layers[layerOne.id].canvas.remove()
+  state.layers[layerTwo.id].canvas.remove()
+  state.deletedLayers[layerOne.id] = state.layers[layerOne.id]
+  state.deletedLayers[layerTwo.id] = state.layers[layerTwo.id]
+  delete state.layers[layerOne.id]
+  delete state.layers[layerTwo.id]
+
+  await selectLayer(newLayerData.id)
+  reorderLayersList()
 }
 
 const mergeDownSelectedLayer = async(e) => {
   preventDefault(e)
-  if (state.paramsTimeout === false) {
+  if (paramsAreClosed()) {
     return
-  } // params are closed
+  }
   openParams()
+
+  const selectedLayer = state.layers[state.currentSelectedLayerId]
+  const isYourLayerEmpty = !Number.isFinite(selectedLayer.minX)
+  const canMergeDown = !isYourLayerEmpty && selectedLayer.order > 0 && Object.values(state.layers).find(l => l.order === selectedLayer.order - 1)?.owner === Coworking.getUserId()
+
   if (
     refs.mergeDownLayerButton.classList.contains('disabled') ||
-    !Number.isFinite(state.layers[state.currentSelectedLayerId].maxX) ||
+    !canMergeDown ||
     Object.keys(state.layers).length === 1
   ) {
     return
   }
 
   await saveResizeModeIfNeeded()
-  const selectedLayer = state.layers[state.currentSelectedLayerId]
   const lowerLayer = Object.values(state.layers).find(layer => layer.order === selectedLayer.order - 1)
 
   if (lowerLayer) {
-    // create a new layer
-    const newLayerData = createNewLayerData()
-    newLayerData.order = lowerLayer.order
-    newLayerData.modified = true
-    newLayerData.canvas = mergeImages([ // merge the two source layers
-      [lowerLayer.canvas, lowerLayer.opacity],
-      [selectedLayer.canvas, selectedLayer.opacity],
-    ])
-    newLayerData.canvas.context = getNewContextForCanvas(newLayerData.canvas)
-    state.layers[newLayerData.id] = newLayerData
-
     closeParams()
-    await Promise.all([ // animate in and out new and old list dom
-      fadeOutElements([state.layers[selectedLayer.id].canvas, state.layers[lowerLayer.id].canvas]),
-      removeOutElement(refs.layersList.querySelector(`div[data-id="${selectedLayer.id}"]`)),
-      removeOutElement(refs.layersList.querySelector(`div[data-id="${lowerLayer.id}"]`)),
-    ])
-    await createNewLayerDom(newLayerData.id, true)
-    await updateLayerRealCoords(newLayerData.id)
-
-    // delete the two source layers
-    state.layers[selectedLayer.id].previewRef = null
-    state.layers[lowerLayer.id].previewRef = null
-    state.layers[selectedLayer.id].canvas.remove()
-    state.layers[lowerLayer.id].canvas.remove()
-    state.deletedLayers[selectedLayer.id] = state.layers[selectedLayer.id]
-    state.deletedLayers[lowerLayer.id] = state.layers[lowerLayer.id]
-    delete state.layers[selectedLayer.id]
-    delete state.layers[lowerLayer.id]
-    addLayerHistoryMergeStep(selectedLayer.id, lowerLayer.id, newLayerData.id)
+    const newLayerId = uuidv4()
+    await mergeLayers(state.currentSelectedLayerId, lowerLayer.id, newLayerId)
+    addLayerHistoryMergeStep(selectedLayer.id, lowerLayer.id, newLayerId)
+    if (Coworking.isOpen()) {
+      Coworking.sendMergeDownLayer(selectedLayer.id, lowerLayer.id, newLayerId)
+    }
     updateUndoRedoButtons()
-
-    // select the new one
-    state.currentSelectedLayerId = false
-    await selectLayer(newLayerData.id)
-    reorderLayersList()
+    openParams()
   }
+}
+
+export const enableLayerFromCoworker = (layerId) => {
+  enableLayer(layerId)
+  addLayerHistoryEnableStep(layerId)
 }
 
 const enableLayer = (layerId = state.currentSelectedLayerId) => {
@@ -945,6 +1251,11 @@ const enableLayer = (layerId = state.currentSelectedLayerId) => {
     refs.visibilityLayerButton.classList.toggle('svg-icon-visible', layer.active)
     refs.visibilityLayerButton.classList.toggle('svg-icon-hidden', !layer.active)
   }
+}
+
+export const disableLayerFromCoworker = (layerId) => {
+  disableLayer(layerId)
+  addLayerHistoryDisableStep(layerId)
 }
 
 const disableLayer = (layerId = state.currentSelectedLayerId) => {
@@ -967,26 +1278,38 @@ const disableLayer = (layerId = state.currentSelectedLayerId) => {
 
 const toggleEnableLayer = (e, layerId = state.currentSelectedLayerId, clickedByList = false) => {
   preventDefault(e)
-  if (!clickedByList && state.paramsTimeout === false) {
-    return
-  } // params are closed
-  if (layerId === state.currentSelectedLayerId && state.resizeMode) {
+  if (
+    !isYourLayerYours(layerId) ||
+    (!clickedByList && paramsAreClosed()) ||
+    (layerId === state.currentSelectedLayerId && state.resizeMode)
+  ) {
     return
   }
   if (state.layers[layerId].active) {
     disableLayer(layerId)
-    addLayerHistoryHideStep(layerId)
+    addLayerHistoryDisableStep(layerId)
+    if (Coworking.isOpen()) {
+      Coworking.sendDisableLayer(layerId)
+    }
   } else {
     enableLayer(layerId)
-    addLayerHistoryShowStep(layerId)
+    addLayerHistoryEnableStep(layerId)
+    if (Coworking.isOpen()) {
+      Coworking.sendEnableLayer(layerId)
+    }
   }
+  updateParamsByLayer()
   if (state.resizeMode) {
     updateMagnetismCoords(state.currentSelectedLayerId)
   }
 }
 
-export const updateCanvasContent = (madeChanges, minX, minY, w, h, rotation) => {
-  fillCanvasWithImage(state.layers[state.currentSelectedLayerId].canvas.context, refs.imageForResize, minX, minY, w, h, convertAngleDegToRad(rotation))
+export const updateCanvasContent = (madeChanges, x, y, w, h, r) => {
+  state.lastResizeCoords = { x, y, w, h, r }
+  const minX = round(x - w / 2, 1)
+  const minY = round(y - h / 2, 1)
+  const rotation = convertAngleDegToRad(r)
+  fillCanvasWithImage(state.layers[state.currentSelectedLayerId].canvas.context, refs.imageForResize, minX, minY, w, h, rotation)
   if (madeChanges) {
     Tools.toggleButton('undo', true)
     state.resizeModeMadeChanges = true
@@ -1007,6 +1330,15 @@ export const updateMagnetismCoords = (layerId = state.currentSelectedLayerId, ha
 }
 export const getMagnetismCoords = () => state.magnetismCoords
 
+export const receiveResizeLayerFromCoworker = (layerId, x, y, w, h, r) => {
+  const layer = state.layers[layerId]
+  const [image] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY, 0)
+  const minX = round(x - w / 2, 1)
+  const minY = round(y - h / 2, 1)
+  const rotation = convertAngleDegToRad(r)
+  fillCanvasWithImage(layer.canvas.context, image, minX, minY, w, h, rotation)
+  addLayerHistoryContentChangedStep(layerId)
+}
 const startResizeMode = () => {
   const layerOptionButton = refs.layersList.querySelector(`div[data-id="${state.currentSelectedLayerId}"] .editor-layers__layer-options-button`)
   layerOptionButton.classList.add('disabled')
@@ -1029,6 +1361,9 @@ const saveResizeModeIfNeeded = async() => {
   if (state.resizeModeMadeChanges) {
     await addLayerHistoryContentChangedStep()
     updateUndoRedoButtons()
+    if (Coworking.isOpen()) {
+      Coworking.sendResizeLayer(state.currentSelectedLayerId, state.lastResizeCoords.x, state.lastResizeCoords.y, state.lastResizeCoords.w, state.lastResizeCoords.h, state.lastResizeCoords.r)
+    }
   }
   state.resizeModeMadeChanges = false
   refs.imageForResize = null
@@ -1043,6 +1378,13 @@ const endResizeMode = async() => {
   await saveResizeModeIfNeeded()
   refs.visibilityLayerButton.classList.remove('disabled')
   refs.resizeButton.classList.toggle('selected', state.resizeMode)
+  state.lastResizeCoords = {
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    r: 0,
+  }
   Editor.hideDragBox()
   updateUndoRedoButtons()
 }
@@ -1061,9 +1403,16 @@ export const updateCurrentTool = (isUsingEraser) => {
   }
 }
 
+export const receiveFlipLayerFromCoworker = (layerId, horizontally) => {
+  const layer = state.layers[layerId]
+  const [content, x, y] = cropImageWithMargin(layer.canvas, layer.minX, layer.minY, layer.maxX, layer.maxY)
+  fillCanvasWithImage(layer.canvas.context, flipImage(content, horizontally), x, y)
+  addLayerHistoryContentChangedStep(layerId)
+}
+
 const flipLayer = async(e, layerId, horizontally) => {
   preventDefault(e)
-  if (state.paramsTimeout === false) { // params are closed
+  if (paramsAreClosed()) {
     return
   }
   openParams()
@@ -1079,6 +1428,9 @@ const flipLayer = async(e, layerId, horizontally) => {
       fillCanvasWithImage(layer.canvas.context, flipImage(content, horizontally), x, y)
     }
     addLayerHistoryContentChangedStep()
+    if (Coworking.isOpen()) {
+      Coworking.sendFlipLayer(layerId, horizontally)
+    }
   }
 }
 const flipVertically = (e, layerId = state.currentSelectedLayerId) => flipLayer(e, layerId, false)
@@ -1125,9 +1477,16 @@ const updateGcoMode = (selected, active) => {
   }
 }
 
-const _updateLayerOpacity = (layerId, opacity, inProgress) => {
+export const updateLayerOpacityFromCoworker = (layerId, opacity, oldValue) => {
+  addLayerHistoryOpacityStep(layerId, opacity, oldValue)
+  opacity = round(opacity / 100, 2)
+  state.layers[layerId].opacity = opacity
+  state.layers[layerId].canvas.style.opacity = opacity
+}
+
+const _updateLayerOpacity = (layerId, opacity, inProgress = false) => {
   refs.opacityCursor.style.bottom = `${opacity}%`
-  refs.opacityLabel.innerHTML = `${opacity}`
+  refs.opacityLabel.innerHTML = `${round(opacity, 0)}`
   refs.opacitySlider.style.background = `linear-gradient(0deg, var(--palette-green-1) ${opacity}%, var(--palette-white) ${opacity}%)`
   opacity = round(opacity / 100, 2)
   state.layers[layerId].opacity = opacity
@@ -1147,9 +1506,9 @@ const _updateLayerOpacity = (layerId, opacity, inProgress) => {
 const updateLayerOpacity = (() => {
   let startValue = 0
   return (opacity, inProgress, changed) => {
-    if (state.paramsTimeout === false) {
+    if (paramsAreClosed()) {
       return
-    } // params are closed
+    }
     if (!changed) { // just touchDown without drag yet
       startValue = state.layers[state.currentSelectedLayerId].opacity * 100
     }
@@ -1157,24 +1516,34 @@ const updateLayerOpacity = (() => {
     _updateLayerOpacity(state.currentSelectedLayerId, opacity, inProgress)
     if (!inProgress) {
       addLayerHistoryOpacityStep(state.currentSelectedLayerId, opacity, startValue)
+      if (Coworking.isOpen()) {
+        Coworking.sendOpacityLayer(state.currentSelectedLayerId, opacity, startValue)
+      }
     }
   }
 })()
 
 const updateParamsByLayer = (layerId = state.currentSelectedLayerId) => {
-  if (layerId) {
+  if (layerId && isYourLayerYours(layerId)) {
     const layer = state.layers[layerId]
-    const layerIsEmpty = !Number.isFinite(layer.minX)
+    const yourLayers = Object.values(state.layers).filter(l => isYourLayerYours(l.id))
+    const isYourLayerEmpty = !Number.isFinite(layer.minX)
     const canBeResized = layerCanBeResized(layerId)
+    const canBeDeleted = yourLayers.length > 1
     const opacity = round(layer.opacity * 100, 0)
-    refs.opacityLabel.innerHTML = opacity
+    const canMergeDown = !isYourLayerEmpty && yourLayers.length > 1 && layer.order > 0 && Object.values(state.layers).find(l => l.order === layer.order - 1)?.owner === Coworking.getUserId()
+    const canDuplicate = !isYourLayerEmpty && Object.values(state.layers).length < config.maxLayersNumber
+    const canTransferLayer = Coworking.isOpen() && yourLayers.length > 1 && layer.active
+
+    refs.opacityLabel.innerHTML = `${round(opacity, 0)}`
     refs.opacityCursor.style.bottom = `${opacity}%`
     refs.opacitySlider.style.background = `linear-gradient(0deg, var(--palette-green-1) ${opacity}%, var(--palette-white) ${opacity}%)`
-    refs.deleteLayerButton.classList.toggle('disabled', layer.selectedByCoworker)
-    refs.duplicateLayerButton.classList.toggle('disabled', layerIsEmpty)
-    refs.mergeDownLayerButton.classList.toggle('disabled', layerIsEmpty || layer.order === 0)
-    refs.flipVerticalButton.classList.toggle('disabled', layerIsEmpty)
-    refs.flipHorizontalButton.classList.toggle('disabled', layerIsEmpty)
+    refs.duplicateLayerButton.classList.toggle('disabled', !canDuplicate)
+    refs.deleteLayerButton.classList.toggle('disabled', !canBeDeleted)
+    refs.mergeDownLayerButton.classList.toggle('disabled', !canMergeDown)
+    refs.flipVerticalButton.classList.toggle('disabled', isYourLayerEmpty)
+    refs.flipHorizontalButton.classList.toggle('disabled', isYourLayerEmpty)
+    refs.sendLayerButton.classList.toggle('disabled', !canTransferLayer)
     updateResizeMode(state.resizeMode && canBeResized, canBeResized)
     updateGcoMode(state.gcoMode && canBeResized, !state.resizeMode && canBeResized)
     refs.visibilityLayerButton.classList.toggle('svg-icon-visible', layer.active)
@@ -1182,19 +1551,14 @@ const updateParamsByLayer = (layerId = state.currentSelectedLayerId) => {
   }
 }
 
-const onListDragChange = (draggedElement, domOrder, inProgress = true) => {
+export const layerDragChangeFromCoworker = (layerId, newOrder, oldOrder) => {
+  addLayerHistoryOrderStep(layerId, newOrder, oldOrder)
+  updateLayerOrger(layerId, newOrder)
+}
+
+const updateLayerOrger = (layerId, newOrder) => {
   const layers = Object.values(state.layers)
-  const currentLayerOrder = state.layers[draggedElement.getAttribute('data-id')].order
-  const newOrder = layers.length - 1 - domOrder
-
-  if (!inProgress) {
-    addLayerHistoryOrderStep(draggedElement.getAttribute('data-id'), newOrder, state.listDragStartIndex)
-    state.listDragStartIndex = -1
-  }
-
-  if (currentLayerOrder === newOrder) {
-    return
-  }
+  const currentLayerOrder = state.layers[layerId].order
 
   if (currentLayerOrder > newOrder) {
     layers.forEach(layer => {
@@ -1202,16 +1566,32 @@ const onListDragChange = (draggedElement, domOrder, inProgress = true) => {
         layer.order++
       }
     })
-    state.layers[draggedElement.getAttribute('data-id')].order = newOrder
+    state.layers[layerId].order = newOrder
   } else {
     layers.forEach(layer => {
       if (layer.order > newOrder) {
         layer.order++
       }
     })
-    state.layers[draggedElement.getAttribute('data-id')].order = newOrder + 1
+    state.layers[layerId].order = newOrder + 1
   }
   reorderLayersList()
+}
+
+const onListDragChange = (draggedElement, domOrder, inProgress = true) => {
+  const layerId = draggedElement.getAttribute('data-id')
+  const layers = Object.values(state.layers)
+  const newOrder = layers.length - 1 - domOrder
+
+  if (!inProgress) {
+    addLayerHistoryOrderStep(layerId, newOrder, state.listDragStartIndex)
+    if (Coworking.isOpen()) {
+      Coworking.sendOrderDragLayer(layerId, newOrder, state.listDragStartIndex)
+    }
+    state.listDragStartIndex = -1
+  }
+
+  updateLayerOrger(layerId, newOrder)
 }
 
 const startDragLayer = (e, layerListDom) => {
@@ -1230,16 +1610,14 @@ const findListTargetLayerParent = (target) => {
 }
 
 const onLayerTouchDown = (layerId) => {
-  if (layerId !== state.currentSelectedLayerId) {
-    if (state.layers[layerId].selectedByCoworker) {
+  if (isYourLayerYours(layerId)) {
+    if (layerId === state.currentSelectedLayerId) {
       updateParamsByLayer(layerId)
-      openParams()
+      toggleParams()
     } else {
       selectLayer(layerId)
+      openParams()
     }
-  } else {
-    updateParamsByLayer(layerId)
-    toggleParams()
   }
 }
 
@@ -1278,38 +1656,46 @@ const onContainerTouchStart = (e) => {
 const prepareLayerFromDb = async(l) => {
   const layer = layerDeepCopy(l, { deepCopyCanvas: false })
   layer.modified = false
-  layer.selectedByCoworker = false
+  layer.owner = Coworking.getUserId()
   layer.canvas = await getCanvasFromBase64(l.base64)
   layer.canvas.context = getNewContextForCanvas(layer.canvas)
   layer.history = new History(config.stepHistoryMaxLength, clearLayerHistoryStepBitmap)
   return layer
 }
 
-const initLayers = async(initialLayers, canvasWidth, canvasHeight) => {
+const initLayers = async(initialLayers, canvasWidth, canvasHeight, coworkersId) => {
   state.canvases.width = canvasWidth
   state.canvases.height = canvasHeight
+  closeParams()
+
+  // if we are opening a drawing --> just its layers
   if (initialLayers.length) {
     initialLayers = await parallelize(initialLayers, prepareLayerFromDb, config.maxConcurrentThreads)
     state.layers = Object.fromEntries(initialLayers.map((l, i) => ([l.id, l])))
+    const layersIds = Object.keys(state.layers)
+    await Promise.all(layersIds.map(createNewLayerDom))
+    await selectLayer(layersIds.find(layerId => state.layers[layerId].selected) || layersIds[0])
+    reorderLayersList()
   } else {
-    const newLayerData = createNewLayerData()
-    newLayerData.canvas = createNewLayerCanvas()
-    state.layers[newLayerData.id] = newLayerData
+    addNewLayer()
   }
-
-  const layersIds = Object.keys(state.layers)
-  await Promise.all(layersIds.map(createNewLayerDom))
-
-  await selectLayer(layersIds.find(layerId => state.layers[layerId].selected) || layersIds[0])
-  closeParams()
-  reorderLayersList()
-
-  LayersHistory.add({
-    type: 'init',
-  })
 }
 
-const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking) => {
+const initHistories = (coworkersId = []) => {
+  const usersId = [Coworking.getUserId(), ...coworkersId]
+  const maxHistorySteps = Math.trunc(config.stepHistoryMaxLength / usersId.length) + 1
+
+  UsersLayersHistory = Object.fromEntries(usersId.map(userId => {
+    const userHistory = new History(maxHistorySteps)
+    userHistory.add({
+      type: 'init',
+    })
+
+    return [userId, userHistory]
+  }))
+}
+
+const initDom = async(moduleContainer) => {
   let dom = await loadTemplate(tplLayers, {
     maxLength: MAX_LAYER_NAME_LENGTH,
   }, moduleContainer)
@@ -1326,6 +1712,7 @@ const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking)
   refs.mergeDownLayerButton = refs.paramsContainer.querySelector('.editor-layers__params-merge-down')
   refs.flipVerticalButton = refs.paramsContainer.querySelector('.editor-layers__params-flip-vertical')
   refs.flipHorizontalButton = refs.paramsContainer.querySelector('.editor-layers__params-flip-horizontal')
+  refs.sendLayerButton = refs.paramsContainer.querySelector('.editor-layers__params-send')
   refs.deleteLayerButton = refs.paramsContainer.querySelector('.editor-layers__params-delete')
   refs.opacitySlider = refs.paramsContainer.querySelector('.editor-layers__opacity-slider')
   refs.opacityCursor = refs.opacitySlider.querySelector('div')
@@ -1334,6 +1721,8 @@ const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking)
 
   refs.layerListElement.remove()
   refs.paramsContainer.addEventListener(Params.eventStart, preventDefault)
+  refs.gcoButton.addEventListener(Params.eventStart, gcoModeTouchStart)
+  refs.resizeButton.addEventListener(Params.eventStart, resizeButtonTouchStart)
   refs.layersContainer.addEventListener(Params.eventStart, onContainerTouchStart)
   refs.addNewLayerButton.addEventListener(Params.eventStart, addNewLayer)
   refs.flipVerticalButton.addEventListener(Params.eventStart, flipVertically)
@@ -1343,22 +1732,17 @@ const initDom = async(moduleContainer, canvasWidth, canvasHeight, withCoworking)
   refs.duplicateLayerButton.addEventListener(Params.eventStart, duplicateSelectedLayer)
   refs.mergeDownLayerButton.addEventListener(Params.eventStart, mergeDownSelectedLayer)
   refs.deleteLayerButton.addEventListener(Params.eventStart, deleteLayer)
+  refs.sendLayerButton.addEventListener(Params.eventStart, sendCurrentLayerToCoworker)
   addListScrollClickAndPressHandlers(refs.layersList, onListClick, onListLongPress)
   addVerticalDragSliderHandler(refs.opacityCursor, refs.opacitySlider, updateLayerOpacity, 100, 0, false, 0)
-
-  if (withCoworking) {
-    refs.resizeButton.remove()
-    refs.gcoButton.remove()
-  } else {
-    Toolbar.addOptionButtonsGroup([refs.resizeButton, refs.gcoButton])
-    refs.gcoButton.addEventListener(Params.eventStart, gcoModeTouchStart)
-    refs.resizeButton.addEventListener(Params.eventStart, resizeButtonTouchStart)
-  }
+  Toolbar.addOptionButtonsGroup([refs.resizeButton, refs.gcoButton])
 
   dom = undefined
 }
 
-export const init = async(moduleContainer, initialLayers = [], canvasWidth, canvasHeight, withCoworking = false) => {
+export const init = async(moduleContainer, initialLayers, canvasWidth, canvasHeight, coworkersId = []) => {
+  initHistories(coworkersId)
+
   config.maxLayersNumber = config.maxLayersNumberHighPerf
   if (Params.isTablet && Params.ios) {
     const screenMaxSize = getRealScreenMaxSize()
@@ -1367,27 +1751,18 @@ export const init = async(moduleContainer, initialLayers = [], canvasWidth, canv
     }
   }
   state = deepCopy(initialState)
-
-  await initDom(moduleContainer, canvasWidth, canvasHeight, withCoworking)
-
+  await initDom(moduleContainer)
   refs.layersList.scrollTop = 1
-  if (withCoworking) {
-    refs.layersContainer.classList.add('displayNone')
-    refs.paramsContainer.classList.add('displayNone')
-  } else {
-    refs.layersContainer.classList.remove('displayNone')
-    refs.paramsContainer.classList.remove('displayNone')
-  }
-  await initLayers(initialLayers, canvasWidth, canvasHeight)
-  state.maxLayerCount = Object.keys(state.layers).length
+  await initLayers(initialLayers, canvasWidth, canvasHeight, coworkersId)
 
   setTimeout(() => {
-    window.layersList = refs.layersList
-    refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected').offsetTop
+    refs.layersList.scrollTop = refs.layersList.querySelector('.editor-layers__layer-selected')?.offsetTop || 0
   }, 200)
+  window.STATE = state
+  window.HIS = UsersLayersHistory
 }
 
-// chiamata da history.onDelete
+// chiamata da layer.history.onDelete
 const clearLayerHistoryStepBitmap = (step) => {
   if (step.bitmap) {
     step.bitmap.close()
@@ -1395,21 +1770,28 @@ const clearLayerHistoryStepBitmap = (step) => {
   }
 }
 
-// chiamata su chiusura editor, e pulizia deleteLayers
-const hardDeleteLayer = (layer, clearHistory = true) => {
-  if (clearHistory) {
-    layer.history.clear()
-    layer.history = undefined
+// chiamata su chiusura editor, e pulizia deletedLayers
+const hardDeleteLayer = (layerId, clearHistory = true) => {
+  const layer = state.layers[layerId] || state.deletedLayers[layerId]
+  if (layer) {
+    if (clearHistory) {
+      layer.history.clear()
+      layer.history = undefined
+    }
+    layer.canvas.remove()
+    layer.canvas.width = layer.canvas.height = 0
+    layer.canvas = undefined
+
+    delete state.layers[layerId]
+    delete state.deletedLayers[layerId]
   }
-  layer.canvas.remove()
-  layer.canvas.width = layer.canvas.height = 0
-  layer.canvas = undefined
 }
 
 export const remove = (isSavingLayers = false) => {
-  Object.values(state.layers).forEach(layer => hardDeleteLayer(layer, !isSavingLayers))
-  Object.values(state.deletedLayers).forEach(layer => hardDeleteLayer(layer, true))
-  LayersHistory.clear()
+  Object.values(state.layers).forEach(layer => hardDeleteLayer(layer.id, !isSavingLayers))
+  Object.values(state.deletedLayers).forEach(layer => hardDeleteLayer(layer.id, true))
+  UsersLayersHistory.forEach(userHistory => userHistory.clear())
+  UsersLayersHistory = {}
   cleanRefs(refs)
   state = {}
 }

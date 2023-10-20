@@ -2,112 +2,135 @@ import { noop } from 'utils/jsUtils'
 const DEFAULT_MAX_HISTORY_LENGHT = 10
 
 class History {
-  data = []
-  pointer = -1
-  onDeleteHandler = noop
+  #data = []
+  #pointer = -1
+  #onDeleteHandler = () => {}
 
   constructor(maxLength = DEFAULT_MAX_HISTORY_LENGHT, deleteHandler = noop) {
     this.maxLength = maxLength
-    this.onDeleteHandler = deleteHandler
+    this.#onDeleteHandler = deleteHandler
   }
 
   add(value) {
-    // const newValue = JSON.stringify(value)
-    let deletedItems = []
-    if (this.data.length === 0 || value !== this.data[this.pointer]) {
-      deletedItems.push(...this.data.splice(this.pointer + 1, this.data.length))
-      this.data.push(value)
-      deletedItems.push(...this.data.splice(0, this.data.length - this.maxLength))
-      this.pointer = this.data.length - 1
+    if (typeof value !== 'undefined') {
+      // const newValue = JSON.stringify(value)
+      let deletedItems = []
+      if (this.#data.length === 0 || value !== this.#data[this.#pointer]) {
+        deletedItems.push(...this.#data.splice(this.#pointer + 1, this.#data.length))
+        this.#data.push(value)
+        deletedItems.push(...this.#data.splice(0, this.#data.length - this.maxLength))
+        this.#pointer = this.#data.length - 1
+      }
+      deletedItems.forEach(this.#onDeleteHandler)
+      return deletedItems
     }
-    deletedItems.forEach(this.onDeleteHandler)
-    return deletedItems
   }
 
   getCurrent() {
-    return this.data[this.pointer]
-    // return JSON.parse(this.data[this.pointer])
+    return this.#data[this.#pointer]
+    // return JSON.parse(this.#data[this.#pointer])
   }
 
   back() {
     if (this.canGoBack) {
-      this.pointer = Math.max(0, this.pointer - 1)
+      this.#pointer = Math.max(0, this.#pointer - 1)
       return this.getCurrent()
     }
   }
 
   forward() {
     if (this.canGoForward) {
-      this.pointer = Math.min(this.data.length - 1, this.pointer + 1)
+      this.#pointer = Math.min(this.#data.length - 1, this.#pointer + 1)
       return this.getCurrent()
     }
   }
 
   deleteFarest() {
-    if (this.data.length >= 1) {
-      this.pointer = Math.max(0, this.pointer - 1)
-      const deletedItem = this.data.splice(0, 1)[0]
-      this.onDeleteHandler(deletedItem)
+    if (this.#data.length >= 1) {
+      this.#pointer = Math.max(0, this.#pointer - 1)
+      const deletedItem = this.#data.splice(0, 1)[0]
+      this.#onDeleteHandler(deletedItem)
       return deletedItem
     }
     return false
   }
 
   deleteNewest() {
-    if (this.data.length >= 1) {
-      this.pointer = Math.min(this.pointer, this.data.length - 2)
-      const deletedItem = this.data.pop()
-      this.onDeleteHandler(deletedItem)
+    if (this.#data.length >= 1) {
+      this.#pointer = Math.min(this.#pointer, this.#data.length - 2)
+      const deletedItem = this.#data.pop()
+      this.#onDeleteHandler(deletedItem)
       return deletedItem
     }
     return false
   }
 
+  filterBackwards(filterFn) {
+    if (typeof filterFn === 'function') {
+      this.filter((e) => this.#data.indexOf(e) > this.#pointer || filterFn(e))
+    }
+  }
+
+  filterForwards(filterFn) {
+    if (typeof filterFn === 'function') {
+      this.filter((e) => this.#data.indexOf(e) <= this.#pointer || filterFn(e))
+    }
+  }
+
   filter(filterFn) {
     if (typeof filterFn === 'function') {
-      const nextData = this.data.filter(filterFn)
-      while (this.pointer > 0 && !nextData.includes(this.getCurrent())) {
-        this.pointer--
+      const deletedData = this.#data.filter(e => !filterFn(e))
+      const keptData = this.#data.filter(filterFn)
+
+      if (keptData.includes(this.getCurrent())) {
+        this.#pointer = keptData.indexOf(this.getCurrent())
+      } else {
+        while (this.#pointer > 0 && !keptData.includes(this.getCurrent())) {
+          this.#pointer--
+        }
+        this.#pointer = keptData.indexOf(this.getCurrent())
       }
-      this.pointer = nextData.indexOf(this.getCurrent())
-      this.data = nextData
+
+      deletedData.forEach(this.#onDeleteHandler)
+      this.#data = keptData
+      return deletedData
     }
   }
 
   clear() {
-    this.data.forEach(this.onDeleteHandler)
-    this.data = []
-    this.pointer = -1
+    this.#data.forEach(this.#onDeleteHandler)
+    this.#data = []
+    this.#pointer = -1
   }
 
   getAllData() {
-    return this.data
+    return this.#data
   }
 
   onDelete(handler) {
     if (typeof(handler) === 'function') {
-      this.onDeleteHandler = handler
+      this.#onDeleteHandler = handler
     }
   }
 
   log() {
-    console.log('History - pointer: ', this.pointer, 'data: ', this.data.length)
+    console.log('History - #pointer: ', this.#pointer, '#data: ', this.#data.length)
   }
 
   get canGoBack() {
-    return this.pointer > 0
+    return this.#pointer > 0
   }
 
   get canGoForward() {
-    return this.pointer < (this.data.length - 1)
+    return this.#pointer < (this.#data.length - 1)
   }
 
   get currentSize() {
-    return this.data.length
+    return this.#data.length
   }
 
   get currentIndex() {
-    return this.pointer + 1
+    return this.#pointer + 1
   }
 
   get maxSize() {
@@ -115,7 +138,7 @@ class History {
   }
 
   get isFull() {
-    return (this.data.length >= this.maxLength)
+    return (this.#data.length >= this.maxLength)
   }
 }
 
