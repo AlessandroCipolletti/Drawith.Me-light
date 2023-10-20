@@ -539,6 +539,10 @@ export const init = () => {
       state.isWaitingPeerConnection = true
 
       peerClient = new PeerSocket({
+        host: Params.peerServerHost,
+        port: Params.peerServerPort,
+        path: Params.peerServerPath,
+        pingInterval: Params.peerPingInterval,
         maxConcurrentConnections: config.maxConcurrentConnections,
       })
 

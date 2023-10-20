@@ -1,12 +1,12 @@
 import { Peer } from 'peerjs'
-import Params from 'main/Params'
-import { throttle, exponentialTimeout, deepCopy } from 'utils/jsUtils'
+import { throttle, exponentialTimeout } from 'utils/jsUtils'
 
 const CONFIRMED = 'confirmed'
 const REFUSED = 'refused'
 
 const config = {
   defaultMaxConcurrentConnections: 1,
+  defaultPingInterval: 5000,
 }
 
 
@@ -15,6 +15,12 @@ class PeerSocket {
   connected = false // if one or more connections are open
   online = false // connected to the peer websocket server
   id = null // local peer id
+
+  #host = ''
+  #port = 0
+  #path = ''
+  #debug = false
+  #pingInterval = config.defaultPingInterval
 
   #peer = null
   #maxConcurrentConnections = 0
@@ -34,8 +40,18 @@ class PeerSocket {
   }
 
   constructor({
+    host,
+    port,
+    path,
+    debug = false,
+    pingInterval = config.defaultPingInterval,
     maxConcurrentConnections = config.defaultMaxConcurrentConnections,
   } = {}) {
+    this.#host = host
+    this.#port = port
+    this.#path = path
+    this.#debug = debug
+    this.#pingInterval = pingInterval
     this.#maxConcurrentConnections = maxConcurrentConnections
     this.#initWhenOnline()
   }
@@ -91,12 +107,12 @@ class PeerSocket {
   #initPeerConnection = () => {
     window.removeEventListener('online', this.#initPeerConnection)
     this.#peer = new Peer({
-      host: Params.peerServerHost,
-      port: Params.peerServerPort,
-      path: Params.peerServerPath,
-      pingInterval: Params.peerPingInterval,
+      host: this.#host,
+      port: this.#port,
+      path: this.#path,
+      pingInterval: this.#pingInterval,
       secure: true,
-      debug: Params.debugMode ? 3 : 0,
+      debug: this.#debug ? 3 : 0,
     })
 
     this.#peer.on('open', this.#handlePeerOpen)
