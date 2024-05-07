@@ -278,7 +278,7 @@ export const clear = () => {
 
 const receiveBucketFromCoworker = async(layerId, x, y, color) => {
   const context = Layers.getLayerContext(layerId)
-  if (Layers.layerIsEmpty(layerId)) {
+  if (Layers.isYourLayerEmpty(layerId)) {
     fillCompletely(context, color, context.canvas.width, context.canvas.height)
   } else {
     await fillWithBucket(context, x, y, color, context.canvas.width, context.canvas.height)
@@ -289,7 +289,7 @@ const receiveBucketFromCoworker = async(layerId, x, y, color) => {
 const useBucket = async(context, x, y, color, sendForCoworking = true) => {
   if (coordsAreInsideLayer(x, y)) {
     let hasBeenUsed = false
-    if (Layers.layerIsEmpty()) {
+    if (Layers.isYourLayerEmpty()) {
       // this layer is empty, we can fill it all
       // TODO or entirely colored with just one color
       fillCompletely(context, color, context.canvas.width, context.canvas.height)
