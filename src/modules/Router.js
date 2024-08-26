@@ -44,14 +44,18 @@ export const openPageAboutUs = () => {
   goToPage('/info/aboutUs')
 }
 
-const decryptInitialPathUrl = (path) => {
+const decryptInitialPathUrl = (path, search) => {
+  const queryParams = new URLSearchParams(search)
   let url = path
 
   // some urls can be shortened for better sharing.
   // example: app.drawith.me/E/abc123  ==>  Editor Coworking with room id 'abc123'
 
   // Editor Coworking
-  url = url.replace('/E/', '/coworking/requestSession/')
+  // url = url.replace('/E/', '/coworking/requestSession/') // old
+  if (queryParams.get('S')) {
+    url = `${url}/coworking/requestSession/${queryParams.get('S')}`.replace('//', '/')
+  }
 
   // Editor to folder
   if (url.endsWith('/editor') || url.endsWith('/editor/')) {
@@ -81,6 +85,8 @@ export const isSupportedOs = async() => {
 
 export const goToPage = async(path, force = false) => {
   let [page, method, ...params] = path.split('/').filter(e => e !== '')
+  console.log({path, page, method, params})
+
   page = page || config.defaultPage
   page = page.toLowerCase()
   let module = ROUTES[page]
@@ -123,13 +129,15 @@ export const goToPage = async(path, force = false) => {
     methodPath = `/${method}`
   }
 
-  history.pushState({}, '', `/${page}${methodPath}${document.location.search}`)
+  // history.pushState({}, '', `/${page}${methodPath}${document.location.search}`)
 
   state.currentPage = page
   state.currentPath = path
 }
 
 export const openCurrentUrlPage = () => {
-  const nextPage = decryptInitialPathUrl(document.location.pathname)
+  const ROOT_URL = '/workspace/drawithme'
+  const currentPath = document.location.pathname.replace(ROOT_URL, '')
+  const nextPage = decryptInitialPathUrl(currentPath, document.location.search)
   goToPage(nextPage, nextPage !== `/${config.defaultPage}`)
 }

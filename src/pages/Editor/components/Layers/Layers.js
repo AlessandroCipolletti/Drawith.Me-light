@@ -1790,7 +1790,7 @@ const hardDeleteLayer = (layerId, clearHistory = true) => {
 export const remove = (isSavingLayers = false) => {
   Object.values(state.layers).forEach(layer => hardDeleteLayer(layer.id, !isSavingLayers))
   Object.values(state.deletedLayers).forEach(layer => hardDeleteLayer(layer.id, true))
-  UsersLayersHistory.forEach(userHistory => userHistory.clear())
+  Object.values(UsersLayersHistory).forEach(userHistory => userHistory.clear())
   UsersLayersHistory = {}
   cleanRefs(refs)
   state = {}
