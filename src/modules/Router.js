@@ -85,7 +85,6 @@ export const isSupportedOs = async() => {
 
 export const goToPage = async(path, force = false) => {
   let [page, method, ...params] = path.split('/').filter(e => e !== '')
-  console.log({path, page, method, params})
 
   page = page || config.defaultPage
   page = page.toLowerCase()
@@ -106,7 +105,7 @@ export const goToPage = async(path, force = false) => {
     }
   })
 
-  console.log('goToPage: ', Date.now(), { page, method, params, path })
+  console.log('goToPage: ', { page, method, params, path })
 
   if (state.currentPage !== page || force) {
     // 1. if there is a page change, and we had already a page opened, we close it
@@ -122,11 +121,11 @@ export const goToPage = async(path, force = false) => {
     }
   }
 
-  let methodPath = ''
+  // let methodPath = ''
   // 3. if there is a method in the url, now we can call it
   if (method && method !== 'open' && module[method]) {
     module[method](...params)
-    methodPath = `/${method}`
+    // methodPath = `/${method}`
   }
 
   // history.pushState({}, '', `/${page}${methodPath}${document.location.search}`)
@@ -137,7 +136,7 @@ export const goToPage = async(path, force = false) => {
 
 export const openCurrentUrlPage = () => {
   const ROOT_URL = '/workspace/drawithme'
-  const currentPath = document.location.pathname.replace(ROOT_URL, '')
+  const currentPath = document.location.pathname.toLowerCase().replace(ROOT_URL, '')
   const nextPage = decryptInitialPathUrl(currentPath, document.location.search)
   goToPage(nextPage, nextPage !== `/${config.defaultPage}`)
 }
