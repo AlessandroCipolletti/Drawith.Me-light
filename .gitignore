@@ -3,6 +3,7 @@
 build/
 node_modules/
 backup/
+graphify-out/
 **/.DS_Store
 package-lock.json
 .parcel-cache/
